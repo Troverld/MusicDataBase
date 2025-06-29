@@ -35,7 +35,7 @@ case class UpdateBandMessage(
   userToken: String,
   bandID: String,
   name: Option[String] = None,
-  members: List[String],
+  members: Option[List[String]] = None,
   bio: Option[String] = None
 ) extends API[(Boolean, String)](CreatorServiceCode)
 

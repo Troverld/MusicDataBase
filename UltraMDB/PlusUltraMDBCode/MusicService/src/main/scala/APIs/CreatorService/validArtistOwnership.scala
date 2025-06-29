@@ -22,12 +22,14 @@ import java.util.UUID
  * validArtistOwnership
  * desc: 验证某用户是否拥有对指定艺术家的管理权限
  * @param userID: String (用户ID)
+ * @param userToken: String (用户Token)
  * @param artistID: String (艺术家ID)
  * @return (Boolean, String): (用户是否拥有权限, 错误信息)
  */
 
 case class validArtistOwnership(
   userID: String,
+  userToken: String,
   artistID: String
 ) extends API[(Boolean, String)](CreatorServiceCode)
 
