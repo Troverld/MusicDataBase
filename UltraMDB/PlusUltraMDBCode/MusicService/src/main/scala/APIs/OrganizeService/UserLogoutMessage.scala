@@ -23,13 +23,13 @@ import java.util.UUID
  * desc: 用户传入自身ID和当前token，完成登出操作
  * @param userID: String (用户ID，标识用户身份)
  * @param userToken: String (用户令牌，用于验证登录的状态和身份)
- * @return result: String (登出结果描述操作状态，例如成功或失败)
+ * @return (Boolean, String): (登出是否成功, 错误信息)
  */
 
 case class UserLogoutMessage(
   userID: String,
   userToken: String
-) extends API[String](OrganizeServiceCode)
+) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
@@ -61,6 +61,4 @@ case object UserLogoutMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

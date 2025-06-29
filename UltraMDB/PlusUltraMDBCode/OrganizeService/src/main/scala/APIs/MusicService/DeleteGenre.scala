@@ -24,14 +24,14 @@ import java.util.UUID
  * @param genreID: String (要删除的曲风ID)
  * @param adminID: String (管理员的唯一标识符)
  * @param adminToken: String (管理员身份验证令牌，用于权限校验)
- * @return result: String (操作结果的描述信息，例如 '删除成功' 或具体的错误原因)
+ * @return (Boolean, String): (删除是否成功, 错误信息)
  */
 
 case class DeleteGenre(
   genreID: String,
   adminID: String,
   adminToken: String
-) extends API[String](MusicServiceCode)
+) extends API[(Boolean, String)](MusicServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object DeleteGenre{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

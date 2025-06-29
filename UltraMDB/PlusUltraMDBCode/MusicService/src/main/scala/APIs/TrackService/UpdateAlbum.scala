@@ -22,13 +22,13 @@ import java.util.UUID
  * UpdateAlbum
  * desc: 更新专辑信息，用于更新专辑的内容与元数据
  * @param albumID: String (专辑唯一标识符)
- * @param name: String (专辑名称，可选字段)
- * @param description: String (专辑简介，可选字段)
- * @param contents: String (专辑包含的歌曲ID列表)
- * @param collaborators: String (协作者ID列表，可选字段)
+ * @param name: Option[String] (专辑名称，可选字段)
+ * @param description: Option[String] (专辑简介，可选字段)
+ * @param contents: List[String] (专辑包含的歌曲ID列表)
+ * @param collaborators: List[String] (协作者ID列表，可选字段)
  * @param userID: String (发起动作的用户ID)
  * @param userToken: String (用户令牌，用于身份验证)
- * @return success: Boolean (API调用结果，true表示成功，false表示失败)
+ * @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
 case class UpdateAlbum(
@@ -39,7 +39,7 @@ case class UpdateAlbum(
   collaborators: List[String],
   userID: String,
   userToken: String
-) extends API[Boolean](TrackServiceCode)
+) extends API[(Boolean, String)](TrackServiceCode)
 
 
 
@@ -71,6 +71,4 @@ case object UpdateAlbum{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

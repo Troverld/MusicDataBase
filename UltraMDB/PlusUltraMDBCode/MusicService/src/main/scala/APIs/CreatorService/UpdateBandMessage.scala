@@ -24,10 +24,10 @@ import java.util.UUID
  * @param userID: String (用户ID，用于标识请求用户)
  * @param userToken: String (用户令牌，用于校验用户身份)
  * @param bandID: String (乐队的唯一标识ID)
- * @param name: String (乐队的新名称（可选）)
- * @param members: String (乐队成员ID列表（可选）)
- * @param bio: String (乐队新的简介信息（可选）)
- * @return result: String (操作结果，表示更新状态)
+ * @param name: Option[String] (乐队的新名称（可选）)
+ * @param members: List[String] (乐队成员ID列表（可选）)
+ * @param bio: Option[String] (乐队新的简介信息（可选）)
+ * @return (Boolean, String): (更新是否成功, 错误信息)
  */
 
 case class UpdateBandMessage(
@@ -37,7 +37,7 @@ case class UpdateBandMessage(
   name: Option[String] = None,
   members: List[String],
   bio: Option[String] = None
-) extends API[String](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -69,6 +69,4 @@ case object UpdateBandMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

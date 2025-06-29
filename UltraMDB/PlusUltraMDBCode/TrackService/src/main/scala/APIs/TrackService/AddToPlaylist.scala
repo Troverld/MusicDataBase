@@ -22,10 +22,10 @@ import java.util.UUID
  * AddToPlaylist
  * desc: 通过 playlistID 和 songIDs 向播放集添加歌曲，用于在用户的播放集中追加歌曲。
  * @param playlistID: String (播放列表的唯一标识符，用于指定目标播放列表)
- * @param songIDs: String (需要添加到播放列表的歌曲ID列表)
+ * @param songIDs: List[String] (需要添加到播放列表的歌曲ID列表)
  * @param userID: String (执行操作的用户的唯一标识符)
  * @param userToken: String (用户的身份验证令牌，用于验证用户合法性)
- * @return success: Boolean (操作是否成功的标志位)
+ * @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
 case class AddToPlaylist(
@@ -33,7 +33,7 @@ case class AddToPlaylist(
   songIDs: List[String],
   userID: String,
   userToken: String
-) extends API[Boolean](TrackServiceCode)
+) extends API[(Boolean, String)](TrackServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object AddToPlaylist{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

@@ -23,13 +23,13 @@ import java.util.UUID
  * desc: 用户注册操作接口，用户通过用户名和密码完成注册，并分配唯一ID
  * @param userName: String (用户名，用于标识唯一用户账户)
  * @param password: String (用户密码，用于账户安全验证，需加密存储)
- * @return result: String (注册结果状态，返回操作的结果信息)
+ * @return (Boolean, String): (注册是否成功, 错误信息或成功时的用户ID)
  */
 
 case class UserRegisterMessage(
   userName: String,
   password: String
-) extends API[String](OrganizeServiceCode)
+) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
@@ -61,6 +61,4 @@ case object UserRegisterMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

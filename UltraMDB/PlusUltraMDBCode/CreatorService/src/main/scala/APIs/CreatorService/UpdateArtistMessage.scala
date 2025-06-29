@@ -24,9 +24,9 @@ import java.util.UUID
  * @param userID: String (当前用户的ID，用于操作验证)
  * @param userToken: String (用户令牌，用于验证用户身份和权限)
  * @param artistID: String (需要更新的艺术家唯一标识)
- * @param name: String (新艺术家名称，可选)
- * @param bio: String (新艺术家简介，可选)
- * @return result: String (更新操作结果，返回更新状态字符串)
+ * @param name: Option[String] (新艺术家名称，可选)
+ * @param bio: Option[String] (新艺术家简介，可选)
+ * @return (Boolean, String): (更新是否成功, 错误信息)
  */
 
 case class UpdateArtistMessage(
@@ -35,7 +35,7 @@ case class UpdateArtistMessage(
   artistID: String,
   name: Option[String] = None,
   bio: Option[String] = None
-) extends API[String](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -67,6 +67,4 @@ case object UpdateArtistMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

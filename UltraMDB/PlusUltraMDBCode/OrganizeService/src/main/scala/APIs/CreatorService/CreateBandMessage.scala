@@ -24,9 +24,9 @@ import java.util.UUID
  * @param adminID: String (管理员ID)
  * @param adminToken: String (管理员令牌)
  * @param name: String (乐队名称)
- * @param members: String (乐队成员ID列表)
+ * @param members: List[String] (乐队成员ID列表)
  * @param bio: String (乐队简介)
- * @return bandID: String (新建的乐队ID)
+ * @return (Option[String], String): (新建的乐队ID, 错误信息)
  */
 
 case class CreateBandMessage(
@@ -35,7 +35,7 @@ case class CreateBandMessage(
   name: String,
   members: List[String],
   bio: String
-) extends API[String](CreatorServiceCode)
+) extends API[(Option[String], String)](CreatorServiceCode)
 
 
 
@@ -67,6 +67,4 @@ case object CreateBandMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

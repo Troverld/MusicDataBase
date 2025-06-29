@@ -24,14 +24,14 @@ import java.util.UUID
  * @param adminID: String (管理员ID)
  * @param adminToken: String (管理员令牌)
  * @param artistID: String (艺术家ID)
- * @return result: String (删除操作状态)
+ * @return (Boolean, String): (删除是否成功, 错误信息)
  */
 
 case class DeleteArtistMessage(
   adminID: String,
   adminToken: String,
   artistID: String
-) extends API[String](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object DeleteArtistMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

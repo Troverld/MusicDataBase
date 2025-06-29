@@ -23,10 +23,10 @@ import java.util.UUID
  * desc: 创建新的歌单，用于用户自定义歌单的创建
  * @param name: String (歌单的名称，不能为空)
  * @param description: String (歌单的简介，用于描述歌单的内容和信息)
- * @param contents: String (歌单包含的歌曲ID列表)
+ * @param contents: List[String] (歌单包含的歌曲ID列表)
  * @param userID: String (当前操作的用户ID，确保调用者身份)
  * @param userToken: String (用户令牌，用于验证用户的合法性)
- * @return collectionID: String (新生成的歌单ID，用于标识歌单)
+ * @return (Option[String], String): (新生成的歌单ID, 错误信息)
  */
 
 case class CreateCollection(
@@ -35,7 +35,7 @@ case class CreateCollection(
   contents: List[String],
   userID: String,
   userToken: String
-) extends API[String](TrackServiceCode)
+) extends API[(Option[String], String)](TrackServiceCode)
 
 
 
@@ -67,6 +67,4 @@ case object CreateCollection{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

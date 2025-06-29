@@ -23,13 +23,13 @@ import java.util.UUID
  * desc: 统一验证管理员的有效性、映射关系和权限，用于所有涉及管理员操作的功能作为前置验证
  * @param adminID: String (管理员ID)
  * @param adminToken: String (管理员令牌)
- * @return isValid: Boolean (验证结果，指示管理员是否通过验证)
+ * @return (Boolean, String): (管理员是否通过验证, 错误信息)
  */
 
 case class validateAdminMapping(
   adminID: String,
   adminToken: String
-) extends API[Boolean](OrganizeServiceCode)
+) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
@@ -61,6 +61,4 @@ case object validateAdminMapping{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

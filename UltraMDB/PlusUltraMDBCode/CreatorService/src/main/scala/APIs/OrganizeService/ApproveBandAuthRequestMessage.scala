@@ -25,7 +25,7 @@ import java.util.UUID
  * @param adminToken: String (管理员的认证令牌，用于验证身份)
  * @param requestID: String (乐队绑定申请的唯一请求ID)
  * @param approve: Boolean (审核结果，true表示通过，false表示拒绝)
- * @return result: String (返回的操作结果状态字符串)
+ * @return (Boolean, String): (审核是否成功, 错误信息)
  */
 
 case class ApproveBandAuthRequestMessage(
@@ -33,7 +33,7 @@ case class ApproveBandAuthRequestMessage(
   adminToken: String,
   requestID: String,
   approve: Boolean
-) extends API[String](OrganizeServiceCode)
+) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object ApproveBandAuthRequestMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

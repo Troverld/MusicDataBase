@@ -24,14 +24,14 @@ import java.util.UUID
  * @param userID: String (用户ID)
  * @param userToken: String (用户令牌，用于验证用户身份有效性)
  * @param bandID: String (乐队ID)
- * @return isOwner: Boolean (用户是否拥有权限)
+ * @return (Boolean, String): (用户是否拥有权限, 错误信息)
  */
 
 case class validBandOwnership(
   userID: String,
   userToken: String,
   bandID: String
-) extends API[Boolean](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object validBandOwnership{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

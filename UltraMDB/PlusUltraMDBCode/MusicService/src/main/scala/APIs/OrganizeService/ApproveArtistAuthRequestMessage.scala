@@ -25,7 +25,7 @@ import java.util.UUID
  * @param adminToken: String (管理员认证令牌)
  * @param requestID: String (绑定请求的唯一标识)
  * @param approve: Boolean (是否批准该绑定申请)
- * @return result: String (操作结果的状态信息)
+ * @return (Boolean, String): (审核是否成功, 错误信息)
  */
 
 case class ApproveArtistAuthRequestMessage(
@@ -33,7 +33,7 @@ case class ApproveArtistAuthRequestMessage(
   adminToken: String,
   requestID: String,
   approve: Boolean
-) extends API[String](OrganizeServiceCode)
+) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object ApproveArtistAuthRequestMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

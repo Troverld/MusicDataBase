@@ -24,14 +24,14 @@ import java.util.UUID
  * @param songID: String (歌曲ID，用于标识需要验证的歌曲)
  * @param userID: String (用户ID，用于验证用户身份和权限)
  * @param userToken: String (用户令牌，用于验证用户身份有效性)
- * @return isOwner: Boolean (验证结果，标识用户是否对歌曲拥有管理权限)
+ * @return (Boolean, String): (用户是否拥有管理权限, 错误信息)
  */
 
 case class ValidateSongOwnership(
   songID: String,
   userID: String,
   userToken: String
-) extends API[Boolean](MusicServiceCode)
+) extends API[(Boolean, String)](MusicServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object ValidateSongOwnership{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

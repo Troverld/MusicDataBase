@@ -25,7 +25,7 @@ import java.util.UUID
  * @param adminToken: String (管理员令牌)
  * @param name: String (艺术家名称)
  * @param bio: String (艺术家简介)
- * @return artistID: String (新建的艺术家ID)
+ * @return (Option[String], String): (新建的艺术家ID, 错误信息)
  */
 
 case class CreateArtistMessage(
@@ -33,7 +33,7 @@ case class CreateArtistMessage(
   adminToken: String,
   name: String,
   bio: String
-) extends API[String](CreatorServiceCode)
+) extends API[(Option[String], String)](CreatorServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object CreateArtistMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

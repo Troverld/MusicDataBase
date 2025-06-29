@@ -24,16 +24,16 @@ import java.util.UUID
  * @param songID: String (需要更新的歌曲ID)
  * @param userID: String (进行更新操作的用户ID)
  * @param userToken: String (用于验证用户的访问令牌)
- * @param name: String (需要更新的歌曲名称)
- * @param releaseTime: DateTime (需要更新的歌曲发布时间)
- * @param creators: String (需要更新的创作者列表)
- * @param performers: String (需要更新的演唱者列表)
- * @param lyricists: String (需要更新的作词者列表)
- * @param composers: String (需要更新的作曲者列表)
- * @param arrangers: String (需要更新的编曲者列表)
- * @param instrumentalists: String (需要更新的演奏者列表)
- * @param genres: String (需要更新的歌曲曲风列表)
- * @return result: String (操作结果的字符串描述)
+ * @param name: Option[String] (需要更新的歌曲名称)
+ * @param releaseTime: Option[DateTime] (需要更新的歌曲发布时间)
+ * @param creators: List[String] (需要更新的创作者列表)
+ * @param performers: List[String] (需要更新的演唱者列表)
+ * @param lyricists: List[String] (需要更新的作词者列表)
+ * @param composers: List[String] (需要更新的作曲者列表)
+ * @param arrangers: List[String] (需要更新的编曲者列表)
+ * @param instrumentalists: List[String] (需要更新的演奏者列表)
+ * @param genres: List[String] (需要更新的歌曲曲风列表)
+ * @return (Boolean, String): (更新是否成功, 错误信息)
  */
 
 case class UpdateSongMetadata(
@@ -49,7 +49,7 @@ case class UpdateSongMetadata(
   arrangers: List[String],
   instrumentalists: List[String],
   genres: List[String]
-) extends API[String](MusicServiceCode)
+) extends API[(Boolean, String)](MusicServiceCode)
 
 
 
@@ -81,6 +81,4 @@ case object UpdateSongMetadata{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

@@ -23,13 +23,13 @@ import java.util.UUID
  * desc: 统一验证用户的有效性和映射关系
  * @param userID: String (用户ID，用于标识当前进行验权操作的用户)
  * @param userToken: String (用户令牌，用于验证用户登录及验证有效性)
- * @return isValid: Boolean (验证结果，表示用户ID与令牌是否匹配以及是否有效)
+ * @return (Boolean, String): (用户ID与令牌是否匹配且有效, 错误信息)
  */
 
 case class validateUserMapping(
   userID: String,
   userToken: String
-) extends API[Boolean](OrganizeServiceCode)
+) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
@@ -61,6 +61,4 @@ case object validateUserMapping{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

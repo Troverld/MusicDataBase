@@ -25,7 +25,7 @@ import java.util.UUID
  * @param userToken: String (用户的令牌，用于身份验证)
  * @param artistID: String (艺术家的唯一标识)
  * @param certification: String (认证证据，用于验证绑定申请的合法性)
- * @return requestID: String (生成的绑定申请记录的唯一标识)
+ * @return (Option[String], String): (生成的绑定申请记录的唯一标识, 错误信息)
  */
 
 case class SubmitArtistAuthRequestMessage(
@@ -33,7 +33,7 @@ case class SubmitArtistAuthRequestMessage(
   userToken: String,
   artistID: String,
   certification: String
-) extends API[String](OrganizeServiceCode)
+) extends API[(Option[String], String)](OrganizeServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object SubmitArtistAuthRequestMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

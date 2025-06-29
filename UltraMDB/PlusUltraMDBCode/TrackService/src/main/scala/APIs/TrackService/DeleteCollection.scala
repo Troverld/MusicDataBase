@@ -24,14 +24,14 @@ import java.util.UUID
  * @param adminID: String (管理员ID，用于身份验证)
  * @param adminToken: String (管理员令牌，验证权限有效性)
  * @param collectionID: String (需要删除的歌单的唯一ID)
- * @return success: Boolean (操作的执行状态，true表示成功，false表示失败)
+ * @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
 case class DeleteCollection(
   adminID: String,
   adminToken: String,
   collectionID: String
-) extends API[Boolean](TrackServiceCode)
+) extends API[(Boolean, String)](TrackServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object DeleteCollection{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

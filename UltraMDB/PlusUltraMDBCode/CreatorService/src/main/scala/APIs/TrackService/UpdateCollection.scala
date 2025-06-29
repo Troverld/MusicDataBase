@@ -22,13 +22,13 @@ import java.util.UUID
  * UpdateCollection
  * desc: 通过 collectionID 修改歌单信息，如歌单名称、简介、内容、维护者，用于对用户创建的歌单进行更新操作。
  * @param collectionID: String (歌单ID，用于标识待更新的歌单。)
- * @param name: String (新的歌单名称，可选字段。)
- * @param description: String (新的歌单简介，可选字段。)
- * @param contents: String (新的歌单内容，即包含的歌曲ID列表，可选字段。)
- * @param maintainers: String (新的维护者ID列表，可选字段。)
+ * @param name: Option[String] (新的歌单名称，可选字段。)
+ * @param description: Option[String] (新的歌单简介，可选字段。)
+ * @param contents: List[String] (新的歌单内容，即包含的歌曲ID列表，可选字段。)
+ * @param maintainers: List[String] (新的维护者ID列表，可选字段。)
  * @param userID: String (当前操作用户的ID。)
  * @param userToken: String (当前操作用户的身份令牌，用于身份校验。)
- * @return success: Boolean (接口调用是否成功的标识。)
+ * @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
 case class UpdateCollection(
@@ -39,7 +39,7 @@ case class UpdateCollection(
   maintainers: List[String],
   userID: String,
   userToken: String
-) extends API[Boolean](TrackServiceCode)
+) extends API[(Boolean, String)](TrackServiceCode)
 
 
 
@@ -71,6 +71,4 @@ case object UpdateCollection{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

@@ -32,7 +32,7 @@ case class AddBandManager(
   adminToken: String,
   userID: String,
   bandID: String
-) extends API[Boolean](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -64,6 +64,4 @@ case object AddBandManager{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

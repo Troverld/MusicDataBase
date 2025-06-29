@@ -23,13 +23,13 @@ import java.util.UUID
  * desc: 验证某用户是否拥有对指定艺术家的管理权限
  * @param userID: String (用户ID)
  * @param artistID: String (艺术家ID)
- * @return isOwner: Boolean (用户是否拥有权限)
+ * @return (Boolean, String): (用户是否拥有权限, 错误信息)
  */
 
 case class validArtistOwnership(
   userID: String,
   artistID: String
-) extends API[Boolean](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -61,6 +61,4 @@ case object validArtistOwnership{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

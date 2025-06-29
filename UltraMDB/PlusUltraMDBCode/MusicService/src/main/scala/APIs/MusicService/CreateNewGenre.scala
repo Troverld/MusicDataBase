@@ -25,7 +25,7 @@ import java.util.UUID
  * @param description: String (曲风的描述信息。)
  * @param adminID: String (管理员ID，用于验证权限。)
  * @param adminToken: String (管理员的认证令牌。)
- * @return genreID: String (生成的新曲风ID。)
+ * @return (Option[String], String): (生成的新曲风ID, 错误信息)
  */
 
 case class CreateNewGenre(
@@ -33,7 +33,7 @@ case class CreateNewGenre(
   description: String,
   adminID: String,
   adminToken: String
-) extends API[String](MusicServiceCode)
+) extends API[(Option[String], String)](MusicServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object CreateNewGenre{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

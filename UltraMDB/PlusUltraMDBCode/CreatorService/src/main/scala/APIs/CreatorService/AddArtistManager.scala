@@ -32,7 +32,7 @@ case class AddArtistManager(
   adminToken: String,
   userID: String,
   artistID: String
-) extends API[](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -64,6 +64,4 @@ case object AddArtistManager{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

@@ -25,14 +25,14 @@ import java.util.UUID
  * @param userToken: String (用户令牌，用于验证用户身份。)
  * @param name: String (歌曲名称。)
  * @param releaseTime: DateTime (歌曲的发布日期。)
- * @param creators: String (创作者ID列表。)
- * @param performers: String (演唱者ID列表。)
- * @param lyricists: String (作词者ID列表。)
- * @param arrangers: String (编曲者ID列表。)
- * @param instrumentalists: String (演奏者ID列表。)
- * @param genres: String (曲风ID列表，用于标识歌曲的归类。)
- * @param composers: String (作曲者ID列表。)
- * @return songID: String (生成的歌曲ID，唯一标识上传的歌曲。)
+ * @param creators: List[String] (创作者ID列表。)
+ * @param performers: List[String] (演唱者ID列表。)
+ * @param lyricists: List[String] (作词者ID列表。)
+ * @param arrangers: List[String] (编曲者ID列表。)
+ * @param instrumentalists: List[String] (演奏者ID列表。)
+ * @param genres: List[String] (曲风ID列表，用于标识歌曲的归类。)
+ * @param composers: List[String] (作曲者ID列表。)
+ * @return (Option[String], String): (生成的歌曲ID, 错误信息)
  */
 
 case class UploadNewSong(
@@ -47,7 +47,7 @@ case class UploadNewSong(
   instrumentalists: List[String],
   genres: List[String],
   composers: List[String]
-) extends API[String](MusicServiceCode)
+) extends API[(Option[String], String)](MusicServiceCode)
 
 
 
@@ -79,6 +79,4 @@ case object UploadNewSong{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

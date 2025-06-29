@@ -23,13 +23,13 @@ import java.util.UUID
  * desc: 用户传入用户名和加密后的密码，完成登录认证，并获得一个时间敏感的用户令牌
  * @param userName: String (用户名，用于标识具体用户)
  * @param hashedPassword: String (加密后的密码，用于验证用户身份)
- * @return userToken: String (用户登录令牌，如果登录成功将返回一个时间敏感的字符串令牌；失败返回None)
+ * @return (Option[String], String): (用户登录令牌, 错误信息)
  */
 
 case class UserLoginMessage(
   userName: String,
   hashedPassword: String
-) extends API[Option[String]](OrganizeServiceCode)
+) extends API[(Option[String], String)](OrganizeServiceCode)
 
 
 
@@ -61,6 +61,4 @@ case object UserLoginMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

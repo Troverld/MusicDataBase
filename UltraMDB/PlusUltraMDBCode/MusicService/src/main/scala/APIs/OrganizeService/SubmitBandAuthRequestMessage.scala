@@ -25,7 +25,7 @@ import java.util.UUID
  * @param userToken: String (用户令牌，用于校验用户身份)
  * @param bandID: String (乐队ID，用于标识用户申请绑定的乐队)
  * @param certification: String (认证证据，用于证明用户与乐队的关联性)
- * @return requestID: String (申请ID，用于标识该条绑定申请记录)
+ * @return (Option[String], String): (申请ID, 错误信息)
  */
 
 case class SubmitBandAuthRequestMessage(
@@ -33,7 +33,7 @@ case class SubmitBandAuthRequestMessage(
   userToken: String,
   bandID: String,
   certification: String
-) extends API[String](OrganizeServiceCode)
+) extends API[(Option[String], String)](OrganizeServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object SubmitBandAuthRequestMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

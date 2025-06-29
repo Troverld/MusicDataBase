@@ -24,14 +24,14 @@ import java.util.UUID
  * @param keywords: String (用户输入的模糊搜索关键词，用于匹配歌曲名称。)
  * @param userID: String (当前用户的ID，用于权限和用户会话的匹配验证。)
  * @param userToken: String (当前用户的令牌，用于身份认证和权限验证。)
- * @return songList: String (匹配到的歌曲ID列表。)
+ * @return (Option[List[String]], String): (匹配到的歌曲ID列表, 错误信息)
  */
 
 case class SearchSongsByName(
   keywords: String,
   userID: String,
   userToken: String
-) extends API[List[String]](MusicServiceCode)
+) extends API[(Option[List[String]], String)](MusicServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object SearchSongsByName{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

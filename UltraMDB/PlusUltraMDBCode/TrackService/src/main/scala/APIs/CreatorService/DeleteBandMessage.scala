@@ -24,14 +24,14 @@ import java.util.UUID
  * @param adminID: String (管理员ID，确保操作者身份为有权限用户。)
  * @param adminToken: String (管理员令牌，确保本次操作的有效性。)
  * @param bandID: String (待删除的乐队ID。)
- * @return result: String (删除操作状态，返回操作成功或失败的信息。)
+ * @return (Boolean, String): (删除是否成功, 错误信息)
  */
 
 case class DeleteBandMessage(
   adminID: String,
   adminToken: String,
   bandID: String
-) extends API[String](CreatorServiceCode)
+) extends API[(Boolean, String)](CreatorServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object DeleteBandMessage{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

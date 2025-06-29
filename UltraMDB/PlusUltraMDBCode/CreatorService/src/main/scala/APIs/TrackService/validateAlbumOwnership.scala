@@ -24,14 +24,14 @@ import java.util.UUID
  * @param userID: String (用户ID，用于表示请求的用户。)
  * @param userToken: String (用户令牌，用于验证用户身份有效性)
  * @param albumID: String (专辑ID，对应需要验证权限的专辑。)
- * @return hasPermission: Boolean (一个布尔值表示用户是否具有对该专辑的管理权限)
+ * @return (Boolean, String): (用户是否具有对该专辑的管理权限, 错误信息)
  */
 
 case class validateAlbumOwnership(
   userID: String,
   userToken: String,
   albumID: String
-) extends API[Boolean](TrackServiceCode)
+) extends API[(Boolean, String)](TrackServiceCode)
 
 
 
@@ -63,6 +63,4 @@ case object validateAlbumOwnership{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

@@ -26,10 +26,10 @@ import java.util.UUID
  * @param name: String (专辑名称)
  * @param description: String (专辑简介)
  * @param releaseTime: DateTime (专辑发布的时间)
- * @param creators: String (创作者ID列表，必须包含至少一个有效的Artist或Band ID)
- * @param collaborators: String (协作者ID列表，包含协助创作的Artist或Band ID)
- * @param contents: String (歌曲ID列表，表示专辑中包含的歌曲)
- * @return albumID: String (生成的专辑ID，表示新创建的专辑记录)
+ * @param creators: List[String] (创作者ID列表，必须包含至少一个有效的Artist或Band ID)
+ * @param collaborators: List[String] (协作者ID列表，包含协助创作的Artist或Band ID)
+ * @param contents: List[String] (歌曲ID列表，表示专辑中包含的歌曲)
+ * @return (Option[String], String): (生成的专辑ID, 错误信息)
  */
 
 case class CreateAlbum(
@@ -41,7 +41,7 @@ case class CreateAlbum(
   creators: List[String],
   collaborators: List[String],
   contents: List[String]
-) extends API[String](TrackServiceCode)
+) extends API[(Option[String], String)](TrackServiceCode)
 
 
 
@@ -73,6 +73,4 @@ case object CreateAlbum{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-

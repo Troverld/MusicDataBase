@@ -25,7 +25,7 @@ import java.util.UUID
  * @param userID: String (当前发起邀请操作的用户ID，需要拥有歌单的管理权限。)
  * @param userToken: String (当前用户的API访问令牌，用于验证操作合法性。)
  * @param invitedUserID: String (被邀请的用户ID，新的歌单维护者。)
- * @return success: Boolean (操作的成功状态，true表示成功，false表示失败。)
+ * @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
 case class InviteMaintainerToCollection(
@@ -33,7 +33,7 @@ case class InviteMaintainerToCollection(
   userID: String,
   userToken: String,
   invitedUserID: String
-) extends API[Boolean](TrackServiceCode)
+) extends API[(Boolean, String)](TrackServiceCode)
 
 
 
@@ -65,6 +65,4 @@ case object InviteMaintainerToCollection{
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
-
 }
-
