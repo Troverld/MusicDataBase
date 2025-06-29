@@ -21,16 +21,16 @@ import java.util.UUID
 /**
  * DeleteSong
  * desc: 用于管理员删除指定歌曲信息。
- * @param songID: String (待删除的歌曲ID。)
  * @param adminID: String (管理员ID，用于进行身份验证。)
  * @param adminToken: String (管理员验证令牌，用于鉴权。)
+ * @param songID: String (待删除的歌曲ID。)
  * @return (Boolean, String): (删除是否成功, 错误信息)
  */
 
 case class DeleteSong(
-  songID: String,
   adminID: String,
-  adminToken: String
+  adminToken: String,
+  songID: String
 ) extends API[(Boolean, String)](MusicServiceCode)
 
 

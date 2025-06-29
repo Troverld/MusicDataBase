@@ -21,16 +21,16 @@ import java.util.UUID
 /**
  * DeleteGenre
  * desc: 删除曲风信息，仅限管理员操作
- * @param genreID: String (要删除的曲风ID)
  * @param adminID: String (管理员的唯一标识符)
  * @param adminToken: String (管理员身份验证令牌，用于权限校验)
+ * @param genreID: String (要删除的曲风ID)
  * @return (Boolean, String): (删除是否成功, 错误信息)
  */
 
 case class DeleteGenre(
-  genreID: String,
   adminID: String,
-  adminToken: String
+  adminToken: String,
+  genreID: String
 ) extends API[(Boolean, String)](MusicServiceCode)
 
 

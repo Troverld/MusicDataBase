@@ -21,18 +21,18 @@ import java.util.UUID
 /**
  * CreateNewGenre
  * desc: 创建一个新的曲风记录。
- * @param name: String (曲风名称。)
- * @param description: String (曲风的描述信息。)
  * @param adminID: String (管理员ID，用于验证权限。)
  * @param adminToken: String (管理员的认证令牌。)
+ * @param name: String (曲风名称。)
+ * @param description: String (曲风的描述信息。)
  * @return (Option[String], String): (生成的新曲风ID, 错误信息)
  */
 
 case class CreateNewGenre(
-  name: String,
-  description: String,
   adminID: String,
-  adminToken: String
+  adminToken: String,
+  name: String,
+  description: String
 ) extends API[(Option[String], String)](MusicServiceCode)
 
 

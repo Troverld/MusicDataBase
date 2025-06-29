@@ -21,20 +21,20 @@ import java.util.UUID
 /**
  * FilterSongsByEntity
  * desc: 按照实体（artist/band）或曲风筛选歌曲。
+ * @param userID: String (用户的唯一标识。)
+ * @param userToken: String (用于验证用户身份的令牌。)
  * @param entityID: Option[String] (实体（艺术家或乐队）的唯一ID，可选。)
  * @param entityType: Option[String] (实体的类型: 'artist' 或 'band'，可选。)
  * @param genres: List[String] (曲风ID列表，可选，表示筛选曲风。)
- * @param userID: String (用户的唯一标识。)
- * @param userToken: String (用于验证用户身份的令牌。)
  * @return (Option[List[String]], String): (符合条件的歌曲ID列表, 错误信息)
  */
 
 case class FilterSongsByEntity(
+  userID: String,
+  userToken: String,
   entityID: Option[String] = None,
   entityType: Option[String] = None,
-  genres: List[String],
-  userID: String,
-  userToken: String
+  genres: List[String]
 ) extends API[(Option[List[String]], String)](MusicServiceCode)
 
 

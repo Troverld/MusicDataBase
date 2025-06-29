@@ -21,17 +21,17 @@ import java.util.UUID
 /**
  * InviteMaintainerToCollection
  * desc: 邀请某用户成为歌单的维护者，用于扩展歌单管理权限。
- * @param collectionID: String (歌单对应的唯一标识符。)
  * @param userID: String (当前发起邀请操作的用户ID，需要拥有歌单的管理权限。)
  * @param userToken: String (当前用户的API访问令牌，用于验证操作合法性。)
+ * @param collectionID: String (歌单对应的唯一标识符。)
  * @param invitedUserID: String (被邀请的用户ID，新的歌单维护者。)
  * @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
 case class InviteMaintainerToCollection(
-  collectionID: String,
   userID: String,
   userToken: String,
+  collectionID: String,
   invitedUserID: String
 ) extends API[(Boolean, String)](TrackServiceCode)
 

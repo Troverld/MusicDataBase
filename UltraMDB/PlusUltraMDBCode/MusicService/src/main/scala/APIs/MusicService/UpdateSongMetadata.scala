@@ -21,9 +21,9 @@ import java.util.UUID
 /**
  * UpdateSongMetadata
  * desc: 更新已有的歌曲信息，包括元数据和相关引用信息。
- * @param songID: String (需要更新的歌曲ID)
  * @param userID: String (进行更新操作的用户ID)
  * @param userToken: String (用于验证用户的访问令牌)
+ * @param songID: String (需要更新的歌曲ID)
  * @param name: Option[String] (需要更新的歌曲名称)
  * @param releaseTime: Option[DateTime] (需要更新的歌曲发布时间)
  * @param creators: List[String] (需要更新的创作者列表)
@@ -37,9 +37,9 @@ import java.util.UUID
  */
 
 case class UpdateSongMetadata(
-  songID: String,
   userID: String,
   userToken: String,
+  songID: String,
   name: Option[String] = None,
   releaseTime: Option[DateTime] = None,
   creators: List[String],
