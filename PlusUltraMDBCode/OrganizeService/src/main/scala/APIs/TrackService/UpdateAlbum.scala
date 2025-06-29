@@ -1,0 +1,76 @@
+package APIs.TrackService
+
+import Common.API.API
+import Global.ServiceCenter.TrackServiceCode
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * UpdateAlbum
+ * desc: 更新专辑信息，用于更新专辑的内容与元数据
+ * @param albumID: String (专辑唯一标识符)
+ * @param name: String (专辑名称，可选字段)
+ * @param description: String (专辑简介，可选字段)
+ * @param contents: String (专辑包含的歌曲ID列表)
+ * @param collaborators: String (协作者ID列表，可选字段)
+ * @param userID: String (发起动作的用户ID)
+ * @param userToken: String (用户令牌，用于身份验证)
+ * @return success: Boolean (API调用结果，true表示成功，false表示失败)
+ */
+
+case class UpdateAlbum(
+  albumID: String,
+  name: Option[String] = None,
+  description: Option[String] = None,
+  contents: List[String],
+  collaborators: List[String],
+  userID: String,
+  userToken: String
+) extends API[Boolean](TrackServiceCode)
+
+
+
+case object UpdateAlbum{
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[UpdateAlbum] = deriveEncoder
+  private val circeDecoder: Decoder[UpdateAlbum] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[UpdateAlbum] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[UpdateAlbum] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[UpdateAlbum]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given updateAlbumEncoder: Encoder[UpdateAlbum] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given updateAlbumDecoder: Decoder[UpdateAlbum] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+}
+
