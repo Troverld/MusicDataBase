@@ -1,0 +1,10 @@
+# JetBrains IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# 如果你想保留一些 .idea 配置，可以这样写：
+# .idea/*
+# !.idea/runConfigurations/
