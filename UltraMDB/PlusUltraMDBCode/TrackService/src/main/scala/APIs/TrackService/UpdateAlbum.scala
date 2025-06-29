@@ -26,8 +26,9 @@ import java.util.UUID
  * @param albumID: String (专辑唯一标识符)
  * @param name: Option[String] (专辑名称，可选字段)
  * @param description: Option[String] (专辑简介，可选字段)
- * @param contents: List[String] (专辑包含的歌曲ID列表)
+ * @param creators: List[String]
  * @param collaborators: List[String] (协作者ID列表，可选字段)
+ * @param contents: List[String] (专辑包含的歌曲ID列表)
  * @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
@@ -37,8 +38,9 @@ case class UpdateAlbum(
   albumID: String,
   name: Option[String] = None,
   description: Option[String] = None,
-  contents: List[String],
-  collaborators: List[String]
+  creators: Option[List[String]] = None,
+  collaborators: Option[List[String]] = None,
+  contents: Option[List[String]] = None
 ) extends API[(Boolean, String)](TrackServiceCode)
 
 

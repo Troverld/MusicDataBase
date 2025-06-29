@@ -37,8 +37,8 @@ case class UpdateCollection(
   collectionID: String,
   name: Option[String] = None,
   description: Option[String] = None,
-  contents: List[String],
-  maintainers: List[String]
+  contents: Option[List[String]] = None,
+  maintainers: Option[List[String]] = None
 ) extends API[(Boolean, String)](TrackServiceCode)
 
 

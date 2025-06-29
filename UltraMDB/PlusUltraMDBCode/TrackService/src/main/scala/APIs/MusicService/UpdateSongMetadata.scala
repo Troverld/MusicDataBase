@@ -42,13 +42,13 @@ case class UpdateSongMetadata(
   songID: String,
   name: Option[String] = None,
   releaseTime: Option[DateTime] = None,
-  creators: List[String],
-  performers: List[String],
-  lyricists: List[String],
-  composers: List[String],
-  arrangers: List[String],
-  instrumentalists: List[String],
-  genres: List[String]
+  creators: Option[List[String]] = None,
+  performers: Option[List[String]] = None,
+  lyricists: Option[List[String]] = None,
+  composers: Option[List[String]] = None,
+  arrangers: Option[List[String]] = None,
+  instrumentalists: Option[List[String]] = None,
+  genres: Option[List[String]] = None
 ) extends API[(Boolean, String)](MusicServiceCode)
 
 

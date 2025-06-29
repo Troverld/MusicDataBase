@@ -25,7 +25,7 @@ import java.util.UUID
  * @param userToken: String (用于验证用户身份的令牌。)
  * @param entityID: Option[String] (实体（艺术家或乐队）的唯一ID，可选。)
  * @param entityType: Option[String] (实体的类型: 'artist' 或 'band'，可选。)
- * @param genres: List[String] (曲风ID列表，可选，表示筛选曲风。)
+ * @param genres: Option[String] (曲风ID列表，可选，表示筛选曲风。)
  * @return (Option[List[String]], String): (符合条件的歌曲ID列表, 错误信息)
  */
 
@@ -34,7 +34,7 @@ case class FilterSongsByEntity(
   userToken: String,
   entityID: Option[String] = None,
   entityType: Option[String] = None,
-  genres: List[String]
+  genres: Option[String] = None
 ) extends API[(Option[List[String]], String)](MusicServiceCode)
 
 
