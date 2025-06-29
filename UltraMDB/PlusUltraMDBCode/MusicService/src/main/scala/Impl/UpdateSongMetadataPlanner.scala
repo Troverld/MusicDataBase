@@ -36,9 +36,9 @@ import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class UpdateSongMetadataPlanner(
-    songID: String,
     userID: String,
     userToken: String,
+    songID: String,
     name: Option[String],
     releaseTime: Option[DateTime],
     creators: List[String],
@@ -49,35 +49,46 @@ case class UpdateSongMetadataPlanner(
     instrumentalists: List[String],
     genres: List[String],
     override val planContext: PlanContext
-) extends Planner[String] {
+) extends Planner[(Boolean, String)] {
 
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using planContext: PlanContext): IO[String] = {
-    for {
-      // Step 1: Validate userToken and userID
-      _ <- IO(logger.info("Validating userToken and userID..."))
-      isValidToken <- validateUserMapping(userID, userToken).send
-      _ <- if (!isValidToken) IO.raiseError(new Exception("Invalid user token")) else IO.unit
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    (
+      for {
+        // Step 1: Validate userToken and userID
+        _ <- IO(logger.info("Validating userToken and userID..."))
+        (isValidToken,msg1) <- validateUserMapping(userID, userToken).send
+        _ <- if (!isValidToken)
+          IO.raiseError(new Exception("Invalid user token"))
+        else IO.unit
 
-      // Step 2: Validate song ownership
-      _ <- IO(logger.info(s"Validating song ownership for userID=${userID}, songID=${songID}"))
-      isOwner <- ValidateSongOwnership(songID, userID, userToken).send
-      _ <- if (!isOwner) IO.raiseError(new Exception("User does not own this song")) else IO.unit
+        // Step 2: Validate song ownership
+        _ <- IO(logger.info(s"Validating song ownership for userID=${userID}, songID=${songID}"))
+        (isOwner,msg2) <- ValidateSongOwnership(userID, userToken, songID).send
+        _ <- if (!isOwner)
+          IO.raiseError(new Exception("User does not own this song"))
+        else IO.unit
 
-      // Step 3: Check if the song exists in the SongTable
-      _ <- IO(logger.info(s"Checking if songID=${songID} exists in SongTable..."))
-      songExists <- checkSongExists
-      _ <- if (!songExists) IO.raiseError(new Exception("歌曲不存在")) else IO.unit
+        // Step 3: Check if the song exists in the SongTable
+        _ <- IO(logger.info(s"Checking if songID=${songID} exists in SongTable..."))
+        songExists <- checkSongExists
+        _ <- if (!songExists)
+          IO.raiseError(new Exception("歌曲不存在"))
+        else IO.unit
 
-      // Step 4: Update the metadata
-      _ <- IO(logger.info(s"Updating metadata for songID=${songID}..."))
-      _ <- updateSongMetadata
+        // Step 4: Update the metadata
+        _ <- IO(logger.info(s"Updating metadata for songID=${songID}..."))
+        _ <- updateSongMetadata
 
-      // Step 5: Validate updated data (if necessary)
-      _ <- IO(logger.info(s"Validating updated song data for songID=${songID}..."))
-      _ <- validateUpdatedData
-    } yield "更新成功"
+        // Step 5: Validate updated data (if necessary)
+        _ <- IO(logger.info(s"Validating updated song data for songID=${songID}..."))
+        _ <- validateUpdatedData
+      } yield (true, "")  // 成功：返回 true 和空错误信息
+      ).handleErrorWith { e =>
+      IO(logger.error(s"更新歌曲元数据失败: ${e.getMessage}")) *>
+        IO.pure((false, e.getMessage))  // 失败：返回 false 和错误信息
+    }
   }
 
   private def checkSongExists(using PlanContext): IO[Boolean] = {

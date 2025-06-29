@@ -1,16 +1,7 @@
 package Impl
 
 
-/**
- * Planner for CreateNewGenre: 创建一个新的曲风记录
- * 输入参数:
- *   - name        : String -> 曲风名称
- *   - description : String -> 曲风简介
- *   - adminID     : String -> 管理员ID
- *   - adminToken  : String -> 管理员Token
- * 输出参数:
- *   - genreID : String -> 新创建曲风的genreID
- */
+
 import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
@@ -40,37 +31,43 @@ import APIs.OrganizeService.validateAdminMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class CreateNewGenrePlanner(
-  name: String,
-  description: String,
   adminID: String,
   adminToken: String,
+  name: String,
+  description: String,
   override val planContext: PlanContext
-) extends Planner[String] {
+) extends Planner[(Option[String], String)] {
 
   // Logger for debugging and error tracking
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using PlanContext): IO[String] = {
-    for {
-      // Step 1: 验证管理员权限
-      _ <- IO(logger.info(s"验证管理员权限: 管理员ID=${adminID}, 管理员Token=${adminToken}"))
-      _ <- validateAdmin()
+  override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
+    (
+      for {
+        // Step 1: 验证管理员权限
+        _ <- IO(logger.info(s"验证管理员权限: 管理员ID=${adminID}, 管理员Token=${adminToken}"))
+        _ <- validateAdmin()
 
-      // Step 2.1: 检查曲风名称是否为空
-      _ <- IO(logger.info(s"检查曲风名称 ${name} 是否为空"))
-      _ <- checkNameNotEmpty()
+        // Step 2.1: 检查曲风名称是否为空
+        _ <- IO(logger.info(s"检查曲风名称 ${name} 是否为空"))
+        _ <- checkNameNotEmpty()
 
-      // Step 2.2: 检查曲风名称是否已存在
-      _ <- IO(logger.info(s"检查曲风名称 ${name} 是否已存在"))
-      _ <- checkGenreNameUnique()
+        // Step 2.2: 检查曲风名称是否已存在
+        _ <- IO(logger.info(s"检查曲风名称 ${name} 是否已存在"))
+        _ <- checkGenreNameUnique()
 
-      // Step 3: 生成新的曲风ID并插入记录
-      _ <- IO(logger.info(s"生成新的曲风ID"))
-      genreID <- generateAndInsertGenre()
+        // Step 3: 生成新的曲风ID并插入记录
+        _ <- IO(logger.info(s"生成新的曲风ID"))
+        genreID <- generateAndInsertGenre()
 
-      _ <- IO(logger.info(s"新曲风创建成功，genreID=${genreID}"))
-    } yield genreID
+        _ <- IO(logger.info(s"新曲风创建成功，genreID=${genreID}"))
+      } yield (Some(genreID), "") // 成功时返回 Some(id) 和空错误信息
+      ).handleErrorWith { e =>
+      IO(logger.error(s"创建曲风失败: ${e.getMessage}")) *>
+        IO.pure((None, e.getMessage)) // 失败时返回 None 和错误信息
+    }
   }
+
 
   /**
    * 验证管理员权限
@@ -78,7 +75,7 @@ case class CreateNewGenrePlanner(
    * @return IO[Unit]
    */
   private def validateAdmin()(using PlanContext): IO[Unit] = {
-    validateAdminMapping(adminID, adminToken).send.flatMap { isValid =>
+    validateAdminMapping(adminID, adminToken).send.flatMap { (isValid,msg) =>
       if (isValid) IO(logger.info("管理员权限验证通过"))
       else IO.raiseError(new IllegalStateException("管理员认证失败"))
     }
