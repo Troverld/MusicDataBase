@@ -1,5 +1,5 @@
 import { callAPI } from './api';
-import { LoginCredentials, RegisterCredentials, LoginResponse } from '../types';
+import { LoginCredentials, RegisterCredentials, LoginResponse, RegisterResponse } from '../types';
 import { setToken, setUser } from '../utils/storage';
 
 export const authService = {
