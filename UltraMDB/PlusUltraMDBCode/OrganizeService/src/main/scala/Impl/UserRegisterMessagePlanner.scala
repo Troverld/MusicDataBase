@@ -8,6 +8,7 @@ import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
+import Utils.CryptoUtils
 
 /**
  * Planner for UserRegisterMessage: 处理新用户注册请求.
@@ -89,7 +90,8 @@ case class UserRegisterMessagePlanner(
       userID <- IO(java.util.UUID.randomUUID().toString)
       _ <- logInfo(s"已为新用户生成ID: ${userID}")
 
-      encryptedPassword <- IO(encryptPassword(password))
+      // 直接调用共享的加密方法
+      encryptedPassword <- IO(CryptoUtils.encryptPassword(password))
       _ <- logInfo("密码已加密，准备写入数据库")
 
       sql = s"INSERT INTO ${schemaName}.user_table (user_id, account, password) VALUES (?, ?, ?)"
@@ -104,15 +106,6 @@ case class UserRegisterMessagePlanner(
     } yield userID
   }
 
-  /**
-   * 辅助方法：加密密码.
-   * 注意: 这是一个占位符实现。在生产环境中，应使用强哈希算法，如 BCrypt。
-   */
-  private def encryptPassword(plainText: String): String = {
-    // In a real application, use a strong hashing library like BCrypt.
-    // e.g., BCrypt.withDefaults.hashToString(12, plainText.toCharArray)
-    plainText.reverse.hashCode.toString
-  }
 
   private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
   private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))

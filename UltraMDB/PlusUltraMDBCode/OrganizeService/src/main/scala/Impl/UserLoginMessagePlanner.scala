@@ -9,18 +9,19 @@ import cats.implicits._
 import io.circe.generic.auto._
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
+import Utils.CryptoUtils
 import Common.Serialize.CustomColumnTypes.encodeDateTime
 
 /**
  * Planner for UserLoginMessage: 处理用户登录请求.
  *
  * @param userName       用户账户名
- * @param hashedPassword 加密后的用户密码
+ * @param password       明文用户密码
  * @param planContext    隐式执行上下文
  */
 case class UserLoginMessagePlanner(
                                     userName: String,
-                                    hashedPassword: String,
+                                    password: String,
                                     override val planContext: PlanContext
                                   ) extends Planner[(Option[String], String)] {
 
@@ -33,7 +34,7 @@ case class UserLoginMessagePlanner(
     val logic: IO[String] = for {
       _ <- logInfo(s"开始为用户 ${userName} 处理登录请求")
       user <- findUser(userName)
-      _ <- verifyPassword(user.password, hashedPassword)
+      _ <- verifyPassword(user.password, CryptoUtils.encryptPassword(password))
       newToken <- generateAndUpdateToken(user.userID)
     } yield newToken
 
