@@ -1,5 +1,7 @@
 # JetBrains IDE
 .idea/
+.metals/
+.bloop/
 *.iws
 *.iml
 *.ipr

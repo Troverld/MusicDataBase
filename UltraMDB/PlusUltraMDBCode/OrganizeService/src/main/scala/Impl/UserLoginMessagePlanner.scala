@@ -19,27 +19,31 @@ import Common.Serialize.CustomColumnTypes.encodeDateTime
  * @param password    用户传入的明文密码
  * @param planContext 隐式执行上下文
  */
+// 已修正: Planner 的返回值类型
 case class UserLoginMessagePlanner(
   userName: String,
-  password: String, // 这里的 password 是明文
+  password: String,
   override val planContext: PlanContext
-) extends Planner[(Option[String], String)] {
+) extends Planner[(Option[(String, String)], String)] {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  private case class UserAuthInfo(userID: String, password: String) // 这里的 password 是数据库存储的哈希
+  private case class UserAuthInfo(userID: String, password: String)
 
-  override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
-    val logic: IO[String] = for {
+  override def plan(using planContext: PlanContext): IO[(Option[(String, String)], String)] = {
+    // 已修正: logic 现在返回一个包含 userID 和 token 的元组
+    val logic: IO[(String, String)] = for {
       _ <- logInfo(s"开始为用户 ${userName} 处理登录请求")
       user <- findUser(userName)
-      // 已修正: 使用明文密码和数据库哈希进行验证
       _ <- verifyUserPassword(password, user.password)
+      // generateAndUpdateToken 现在需要返回生成的 token
       newToken <- generateAndUpdateToken(user.userID)
-    } yield newToken
+      // 将 userID 和 newToken 组合成元组返回
+    } yield (user.userID, newToken)
 
-    logic.map { token =>
-      (Some(token), "登录成功")
+    // 已修正: .map 的构造方式
+    logic.map { case (userID, token) =>
+      (Some((userID, token)), "登录成功")
     }.handleErrorWith { error =>
       logError(s"用户 ${userName} 登录失败", error) >>
         IO.pure((None, error.getMessage))
@@ -54,7 +58,6 @@ case class UserLoginMessagePlanner(
       }
   }
 
-  // 已修正: 方法名和参数名更清晰，并调用 CryptoUtils.verifyPassword
   private def verifyUserPassword(plainTextPassword: String, storedHash: String)(using PlanContext): IO[Unit] = {
     logInfo("正在验证密码") >> {
       if (CryptoUtils.verifyPassword(plainTextPassword, storedHash)) {
@@ -65,6 +68,7 @@ case class UserLoginMessagePlanner(
     }
   }
 
+  // generateAndUpdateToken 保持不变，它只负责生成和更新，并返回新token
   private def generateAndUpdateToken(userID: String)(using PlanContext): IO[String] = {
     for {
       _ <- logInfo(s"为用户 ${userID} 生成新Token")
