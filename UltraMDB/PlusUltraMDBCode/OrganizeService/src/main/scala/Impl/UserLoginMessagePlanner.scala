@@ -9,7 +9,7 @@ import cats.implicits._
 import io.circe.generic.auto._
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
-// encodeDateTime 实际上不适用于此场景，我们直接使用 .getMillis.toString
+import Common.Serialize.CustomColumnTypes.encodeDateTime
 
 /**
  * Planner for UserLoginMessage: 处理用户登录请求.
@@ -26,14 +26,15 @@ case class UserLoginMessagePlanner(
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  private case class UserAuthInfo(userId: String, password: String)
+  // 已修正: 将 userId 字段重命名为 userID，以匹配数据库返回的JSON键
+  private case class UserAuthInfo(userID: String, password: String)
 
   override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
     val logic: IO[String] = for {
       _ <- logInfo(s"开始为用户 ${userName} 处理登录请求")
       user <- findUser(userName)
       _ <- verifyPassword(user.password, hashedPassword)
-      newToken <- generateAndUpdateToken(user.userId)
+      newToken <- generateAndUpdateToken(user.userID)
     } yield newToken
 
     logic.map { token =>
@@ -84,13 +85,12 @@ case class UserLoginMessagePlanner(
   }
 
   private def updateTokenInfo(userID: String, token: String)(using PlanContext): IO[Unit] = {
-    val validUntil = DateTime.now().plusHours(2)
+    val validUntil = DateTime.now().plusHours(24)
     val query = s"UPDATE ${schemaName}.user_table SET token = ?, token_valid_until = ? WHERE user_id = ?"
     writeDB(
       query,
       List(
         SqlParameter("String", token),
-        // 已修正: 遵循原始代码和API约定，将DateTime转换为毫秒数的字符串
         SqlParameter("DateTime", validUntil.getMillis.toString),
         SqlParameter("String", userID)
       )
