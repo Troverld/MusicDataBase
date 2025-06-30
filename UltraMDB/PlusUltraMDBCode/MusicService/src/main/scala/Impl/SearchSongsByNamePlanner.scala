@@ -31,35 +31,46 @@ import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class SearchSongsByNamePlanner(
-                                     keywords: String,
                                      userID: String,
                                      userToken: String,
+                                     keywords: String,
                                      override val planContext: PlanContext
-                                   ) extends Planner[List[String]] {
+                                   ) extends Planner[(Option[List[String]], String)] {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using planContext: PlanContext): IO[List[String]] = {
-    for {
-      // Step 1: Validate user rights
-      _ <- IO(logger.info(s"[Step 1] Validate user rights for userID=${userID}, userToken=${userToken}"))
-      isValid <- validateUserMapping(userID, userToken).send
-      _ <- IO {
-        if (!isValid) logger.error(s"[Step 1.1] User validation failed for userID=${userID}, userToken=${userToken}")
-        else logger.info("[Step 1.1] User validation succeeded")
-      }
-      _ <- if (!isValid) IO.raiseError(new IllegalAccessException("User authentication invalid")) else IO.unit
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
+    (
+      for {
+        // Step 1: Validate user rights
+        _ <- IO(logger.info(s"[Step 1] Validate user rights for userID=${userID}, userToken=${userToken}"))
+        (isValid,msg) <- validateUserMapping(userID, userToken).send
+        _ <- IO {
+          if (!isValid)
+            logger.error(s"[Step 1.1] User validation failed for userID=${userID}, userToken=${userToken}")
+          else
+            logger.info("[Step 1.1] User validation succeeded")
+        }
+        _ <- if (!isValid)
+          IO.raiseError(new IllegalAccessException("User authentication invalid"))
+        else IO.unit
 
-      // Step 2: Check if keywords are empty
-      _ <- IO(logger.info(s"[Step 2] Check if keywords are empty: ${keywords}"))
-      result <- if (keywords.isEmpty)
-        IO {
+        // Step 2: Check if keywords are empty
+        _ <- IO(logger.info(s"[Step 2] Check if keywords are empty: ${keywords}"))
+        result <- if (keywords.isEmpty) IO {
           logger.info("[Step 2.1] Keywords are empty. Returning an empty song list.")
           List.empty[String]
+        } else {
+          performSearch(keywords)
         }
-      else
-        performSearch(keywords)
-    } yield result
+
+        _ <- IO(logger.info(s"[Step 3] Search result: ${result}"))
+
+      } yield (Some(result), "")  // 成功：匹配到的歌曲 ID 列表
+      ).handleErrorWith { e =>
+      IO(logger.error(s"搜索失败: ${e.getMessage}")) *>
+        IO.pure((None, e.getMessage))  // 失败：返回错误信息
+    }
   }
 
   /**

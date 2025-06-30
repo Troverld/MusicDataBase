@@ -29,43 +29,49 @@ import io.circe.generic.auto._
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class DeleteGenrePlanner(
-                               genreID: String,
                                adminID: String,
                                adminToken: String,
+                               genreID: String,
                                override val planContext: PlanContext
-                             ) extends Planner[String] {
+                             ) extends Planner[(Boolean, String)] {
 
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using PlanContext): IO[String] = {
-    for {
-      // Step 1: Validate admin identity and permissions
-      _ <- IO(logger.info(s"Validating admin permissions for adminID: ${adminID}."))
-      isAdminValid <- validateAdminMapping(adminID, adminToken).send
-      _ <- if (!isAdminValid) {
-        IO.raiseError(new IllegalAccessException(s"Admin validation failed for adminID $adminID"))
-      } else IO.unit
+  override def plan(using PlanContext): IO[(Boolean, String)] = {
+    (
+      for {
+        // Step 1: Validate admin identity and permissions
+        _ <- IO(logger.info(s"Validating admin permissions for adminID: ${adminID}."))
+        (isAdminValid,msg) <- validateAdminMapping(adminID, adminToken).send
+        _ <- if (!isAdminValid)
+          IO.raiseError(new IllegalAccessException(s"Admin validation failed for adminID $adminID"))
+        else IO.unit
 
-      // Step 2: Check if genreID exists in GenreTable
-      _ <- IO(logger.info(s"Checking if genreID ${genreID} exists in GenreTable."))
-      genreExists <- checkGenreExistence(genreID)
-      _ <- if (!genreExists) {
-        IO.raiseError(new IllegalArgumentException("曲风不存在"))
-      } else IO.unit
+        // Step 2: Check if genreID exists in GenreTable
+        _ <- IO(logger.info(s"Checking if genreID ${genreID} exists in GenreTable."))
+        genreExists <- checkGenreExistence(genreID)
+        _ <- if (!genreExists)
+          IO.raiseError(new IllegalArgumentException("曲风不存在"))
+        else IO.unit
 
-      // Step 3: Validate if the genre is referenced by any song
-      _ <- IO(logger.info(s"Validating if genreID ${genreID} is referenced in SongTable."))
-      isGenreReferenced <- checkGenreUsage(genreID)
-      _ <- if (isGenreReferenced) {
-        IO.raiseError(new IllegalStateException("曲风已被引用，无法删除"))
-      } else IO.unit
+        // Step 3: Validate if the genre is referenced by any song
+        _ <- IO(logger.info(s"Validating if genreID ${genreID} is referenced in SongTable."))
+        isGenreReferenced <- checkGenreUsage(genreID)
+        _ <- if (isGenreReferenced)
+          IO.raiseError(new IllegalStateException("曲风已被引用，无法删除"))
+        else IO.unit
 
-      // Step 4: Delete genre from GenreTable
-      _ <- IO(logger.info(s"Deleting genreID ${genreID} from GenreTable."))
-      deleteResult <- deleteGenreByID(genreID)
-      _ <- IO(logger.info(s"Delete operation result: $deleteResult."))
-    } yield "删除成功"
+        // Step 4: Delete genre from GenreTable
+        _ <- IO(logger.info(s"Deleting genreID ${genreID} from GenreTable."))
+        deleteResult <- deleteGenreByID(genreID)
+        _ <- IO(logger.info(s"Delete operation result: $deleteResult."))
+      } yield (true, "")  // 成功时返回 true 和空字符串
+      ).handleErrorWith { e =>
+      IO(logger.error(s"删除曲风失败: ${e.getMessage}")) *>
+        IO.pure((false, e.getMessage))  // 失败时返回 false 和错误信息
+    }
   }
+
 
   /**
    * Step 2.1: Check if genreID exists in GenreTable

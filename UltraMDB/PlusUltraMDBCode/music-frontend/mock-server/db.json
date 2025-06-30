@@ -1,0 +1,123 @@
+{
+  "users": [
+    {
+      "userID": "admin-001",
+      "userName": "admin",
+      "password": "admin123",
+      "account": "admin",
+      "isAdmin": true,
+      "userToken": "token-1751236592362-h5bqkcwec"
+    },
+    {
+      "userID": "1751236357566-36067r8dh",
+      "userName": "larry",
+      "password": "password",
+      "account": "larry",
+      "userToken": "token-1751236455100-qsntr4z7g"
+    }
+  ],
+  "songs": [
+    {
+      "songID": "song-001",
+      "name": "Sample Song 1",
+      "releaseTime": 1704067200000,
+      "creators": [
+        "artist-001"
+      ],
+      "performers": [
+        "artist-001"
+      ],
+      "genres": [
+        "Pop",
+        "Rock"
+      ],
+      "lyricists": [
+        "lyricist-001"
+      ],
+      "composers": [
+        "composer-001"
+      ],
+      "arrangers": [],
+      "instrumentalists": [],
+      "uploadedBy": "admin-001",
+      "uploadTime": 1704067200000
+    },
+    {
+      "songID": "song-002",
+      "name": "Sample Song 2",
+      "releaseTime": 1704153600000,
+      "creators": [
+        "artist-002"
+      ],
+      "performers": [
+        "artist-002",
+        "artist-003"
+      ],
+      "genres": [
+        "Jazz"
+      ],
+      "lyricists": [
+        "lyricist-002"
+      ],
+      "composers": [
+        "composer-002"
+      ],
+      "arrangers": [
+        "arranger-001"
+      ],
+      "instrumentalists": [
+        "instrumentalist-001"
+      ],
+      "uploadedBy": "admin-001",
+      "uploadTime": 1704153600000
+    },
+    {
+      "songID": "1751236533604-rlw5jjgzc",
+      "name": "海阔天空",
+      "releaseTime": 1751155200000,
+      "creators": [
+        "黄家驹",
+        "黄家强"
+      ],
+      "performers": [
+        "黄家驹"
+      ],
+      "genres": [
+        "rock"
+      ],
+      "lyricists": [
+        "黄家驹"
+      ],
+      "composers": [
+        "黄家驹"
+      ],
+      "arrangers": [
+        "黄家驹"
+      ],
+      "instrumentalists": [
+        "黄家驹"
+      ],
+      "uploadedBy": "",
+      "uploadTime": 1751236533604
+    }
+  ],
+  "artists": [],
+  "bands": [],
+  "genres": [
+    {
+      "genreID": "genre-001",
+      "name": "Pop",
+      "description": "Popular music"
+    },
+    {
+      "genreID": "genre-002",
+      "name": "Rock",
+      "description": "Rock music"
+    },
+    {
+      "genreID": "genre-003",
+      "name": "Jazz",
+      "description": "Jazz music"
+    }
+  ]
+}

@@ -32,32 +32,42 @@ import APIs.OrganizeService.validateUserMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class FilterSongsByEntityPlanner(
+                                       userID: String,
+                                       userToken: String,
                                        entityID: Option[String],
                                        entityType: Option[String],
                                        genres: List[String],
-                                       userID: String,
-                                       userToken: String,
                                        override val planContext: PlanContext
-                                     ) extends Planner[List[String]] {
+                                     ) extends Planner[(Option[List[String]], String)] {
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using planContext: PlanContext): IO[List[String]] = {
-    for {
-      // Step 1: Validate userToken and userID mapping
-      _ <- IO(logger.info("Validating userToken and userID mapping"))
-      isValid <- validateUserMapping(userID, userToken).send
-      _ <- if (!isValid) IO.raiseError(new IllegalArgumentException("Invalid userToken or userID mapping")) else IO.unit
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
+    (
+      for {
+        // Step 1: Validate userToken and userID mapping
+        _ <- IO(logger.info("Validating userToken and userID mapping"))
+        (isValid,msg) <- validateUserMapping(userID, userToken).send
+        _ <- if (!isValid)
+          IO.raiseError(new IllegalArgumentException("Invalid userToken or userID mapping"))
+        else IO.unit
 
-      // Step 2: Validate entityID if applicable
-      _ <- IO(logger.info(s"Validating entityID for entityType: ${entityType}, entityID: ${entityID}"))
-      _ <- validateEntityID
+        // Step 2: Validate entityID if applicable
+        _ <- IO(logger.info(s"Validating entityID for entityType: ${entityType}, entityID: ${entityID}"))
+        _ <- validateEntityID
 
-      // Step 3: Build filtering criteria for songs
-      _ <- IO(logger.info("Building filter criteria for songs"))
-      queryResult <- filterSongs
+        // Step 3: Build filtering criteria for songs
+        _ <- IO(logger.info("Building filter criteria for songs"))
+        queryResult <- filterSongs
 
-    } yield queryResult
+        _ <- IO(logger.info(s"过滤结果: ${queryResult}"))
+
+      } yield (Some(queryResult), "") // 成功返回列表
+      ).handleErrorWith { e =>
+      IO(logger.error(s"歌曲过滤操作失败: ${e.getMessage}")) *>
+        IO.pure((None, e.getMessage)) // 失败返回 None 和错误信息
+    }
   }
+
 
   private def validateEntityID(using PlanContext): IO[Unit] = {
     entityType match {
