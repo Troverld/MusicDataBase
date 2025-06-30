@@ -6,7 +6,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     userName: '',
-    hashedPassword: ''
+    password: ''
   });
   const [error, setError] = useState('');
 
@@ -53,8 +53,8 @@ const Login: React.FC = () => {
           <label>Password</label>
           <input
             type="password"
-            name="hashedPassword"
-            value={formData.hashedPassword}
+            name="password"
+            value={formData.password}
             onChange={handleChange}
             required
           />

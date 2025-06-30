@@ -6,7 +6,7 @@ export interface User {
   
   export interface LoginCredentials {
     userName: string;
-    hashedPassword: string;
+    password: string;
   }
   
   export interface RegisterCredentials {

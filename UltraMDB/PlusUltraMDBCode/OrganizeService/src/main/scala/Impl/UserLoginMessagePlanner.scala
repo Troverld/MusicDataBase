@@ -15,26 +15,26 @@ import Common.Serialize.CustomColumnTypes.encodeDateTime
 /**
  * Planner for UserLoginMessage: 处理用户登录请求.
  *
- * @param userName       用户账户名
- * @param password       明文用户密码
- * @param planContext    隐式执行上下文
+ * @param userName    用户账户名
+ * @param password    用户传入的明文密码
+ * @param planContext 隐式执行上下文
  */
 case class UserLoginMessagePlanner(
-                                    userName: String,
-                                    password: String,
-                                    override val planContext: PlanContext
-                                  ) extends Planner[(Option[String], String)] {
+  userName: String,
+  password: String, // 这里的 password 是明文
+  override val planContext: PlanContext
+) extends Planner[(Option[String], String)] {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  // 已修正: 将 userId 字段重命名为 userID，以匹配数据库返回的JSON键
-  private case class UserAuthInfo(userID: String, password: String)
+  private case class UserAuthInfo(userID: String, password: String) // 这里的 password 是数据库存储的哈希
 
   override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
     val logic: IO[String] = for {
       _ <- logInfo(s"开始为用户 ${userName} 处理登录请求")
       user <- findUser(userName)
-      _ <- verifyPassword(user.password, CryptoUtils.encryptPassword(password))
+      // 已修正: 使用明文密码和数据库哈希进行验证
+      _ <- verifyUserPassword(password, user.password)
       newToken <- generateAndUpdateToken(user.userID)
     } yield newToken
 
@@ -54,9 +54,10 @@ case class UserLoginMessagePlanner(
       }
   }
 
-  private def verifyPassword(storedHash: String, providedHash: String)(using PlanContext): IO[Unit] = {
+  // 已修正: 方法名和参数名更清晰，并调用 CryptoUtils.verifyPassword
+  private def verifyUserPassword(plainTextPassword: String, storedHash: String)(using PlanContext): IO[Unit] = {
     logInfo("正在验证密码") >> {
-      if (storedHash == providedHash) {
+      if (CryptoUtils.verifyPassword(plainTextPassword, storedHash)) {
         logInfo("密码验证通过")
       } else {
         IO.raiseError(new Exception("用户名或密码错误"))
