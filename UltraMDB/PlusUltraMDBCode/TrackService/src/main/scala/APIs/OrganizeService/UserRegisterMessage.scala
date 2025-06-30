@@ -22,7 +22,7 @@ import java.util.UUID
  * UserRegisterMessage
  * desc: 用户注册操作接口，用户通过用户名和密码完成注册，并分配唯一ID
  * @param userName: String (用户名，用于标识唯一用户账户)
- * @param password: String (用户密码，用于账户安全验证，需加密存储)
+ * @param password: String (用户明文密码，用于账户安全验证，需加密存储)
  * @return (Option[String], String): (成功时的用户ID或None表示失败；失败时的报错信息)
  */
 

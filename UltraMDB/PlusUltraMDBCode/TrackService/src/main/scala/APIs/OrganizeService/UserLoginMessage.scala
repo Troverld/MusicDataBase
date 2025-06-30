@@ -20,15 +20,15 @@ import java.util.UUID
 
 /**
  * UserLoginMessage
- * desc: 用户传入用户名和加密后的密码，完成登录认证，并获得一个时间敏感的用户令牌
+ * desc: 用户传入用户名和明文密码，完成登录认证，并获得一个时间敏感的用户令牌
  * @param userName: String (用户名，用于标识具体用户)
- * @param hashedPassword: String (加密后的密码，用于验证用户身份)
+ * @param password: String (明文密码，用于验证用户身份)
  * @return (Option[String], String): (用户登录令牌, 错误信息)
  */
 
 case class UserLoginMessage(
   userName: String,
-  hashedPassword: String
+  password: String
 ) extends API[(Option[String], String)](OrganizeServiceCode)
 
 
