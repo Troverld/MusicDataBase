@@ -22,6 +22,8 @@ import Impl.UserLogoutMessagePlanner
 import Impl.SubmitArtistAuthRequestMessagePlanner
 import Impl.UserRegisterMessagePlanner
 import Impl.ApproveArtistAuthRequestMessagePlanner
+import Impl.validateAdminMappingPlanner
+import Impl.validateUserMappingPlanner
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -79,6 +81,20 @@ object Routes:
         IO(
           decode[ApproveArtistAuthRequestMessagePlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for ApproveArtistAuthRequestMessage[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+        
+      case "validateUserMapping" =>
+        IO(
+          decode[validateUserMappingPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateUserMapping[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
+      case "validateAdminMapping" =>
+        IO(
+          decode[validateAdminMappingPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAdminMapping[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        

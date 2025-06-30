@@ -1,110 +1,102 @@
 package Impl
 
-
-import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
-import io.circe.Json
-import cats.implicits._
-import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.DBAPI._
-import Common.API.{PlanContext, Planner}
-import cats.effect.IO
-import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateUserMapping
-import io.circe.syntax._
-import io.circe._
-import io.circe.generic.auto._
-import cats.implicits.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+// encodeDateTime 实际上不适用于此场景，我们直接使用 .getMillis.toString
 
-case class UserLoginMessagePlanner(userName: String, hashedPassword: String, override val planContext: PlanContext) extends Planner[Option[String]] {
-  val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
+/**
+ * Planner for UserLoginMessage: 处理用户登录请求.
+ *
+ * @param userName       用户账户名
+ * @param hashedPassword 加密后的用户密码
+ * @param planContext    隐式执行上下文
+ */
+case class UserLoginMessagePlanner(
+                                    userName: String,
+                                    hashedPassword: String,
+                                    override val planContext: PlanContext
+                                  ) extends Planner[(Option[String], String)] {
 
-  override def plan(using PlanContext): IO[Option[String]] = {
-    for {
-      // Step 1: Check if the user exists and get its userID and stored password
-      _ <- IO(logger.info(s"Checking if user exists in the database for userName: ${userName}"))
-      userOptional <- getUserByUserName()
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-      // Step 2: Process login logic if user exists
-      tokenOption <- userOptional match {
-        case Some((userID, storedPassword)) =>
-          if (storedPassword != hashedPassword) {
-            IO(logger.warn(s"Password mismatch for userName: ${userName}")) *> IO(None)
-          } else {
-            for {
-              // Step 3: Generate a new time-sensitive token
-              _ <- IO(logger.info("Generating new user token"))
-              newUserToken <- generateToken()
+  private case class UserAuthInfo(userId: String, password: String)
 
-              // Step 4: Validate user mapping
-              _ <- IO(logger.info(s"Validating user mapping for userID: ${userID} and token"))
-              isValid <- validateUserMapping(userID, newUserToken).send
+  override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
+    val logic: IO[String] = for {
+      _ <- logInfo(s"开始为用户 ${userName} 处理登录请求")
+      user <- findUser(userName)
+      _ <- verifyPassword(user.password, hashedPassword)
+      newToken <- generateAndUpdateToken(user.userId)
+    } yield newToken
 
-              // Step 5: Process mapping validation result
-              finalTokenOption <- if (!isValid) {
-                IO(logger.warn(s"User mapping validation failed for userID: ${userID}")) *> IO(None)
-              } else {
-                for {
-                  // Step 6: Update the token invalidation time in the database
-                  _ <- IO(logger.info(s"Updating token invalidation time for userID: ${userID}"))
-                  _ <- updateUserInvalidationTime(userID)
-                } yield Some(newUserToken)
-              }
-            } yield finalTokenOption
-          }
-        case None =>
-          IO(logger.warn(s"No user found for userName: ${userName}")) *> IO(None)
-      }
-    } yield tokenOption
-  }
-
-  // Sub-function: Get user by userName
-  private def getUserByUserName()(using PlanContext): IO[Option[(String, String)]] = {
-    val query = s"""
-      SELECT user_id, password
-      FROM ${schemaName}.user_table
-      WHERE account = ?;
-    """
-    val params = List(SqlParameter("String", userName))
-    readDBJsonOptional(query, params).map {
-      case Some(json) =>
-        val userID = decodeField[String](json, "user_id")
-        val storedPassword = decodeField[String](json, "password")
-        Some((userID, storedPassword))
-      case None => None
+    logic.map { token =>
+      (Some(token), "登录成功")
+    }.handleErrorWith { error =>
+      logError(s"用户 ${userName} 登录失败", error) >>
+        IO.pure((None, error.getMessage))
     }
   }
 
-  // Sub-function: Generate a user token
-  private def generateToken()(using PlanContext): IO[String] = {
-    IO(java.util.UUID.randomUUID().toString)
+  private def findUser(account: String)(using PlanContext): IO[UserAuthInfo] = {
+    logInfo(s"正在数据库中查找用户: ${account}") >>
+      getUserByUserName(account).flatMap {
+        case Some(user) => IO.pure(user)
+        case None       => IO.raiseError(new Exception("用户名或密码错误"))
+      }
   }
 
-  // Sub-function: Update the user's token invalidation time
-  private def updateUserInvalidationTime(userID: String)(using PlanContext): IO[Unit] = {
-    val query = s"""
-      UPDATE ${schemaName}.user_table
-      SET invalid_time = ?
-      WHERE user_id = ?;
-    """
-    val params = List(
-      SqlParameter("DateTime", DateTime.now.getMillis.toString),
-      SqlParameter("String", userID)
-    )
-    writeDB(query, params).void
+  private def verifyPassword(storedHash: String, providedHash: String)(using PlanContext): IO[Unit] = {
+    logInfo("正在验证密码") >> {
+      if (storedHash == providedHash) {
+        logInfo("密码验证通过")
+      } else {
+        IO.raiseError(new Exception("用户名或密码错误"))
+      }
+    }
   }
+
+  private def generateAndUpdateToken(userID: String)(using PlanContext): IO[String] = {
+    for {
+      _ <- logInfo(s"为用户 ${userID} 生成新Token")
+      newToken <- IO(java.util.UUID.randomUUID().toString)
+      _ <- logInfo(s"正在为用户 ${userID} 更新Token信息")
+      _ <- updateTokenInfo(userID, newToken)
+    } yield newToken
+  }
+
+  private def getUserByUserName(account: String)(using PlanContext): IO[Option[UserAuthInfo]] = {
+    val query = s"SELECT user_id, password FROM ${schemaName}.user_table WHERE account = ?"
+    readDBRows(query, List(SqlParameter("String", account))).flatMap {
+      case row :: Nil =>
+        IO.fromEither(row.as[UserAuthInfo])
+          .map(Option.apply)
+          .handleErrorWith(err => IO.raiseError(new Exception(s"解码UserAuthInfo失败: ${err.getMessage}")))
+      case Nil => IO.pure(None)
+      case _   => IO.raiseError(new Exception(s"数据库中存在多个同名账户: ${account}"))
+    }
+  }
+
+  private def updateTokenInfo(userID: String, token: String)(using PlanContext): IO[Unit] = {
+    val validUntil = DateTime.now().plusHours(2)
+    val query = s"UPDATE ${schemaName}.user_table SET token = ?, token_valid_until = ? WHERE user_id = ?"
+    writeDB(
+      query,
+      List(
+        SqlParameter("String", token),
+        // 已修正: 遵循原始代码和API约定，将DateTime转换为毫秒数的字符串
+        SqlParameter("DateTime", validUntil.getMillis.toString),
+        SqlParameter("String", userID)
+      )
+    ).void
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }

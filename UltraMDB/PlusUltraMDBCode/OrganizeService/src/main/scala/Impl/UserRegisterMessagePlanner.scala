@@ -1,115 +1,119 @@
 package Impl
 
-
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import cats.effect.IO
-import org.slf4j.LoggerFactory
-import org.joda.time.DateTime
-import io.circe.generic.auto.*
-import io.circe.syntax.*
-import io.circe.*
 import cats.implicits._
-import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
 import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.DBAPI._
-import Common.API.{PlanContext, Planner}
-import cats.effect.IO
-import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-import Common.ServiceUtils.schemaName
+import org.slf4j.LoggerFactory
 
-import io.circe.generic.auto._
-import io.circe.syntax._
-import io.circe._
-import cats.implicits.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-
+/**
+ * Planner for UserRegisterMessage: 处理新用户注册请求.
+ *
+ * @param userName    用户希望注册的账户名
+ * @param password    用户设置的明文密码
+ * @param planContext 隐式执行上下文
+ */
 case class UserRegisterMessagePlanner(
                                        userName: String,
                                        password: String,
                                        override val planContext: PlanContext
-                                     ) extends Planner[String] {
-  private val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
+                                     ) extends Planner[(Option[String], String)] { // 1. 遵循API约定，修改返回类型
 
-  override def plan(using planContext: PlanContext): IO[String] = {
-    for {
-      _ <- IO(logger.info(s"开始执行用户注册操作，用户名为: ${userName}"))
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-      // Step 1: 验证用户名是否已存在
-      isUserNameAvailable <- checkUserNameAvailability()
-      _ <- IO(logger.info(s"用户名是否可用: ${isUserNameAvailable}"))
-      _ <- if (!isUserNameAvailable)
-        IO.raiseError(new IllegalStateException(s"用户名 ${userName} 已存在"))
-      else IO.unit
+  override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
+    // 2. 使用单一for-comprehension和统一错误处理
+    val logic: IO[String] = for {
+      _ <- logInfo(s"开始为新用户 ${userName} 处理注册请求")
 
-      // Step 2: 验证密码是否符合规则
-      _ <- IO(logger.info(s"验证密码是否符合安全规则"))
-      _ <- validatePassword()
+      // 步骤 1: 验证用户名是否可用
+      _ <- checkUsernameAvailability()
 
-      // Step 3: 生成用户唯一ID
-      userID <- generateUserID()
+      // 步骤 2: 验证密码是否符合安全规则
+      _ <- validatePasswordRules()
 
-      // Step 4: 加密密码并存储用户信息
-      _ <- IO(logger.info(s"加密密码并存储用户信息到数据库"))
-      encryptedPassword <- IO(encryptPassword(password))
-      _ <- storeUserInfo(userID, userName, encryptedPassword)
+      // 步骤 3: 在数据库中创建新用户并获取其ID
+      newUserID <- createNewUserInDB()
 
-      // Step 5: 返回注册成功信息
-      _ <- IO(logger.info(s"用户注册成功，用户名: ${userName}, 用户ID: ${userID}"))
-    } yield "SUCCESS"
-  }
+    } yield newUserID
 
-  private def checkUserNameAvailability()(using PlanContext): IO[Boolean] = {
-    val sql =
-      s"""
-         |SELECT COUNT(1)
-         |FROM ${schemaName}.user_table
-         |WHERE account = ?;
-       """.stripMargin
-    readDBInt(sql, List(SqlParameter("String", userName))).map(_ == 0)
-  }
-
-  private def validatePassword()(using PlanContext): IO[Unit] = {
-    val isLengthValid = password.length >= 8
-    val hasLetters = password.exists(_.isLetter)
-    val hasDigits = password.exists(_.isDigit)
-
-    if (isLengthValid && hasLetters && hasDigits)
-      IO.unit
-    else
-      IO.raiseError(new IllegalArgumentException("密码必须至少8位且包含字母和数字"))
-  }
-
-  private def generateUserID()(using PlanContext): IO[String] = {
-    IO {
-      val userID = java.util.UUID.randomUUID().toString
-      logger.info(s"生成的用户ID为: ${userID}")
-      userID
+    logic.map { userID =>
+      (Some(userID), "注册成功")
+    }.handleErrorWith { error =>
+      logError(s"用户 ${userName} 注册失败", error) >>
+        IO.pure((None, error.getMessage))
     }
   }
 
-  private def encryptPassword(password: String): String = {
-    // 使用简单Hash作为占位符，生产代码中建议使用更安全的加密方式
-    password.reverse.hashCode.toString
+  /**
+   * 步骤1的实现：检查用户名是否已存在.
+   * 如果用户名已被占用，则返回一个失败的IO.
+   */
+  private def checkUsernameAvailability()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在检查用户名 ${userName} 是否可用") >> {
+      val sql = s"SELECT COUNT(1) FROM ${schemaName}.user_table WHERE account = ?"
+      readDBInt(sql, List(SqlParameter("String", userName))).flatMap { count =>
+        if (count > 0) {
+          IO.raiseError(new IllegalStateException("用户名已存在"))
+        } else {
+          logInfo("用户名可用")
+        }
+      }
+    }
   }
 
-  private def storeUserInfo(userID: String, userName: String, encryptedPassword: String)(using PlanContext): IO[Unit] = {
-    val sql =
-      s"""
-         |INSERT INTO ${schemaName}.user_table (user_id, account, password, invalid_time)
-         |VALUES (?, ?, ?, NULL);
-       """.stripMargin
-    writeDB(sql, List(
-      SqlParameter("String", userID),
-      SqlParameter("String", userName),
-      SqlParameter("String", encryptedPassword)
-    )).void
+  /**
+   * 步骤2的实现：验证密码策略.
+   */
+  private def validatePasswordRules()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证密码复杂度") >> {
+      val isLengthValid = password.length >= 8
+      val hasLettersAndDigits = password.exists(_.isLetter) && password.exists(_.isDigit)
+
+      if (isLengthValid && hasLettersAndDigits) {
+        logInfo("密码复杂度验证通过")
+      } else {
+        IO.raiseError(new IllegalArgumentException("密码必须至少8位且同时包含字母和数字"))
+      }
+    }
   }
+
+  /**
+   * 步骤3的实现：生成用户ID，加密密码，并将新用户信息存入数据库.
+   */
+  private def createNewUserInDB()(using PlanContext): IO[String] = {
+    for {
+      userID <- IO(java.util.UUID.randomUUID().toString)
+      _ <- logInfo(s"已为新用户生成ID: ${userID}")
+
+      encryptedPassword <- IO(encryptPassword(password))
+      _ <- logInfo("密码已加密，准备写入数据库")
+
+      sql = s"INSERT INTO ${schemaName}.user_table (user_id, account, password) VALUES (?, ?, ?)"
+      _ <- writeDB(
+        sql,
+        List(
+          SqlParameter("String", userID),
+          SqlParameter("String", userName),
+          SqlParameter("String", encryptedPassword)
+        )
+      )
+    } yield userID
+  }
+
+  /**
+   * 辅助方法：加密密码.
+   * 注意: 这是一个占位符实现。在生产环境中，应使用强哈希算法，如 BCrypt。
+   */
+  private def encryptPassword(plainText: String): String = {
+    // In a real application, use a strong hashing library like BCrypt.
+    // e.g., BCrypt.withDefaults.hashToString(12, plainText.toCharArray)
+    plainText.reverse.hashCode.toString
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }
