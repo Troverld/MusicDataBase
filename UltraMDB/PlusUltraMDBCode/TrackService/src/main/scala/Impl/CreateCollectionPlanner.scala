@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Objects.TrackService.Collection
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
@@ -42,7 +42,7 @@ case class CreateCollectionPlanner(
   override def plan(using PlanContext): IO[String] = {
     for {
       // Step 1: Validate user token and userID association
-      isValid <- validateUserMappingAssociation()
+      isValid <- ValidateUserMappingAssociation()
       _ <- if (!isValid) {
         IO(logger.error("用户验证失败，userID和userToken关联无效")) >>
           IO.raiseError(new IllegalArgumentException("用户验证失败：userID和userToken关联无效"))
@@ -82,9 +82,9 @@ case class CreateCollectionPlanner(
     } yield collectionID
   }
 
-  private def validateUserMappingAssociation()(using PlanContext): IO[Boolean] = {
-    IO(logger.info("调用validateUserMapping验证用户令牌的合法性以及userID的身份关联有效性")) >>
-      validateUserMapping(userID, userToken).send
+  private def ValidateUserMappingAssociation()(using PlanContext): IO[Boolean] = {
+    IO(logger.info("调用ValidateUserMapping验证用户令牌的合法性以及userID的身份关联有效性")) >>
+      ValidateUserMapping(userID, userToken).send
   }
 
   private def insertCollectionIntoDatabase(collection: Collection)(using PlanContext): IO[Unit] = {

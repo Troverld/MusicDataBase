@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -22,7 +22,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import io.circe._
 import io.circe.syntax._
 import io.circe.generic.auto._
@@ -44,7 +44,7 @@ case class DeleteCollectionPlanner(
     for {
       // Step 1: 验证管理员 Token 关联和有效性
       _ <- IO(logger.info(s"验证管理员(adminID=${adminID}, adminToken=${adminToken}) 的权限"))
-      isAdminValid <- validateAdmin(accessKey = adminID, token = adminToken)
+      isAdminValid <- ValidateAdmin(accessKey = adminID, token = adminToken)
       _ <- if (!isAdminValid) IO.raiseError(new Exception(s"管理员(adminID=${adminID})验证失败，操作拒绝")) else IO.unit
 
       // Step 2: 检查歌单是否存在
@@ -60,9 +60,9 @@ case class DeleteCollectionPlanner(
   }
 
   // 验证管理员身份
-  private def validateAdmin(accessKey: String, token: String)(using PlanContext): IO[Boolean] = {
-    logger.info(s"调用 validateAdminMapping API 验证 accessKey=${accessKey} 和 token=${token} 的关联关系")
-    validateAdminMapping(accessKey, token).send
+  private def ValidateAdmin(accessKey: String, token: String)(using PlanContext): IO[Boolean] = {
+    logger.info(s"调用 ValidateAdminMapping API 验证 accessKey=${accessKey} 和 token=${token} 的关联关系")
+    ValidateAdminMapping(accessKey, token).send
   }
 
   // 检查歌单是否存在

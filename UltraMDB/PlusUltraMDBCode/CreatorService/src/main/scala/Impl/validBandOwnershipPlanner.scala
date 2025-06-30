@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.{validateUserMapping, validateAdminMapping}
+import APIs.OrganizeService.{ValidateUserMapping, ValidateAdminMapping}
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -23,12 +23,12 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateUserMapping
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import io.circe._
 import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 
 case class ValidBandOwnershipPlanner(
                                       userID: String,
@@ -43,7 +43,7 @@ case class ValidBandOwnershipPlanner(
     for {
       // Step 1: Validate the userToken and userID association
       _ <- IO(logger.info(s"[Step 1] 开始验证用户令牌与映射关系: userID=${userID}, userToken=${userToken}"))
-      isUserValid <- validateUserMapping(userID, userToken).send
+      isUserValid <- ValidateUserMapping(userID, userToken).send
       _ <- IO(logger.info(s"[Step 1.1] 用户令牌验证结果: ${isUserValid}"))
 
       // Check if userToken is invalid
@@ -81,7 +81,7 @@ case class ValidBandOwnershipPlanner(
   // Check if the user is an administrator
   private def checkIfAdmin(adminID: String, adminToken: String)(using PlanContext): IO[Boolean] = {
     IO(logger.info(s"[Step 4] 用户非该乐队管理者，开始验证是否为管理员: adminID=${adminID}, adminToken=${adminToken}")) >>
-      validateAdminMapping(adminID, adminToken).send.map { isAdminValid =>
+      ValidateAdminMapping(adminID, adminToken).send.map { isAdminValid =>
         if (isAdminValid) {
           logger.info(s"[Step 4.1] 验证通过: 用户是管理员权限")
           true

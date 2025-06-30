@@ -1,6 +1,6 @@
 package Impl
 
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -32,7 +32,7 @@ case class UserLogoutMessagePlanner(
       _ <- logInfo(s"开始为用户 ${userID} 处理登出请求")
 
       // 步骤 1: 验证用户令牌的有效性
-      _ <- validateUser()
+      _ <- ValidateUser()
 
       // 步骤 2: 在数据库中将Token标记为无效
       _ <- invalidateTokenInDB()
@@ -51,9 +51,9 @@ case class UserLogoutMessagePlanner(
    * 步骤1的实现：验证用户.
    * 如果验证失败，则返回一个携带具体错误信息的失败IO.
    */
-  private def validateUser()(using PlanContext): IO[Unit] = {
+  private def ValidateUser()(using PlanContext): IO[Unit] = {
     logInfo(s"正在验证用户 ${userID} 的令牌") >>
-      validateUserMapping(userID, userToken).send.flatMap {
+      ValidateUserMapping(userID, userToken).send.flatMap {
         case (true, _) =>
           logInfo("用户令牌验证通过")
         case (false, message) =>

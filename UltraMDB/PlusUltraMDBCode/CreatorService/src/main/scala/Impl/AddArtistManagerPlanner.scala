@@ -2,7 +2,7 @@ package Impl
 
 
 import Objects.OrganizeService.User
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Objects.CreatorService.Artist
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
@@ -52,7 +52,7 @@ case class AddArtistManagerPlanner(
     for {
       // Step 1: Validate admin token and admin ID
       _ <- IO(logger.info(s"验证管理员Token和ID之间的匹配关系：adminID=${adminID}, adminToken=${adminToken}"))
-      adminValidation <- validateAdminMapping(adminID, adminToken).send
+      adminValidation <- ValidateAdminMapping(adminID, adminToken).send
       _ <- if (!adminValidation)
         IO.raiseError(new IllegalStateException("管理员认证失败"))
       else

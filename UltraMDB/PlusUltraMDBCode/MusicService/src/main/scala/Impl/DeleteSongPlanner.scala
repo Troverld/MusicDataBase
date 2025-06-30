@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -24,7 +24,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import io.circe._
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
@@ -42,7 +42,7 @@ case class DeleteSongPlanner(
       for {
         // Step 1: 验证管理员身份
         _ <- IO(logger.info(s"验证管理员身份，adminID: ${adminID}, adminToken: ${adminToken}"))
-        (isAdminValid, msg) <- validateAdminMapping(adminID, adminToken).send
+        (isAdminValid, msg) <- ValidateAdminMapping(adminID, adminToken).send
         _ <- IO(logger.info(s"管理员验证结果: ${isAdminValid}"))
         _ <- if (!isAdminValid) IO.raiseError(new Exception("管理员认证失败")) else IO.unit
 

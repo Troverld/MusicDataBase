@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import APIs.CreatorService.validArtistOwnership
 import APIs.CreatorService.validBandOwnership
 import Common.API.{PlanContext, Planner}
@@ -47,7 +47,7 @@ case class UpdateBandMessagePlanner(
     for {
       // Step 1: Validate user token and userID mapping
       _ <- IO(logger.info(s"[Step 1] 验证用户令牌和用户ID映射关系，userID=$userID"))
-      isUserValid <- validateUserMapping(userID, userToken).send
+      isUserValid <- ValidateUserMapping(userID, userToken).send
       _ <- if (!isUserValid) IO.raiseError(new Exception("用户令牌无效")) else IO(logger.info("[Step 1.1] 用户令牌验证成功"))
 
       // Step 2: Check if the user has the ownership of the band

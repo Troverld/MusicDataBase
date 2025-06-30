@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -23,7 +23,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import io.circe.Json
 import io.circe._
 import io.circe.generic.auto._
@@ -45,7 +45,7 @@ case class CreateBandMessagePlanner(
     for {
       // Step 1: Validate the adminToken and adminID mapping for administrator privileges
       _ <- IO(logger.info(s"Validating adminToken and adminID mapping for adminID: ${adminID}"))
-      isAdminValid <- validateAdminMapping(adminID, adminToken).send
+      isAdminValid <- ValidateAdminMapping(adminID, adminToken).send
       _ <- if (!isAdminValid) IO.raiseError(new Exception("管理员认证失败")) else IO(logger.info("Admin validation successful"))
 
       // Step 2: Check if the name is not empty

@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -52,7 +52,7 @@ case class AddBandManagerPlanner(
     for {
       // Step 1: Validate admin credentials
       _ <- IO(logger.info(s"[Step 1] 验证管理员 ${adminID} 的Token是否有效"))
-      isAdminValid <- validateAdminMapping(adminID, adminToken).send
+      isAdminValid <- ValidateAdminMapping(adminID, adminToken).send
       _ <- if (!isAdminValid) IO.raiseError(new IllegalArgumentException("管理员认证失败")) else IO.unit
 
       // Step 2: Check if userID exists

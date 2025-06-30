@@ -1,7 +1,7 @@
 package Impl
 
 import APIs.CreatorService.AddBandManager
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -40,7 +40,7 @@ case class ApproveBandAuthRequestMessagePlanner(
       _ <- logInfo(s"开始处理管理员 ${adminID} 对认证请求 ${requestID} 的审批操作，操作为: ${if(approve) "批准" else "拒绝"}")
 
       // 步骤 1: 验证管理员凭据和权限
-      _ <- validateAdmin()
+      _ <- ValidateAdmin()
 
       // 步骤 2: 从数据库检索并验证请求记录
       requestRecord <- getBandAuthRequest(requestID)
@@ -63,8 +63,8 @@ case class ApproveBandAuthRequestMessagePlanner(
   }
 
   /** 步骤1的实现：验证管理员身份 */
-  private def validateAdmin()(using PlanContext): IO[Unit] = {
-    validateAdminMapping(adminID, adminToken).send.flatMap {
+  private def ValidateAdmin()(using PlanContext): IO[Unit] = {
+    ValidateAdminMapping(adminID, adminToken).send.flatMap {
       case (true, _) =>
         logInfo(s"管理员 ${adminID} 验证通过")
       case (false, message) =>

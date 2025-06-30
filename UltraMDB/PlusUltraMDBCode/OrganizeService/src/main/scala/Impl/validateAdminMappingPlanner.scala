@@ -1,6 +1,6 @@
 package Impl
 
-import APIs.OrganizeService.validateUserMapping // 复用已有的API
+import APIs.OrganizeService.ValidateUserMapping // 复用已有的API
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
  * @param adminToken  该用户的认证令牌
  * @param planContext 隐式执行上下文
  */
-case class validateAdminMappingPlanner(
+case class ValidateAdminMappingPlanner(
                                         adminID: String,
                                         adminToken: String,
                                         override val planContext: PlanContext
@@ -49,11 +49,11 @@ case class validateAdminMappingPlanner(
 
   /**
    * 步骤1的实现：首先将该管理员作为一个普通用户进行验证.
-   * 我们直接调用 validateUserMapping API 来复用逻辑。
+   * 我们直接调用 ValidateUserMapping API 来复用逻辑。
    */
   private def validateAsUser()(using PlanContext): IO[Unit] = {
     logInfo(s"正在将用户 ${adminID} 作为普通用户进行验证")
-    validateUserMapping(adminID, adminToken).send.flatMap {
+    ValidateUserMapping(adminID, adminToken).send.flatMap {
       case (true, _) =>
         logInfo("用户身份及令牌有效")
       case (false, message) =>

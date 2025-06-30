@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -23,7 +23,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import io.circe._
 import io.circe.syntax._
 import io.circe.generic.auto._
@@ -44,7 +44,7 @@ case class SearchSongsByNamePlanner(
       for {
         // Step 1: Validate user rights
         _ <- IO(logger.info(s"[Step 1] Validate user rights for userID=${userID}, userToken=${userToken}"))
-        (isValid,msg) <- validateUserMapping(userID, userToken).send
+        (isValid,msg) <- ValidateUserMapping(userID, userToken).send
         _ <- IO {
           if (!isValid)
             logger.error(s"[Step 1.1] User validation failed for userID=${userID}, userToken=${userToken}")

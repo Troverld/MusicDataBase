@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.{validateAdminMapping, validateUserMapping}
+import APIs.OrganizeService.{ValidateAdminMapping, ValidateUserMapping}
 import Objects.TrackService.Collection
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
@@ -26,8 +26,8 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateAdminMapping
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Objects.TrackService.Collection
 import io.circe._
 import cats.implicits.*
@@ -45,7 +45,7 @@ case class ValidateCollectionOwnershipPlanner(
     for {
       // Step 1: 验证用户令牌是否有效
       _ <- IO(logger.info(s"[Step 1] 开始验证用户令牌: userID=${userID}, userToken=${userToken}"))
-      isTokenValid <- validateUserToken()
+      isTokenValid <- ValidateUserToken()
       _ <- if (isTokenValid) IO(logger.info("[Step 1.1] 用户令牌验证通过"))
            else IO(logger.error("[Step 1.1] 用户令牌验证失败")) >>
              IO.raiseError(new RuntimeException(s"Invalid user token for userID=${userID}"))
@@ -72,15 +72,15 @@ case class ValidateCollectionOwnershipPlanner(
 
       // Step 5: 检查用户是否为管理员
       _ <- IO(logger.info(s"[Step 5] 检查用户是否为管理员: userID=${userID}, userToken=${userToken}"))
-      isAdmin <- validateAdminToken()
+      isAdmin <- ValidateAdminToken()
       _ <- IO(logger.info(if (isAdmin) "[Step 5.1] 用户是管理员" else "[Step 5.1] 用户不是管理员"))
 
     } yield isOwner || isMaintainer || isAdmin
   }
 
   /** 验证用户令牌是否合法 */
-  private def validateUserToken()(using PlanContext): IO[Boolean] = {
-    validateUserMapping(userID, userToken).send
+  private def ValidateUserToken()(using PlanContext): IO[Boolean] = {
+    ValidateUserMapping(userID, userToken).send
   }
 
   /** 检索歌单记录，并解析为Collection对象 */
@@ -94,7 +94,7 @@ case class ValidateCollectionOwnershipPlanner(
   }
 
   /** 验证用户是否是管理员 */
-  private def validateAdminToken()(using PlanContext): IO[Boolean] = {
-    validateAdminMapping(userID, userToken).send
+  private def ValidateAdminToken()(using PlanContext): IO[Boolean] = {
+    ValidateAdminMapping(userID, userToken).send
   }
 }

@@ -19,45 +19,45 @@ import java.util.UUID
 
 
 /**
- * validateAdminMapping
+ * ValidateAdminMapping
  * desc: 统一验证管理员的有效性、映射关系和权限，用于所有涉及管理员操作的功能作为前置验证
  * @param adminID: String (管理员ID)
  * @param adminToken: String (管理员令牌)
  * @return (Boolean, String): (管理员是否通过验证, 错误信息)
  */
 
-case class validateAdminMapping(
+case class ValidateAdminMapping(
   adminID: String,
   adminToken: String
 ) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
-case object validateAdminMapping{
+case object ValidateAdminMapping{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[validateAdminMapping] = deriveEncoder
-  private val circeDecoder: Decoder[validateAdminMapping] = deriveDecoder
+  private val circeEncoder: Encoder[ValidateAdminMapping] = deriveEncoder
+  private val circeDecoder: Decoder[ValidateAdminMapping] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[validateAdminMapping] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[ValidateAdminMapping] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[validateAdminMapping] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[validateAdminMapping]() {})) } 
+  private val jacksonDecoder: Decoder[ValidateAdminMapping] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[ValidateAdminMapping]() {})) } 
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given validateAdminMappingEncoder: Encoder[validateAdminMapping] = Encoder.instance { config =>
+  given ValidateAdminMappingEncoder: Encoder[ValidateAdminMapping] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given validateAdminMappingDecoder: Decoder[validateAdminMapping] = Decoder.instance { cursor =>
+  given ValidateAdminMappingDecoder: Decoder[ValidateAdminMapping] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 

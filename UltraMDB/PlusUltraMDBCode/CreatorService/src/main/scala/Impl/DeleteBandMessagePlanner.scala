@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Objects.MusicService.Song
 import Objects.TrackService.Album
 import Common.API.{PlanContext, Planner}
@@ -44,7 +44,7 @@ case class DeleteBandMessagePlanner(
     for {
       // Step 1: Validate adminToken and ID, and admin privileges
       _ <- IO(logger.info("验证管理员权限"))
-      isValidAdmin <- validateAdminMapping(adminID, adminToken).send
+      isValidAdmin <- ValidateAdminMapping(adminID, adminToken).send
       _ <- if (!isValidAdmin) IO.raiseError(new IllegalArgumentException("管理员认证失败")) else IO(logger.info("管理员验证成功"))
 
       // Step 2: Check if the bandID exists in the BandTable

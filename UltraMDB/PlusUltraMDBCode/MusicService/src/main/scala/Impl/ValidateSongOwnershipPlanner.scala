@@ -3,8 +3,8 @@ package Impl
 
 import Objects.CreatorService.Band
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.validateAdminMapping
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -26,7 +26,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import io.circe.syntax._
 import org.joda.time.DateTime
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
@@ -44,7 +44,7 @@ case class ValidateSongOwnershipPlanner(
     (
       for {
         // Step 1: Validate user token
-        (isUserValid,msg) <- validateUserMapping(userID, userToken).send
+        (isUserValid,msg) <- ValidateUserMapping(userID, userToken).send
         _ <- IO(logger.info(s"用户令牌验证结果: ${isUserValid}"))
         _ <- if (!isUserValid)
           IO.raiseError(new IllegalArgumentException("Invalid user or token"))
@@ -130,7 +130,7 @@ case class ValidateSongOwnershipPlanner(
 
   private def checkAdminPrivileges()(using PlanContext): IO[Boolean] = {
     for {
-      (isAdmin,msg) <- validateAdminMapping(userID, userToken).send
+      (isAdmin,msg) <- ValidateAdminMapping(userID, userToken).send
     } yield isAdmin
   }
 }

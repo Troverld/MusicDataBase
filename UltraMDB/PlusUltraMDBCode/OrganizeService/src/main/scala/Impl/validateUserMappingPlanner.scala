@@ -13,13 +13,13 @@ import org.slf4j.LoggerFactory
 import Common.Serialize.CustomColumnTypes.decodeDateTime // 引入解码器
 
 /**
- * Planner for validateUserMapping: 验证用户ID和用户令牌之间的映射关系是否有效.
+ * Planner for ValidateUserMapping: 验证用户ID和用户令牌之间的映射关系是否有效.
  *
  * @param userID      需要验证的用户ID
  * @param userToken   需要验证的用户令牌
  * @param planContext 隐式执行上下文
  */
-case class validateUserMappingPlanner(
+case class ValidateUserMappingPlanner(
                                        userID: String,
                                        userToken: String,
                                        override val planContext: PlanContext

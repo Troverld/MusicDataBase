@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import APIs.TrackService.validateCollectionOwnership
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
@@ -42,7 +42,7 @@ case class InviteMaintainerToCollectionPlanner(
     for {
       // Step 1: 验证用户令牌与用户ID的关联关系
       _ <- IO(logger.info(s"验证用户令牌 ${userToken} 与用户ID ${userID} 的关联关系"))
-      isUserValid <- validateUserMapping(userID, userToken).send
+      isUserValid <- ValidateUserMapping(userID, userToken).send
       _ <- if (!isUserValid) {
         IO(logger.error("用户令牌与用户ID的关联关系验证失败")) >>
           IO.pure(false)
@@ -58,7 +58,7 @@ case class InviteMaintainerToCollectionPlanner(
 
       // Step 3: 检查 invitedUserID 是否合法
       _ <- IO(logger.info(s"检查被邀请用户 ${invitedUserID} 是否存在"))
-      isInvitedUserValid <- validateUserMapping(invitedUserID, "").send
+      isInvitedUserValid <- ValidateUserMapping(invitedUserID, "").send
       _ <- if (!isInvitedUserValid) {
         IO(logger.error("被邀请人不存在")) >>
           IO.pure(false)

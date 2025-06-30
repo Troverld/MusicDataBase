@@ -1,8 +1,8 @@
 package Impl
 
 
-import APIs.OrganizeService.validateAdminMapping
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.ValidateUserMapping
 import APIs.CreatorService.validArtistOwnership
 import APIs.CreatorService.validBandOwnership
 import Common.API.{PlanContext, Planner}
@@ -37,7 +37,7 @@ case class ValidateAlbumOwnershipPlanner(
     for {
       // Step 1: Validate user token
       _ <- IO(logger.info(s"正在验证用户令牌：userID=${userID}, userToken=${userToken}"))
-      isUserValid <- validateUserMapping(userID, userToken).send
+      isUserValid <- ValidateUserMapping(userID, userToken).send
       _ <- IO.raiseWhen(!isUserValid)(new IllegalArgumentException(s"用户令牌无效或userID与userToken不匹配：${userID}"))
       
       // Step 2: Fetch album details
@@ -59,7 +59,7 @@ case class ValidateAlbumOwnershipPlanner(
 
       // Step 5: Validate if user is an admin
       _ <- IO(logger.info(s"验证用户是否为管理员"))
-      isAdmin <- validateAdminMapping(userID, userToken).send
+      isAdmin <- ValidateAdminMapping(userID, userToken).send
       _ <- IO(logger.info(s"用户是否为管理员：$isAdmin"))
     } yield creatorOwnership || collaboratorOwnership || isAdmin
   }

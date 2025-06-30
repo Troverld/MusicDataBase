@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -24,7 +24,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.ValidateAdminMapping
 import io.circe.generic.auto._
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
@@ -42,7 +42,7 @@ case class DeleteGenrePlanner(
       for {
         // Step 1: Validate admin identity and permissions
         _ <- IO(logger.info(s"Validating admin permissions for adminID: ${adminID}."))
-        (isAdminValid,msg) <- validateAdminMapping(adminID, adminToken).send
+        (isAdminValid,msg) <- ValidateAdminMapping(adminID, adminToken).send
         _ <- if (!isAdminValid)
           IO.raiseError(new IllegalAccessException(s"Admin validation failed for adminID $adminID"))
         else IO.unit

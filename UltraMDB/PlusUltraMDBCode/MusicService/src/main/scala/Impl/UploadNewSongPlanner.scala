@@ -3,7 +3,7 @@ package Impl
 
 import Objects.CreatorService.Band
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -27,7 +27,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class UploadNewSongPlanner(
@@ -50,7 +50,7 @@ case class UploadNewSongPlanner(
       for {
         // Step 1: Validate user token and ID association
         _ <- IO(logger.info(s"验证用户令牌与用户ID的关联关系：userID=${userID}, userToken=${userToken}"))
-        (isValidUser, msg) <- validateUserMapping(userID, userToken).send
+        (isValidUser, msg) <- ValidateUserMapping(userID, userToken).send
         _ <- if (!isValidUser) IO.raiseError(new IllegalArgumentException("Invalid userToken or userID association.")) else IO.unit
 
         // Step 2: Validate song name is not empty

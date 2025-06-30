@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -25,7 +25,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.validateUserMapping
+import APIs.OrganizeService.ValidateUserMapping
 import io.circe.Json
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
@@ -42,7 +42,7 @@ case class AddToPlaylistPlanner(
     for {
       // Step 1: Validate user token
       _ <- IO(logger.info("Validating user token..."))
-      isValidToken <- validateUserMapping(userID, userToken).send
+      isValidToken <- ValidateUserMapping(userID, userToken).send
       _ <- if (!isValidToken) {
         IO(logger.error("Invalid user ID or token")) >>
           IO.raiseError(new IllegalArgumentException("Invalid user ID or token"))
