@@ -1958,7 +1958,7 @@ case object UserRegisterMessage{
 } 
 ========== End of src\main\scala\APIs\OrganizeService\UserRegisterMessage.scala ========== 
  
-========== src\main\scala\APIs\OrganizeService\ValidateAdminMapping.scala ========== 
+========== src\main\scala\APIs\OrganizeService\validateAdminMapping.scala ========== 
 package APIs.OrganizeService
 
 import Common.API.API
@@ -1980,52 +1980,52 @@ import java.util.UUID
 
 
 /**
- * ValidateAdminMapping
+ * validateAdminMapping
  * desc: 统一验证管理员的有效性、映射关系和权限，用于所有涉及管理员操作的功能作为前置验证
  * @param adminID: String (管理员ID)
  * @param adminToken: String (管理员令牌)
  * @return (Boolean, String): (管理员是否通过验证, 错误信息)
  */
 
-case class ValidateAdminMapping(
+case class validateAdminMapping(
   adminID: String,
   adminToken: String
 ) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
-case object ValidateAdminMapping{
+case object validateAdminMapping{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[ValidateAdminMapping] = deriveEncoder
-  private val circeDecoder: Decoder[ValidateAdminMapping] = deriveDecoder
+  private val circeEncoder: Encoder[validateAdminMapping] = deriveEncoder
+  private val circeDecoder: Decoder[validateAdminMapping] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[ValidateAdminMapping] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[validateAdminMapping] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[ValidateAdminMapping] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[ValidateAdminMapping]() {})) } 
+  private val jacksonDecoder: Decoder[validateAdminMapping] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[validateAdminMapping]() {})) } 
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given ValidateAdminMappingEncoder: Encoder[ValidateAdminMapping] = Encoder.instance { config =>
+  given validateAdminMappingEncoder: Encoder[validateAdminMapping] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given ValidateAdminMappingDecoder: Decoder[ValidateAdminMapping] = Decoder.instance { cursor =>
+  given validateAdminMappingDecoder: Decoder[validateAdminMapping] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
 } 
-========== End of src\main\scala\APIs\OrganizeService\ValidateAdminMapping.scala ========== 
+========== End of src\main\scala\APIs\OrganizeService\validateAdminMapping.scala ========== 
  
-========== src\main\scala\APIs\OrganizeService\ValidateUserMapping.scala ========== 
+========== src\main\scala\APIs\OrganizeService\validateUserMapping.scala ========== 
 package APIs.OrganizeService
 
 import Common.API.API
@@ -2047,50 +2047,50 @@ import java.util.UUID
 
 
 /**
- * ValidateUserMapping
+ * validateUserMapping
  * desc: 统一验证用户的有效性和映射关系
  * @param userID: String (用户ID，用于标识当前进行验权操作的用户)
  * @param userToken: String (用户令牌，用于验证用户登录及验证有效性)
  * @return (Boolean, String): (用户ID与令牌是否匹配且有效, 错误信息)
  */
 
-case class ValidateUserMapping(
+case class validateUserMapping(
   userID: String,
   userToken: String
 ) extends API[(Boolean, String)](OrganizeServiceCode)
 
 
 
-case object ValidateUserMapping{
+case object validateUserMapping{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[ValidateUserMapping] = deriveEncoder
-  private val circeDecoder: Decoder[ValidateUserMapping] = deriveDecoder
+  private val circeEncoder: Encoder[validateUserMapping] = deriveEncoder
+  private val circeDecoder: Decoder[validateUserMapping] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[ValidateUserMapping] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[validateUserMapping] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[ValidateUserMapping] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[ValidateUserMapping]() {})) } 
+  private val jacksonDecoder: Decoder[validateUserMapping] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[validateUserMapping]() {})) } 
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given ValidateUserMappingEncoder: Encoder[ValidateUserMapping] = Encoder.instance { config =>
+  given validateUserMappingEncoder: Encoder[validateUserMapping] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given ValidateUserMappingDecoder: Decoder[ValidateUserMapping] = Decoder.instance { cursor =>
+  given validateUserMappingDecoder: Decoder[validateUserMapping] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
 } 
-========== End of src\main\scala\APIs\OrganizeService\ValidateUserMapping.scala ========== 
+========== End of src\main\scala\APIs\OrganizeService\validateUserMapping.scala ========== 
  
 ========== src\main\scala\APIs\TrackService\AddToPlaylist.scala ========== 
 package APIs.TrackService
@@ -3950,7 +3950,7 @@ package Impl
  * 输出参数:
  *   - genreID : String -> 新创建曲风的genreID
  */
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -3975,7 +3975,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class CreateNewGenrePlanner(
@@ -3993,7 +3993,7 @@ case class CreateNewGenrePlanner(
     for {
       // Step 1: 验证管理员权限
       _ <- IO(logger.info(s"验证管理员权限: 管理员ID=${adminID}, 管理员Token=${adminToken}"))
-      _ <- ValidateAdmin()
+      _ <- validateAdmin()
 
       // Step 2.1: 检查曲风名称是否为空
       _ <- IO(logger.info(s"检查曲风名称 ${name} 是否为空"))
@@ -4013,11 +4013,11 @@ case class CreateNewGenrePlanner(
 
   /**
    * 验证管理员权限
-   * Step 1.1: 调用ValidateAdminMapping以验证权限
+   * Step 1.1: 调用validateAdminMapping以验证权限
    * @return IO[Unit]
    */
-  private def ValidateAdmin()(using PlanContext): IO[Unit] = {
-    ValidateAdminMapping(adminID, adminToken).send.flatMap { isValid =>
+  private def validateAdmin()(using PlanContext): IO[Unit] = {
+    validateAdminMapping(adminID, adminToken).send.flatMap { isValid =>
       if (isValid) IO(logger.info("管理员权限验证通过"))
       else IO.raiseError(new IllegalStateException("管理员认证失败"))
     }
@@ -4079,7 +4079,7 @@ case class CreateNewGenrePlanner(
 package Impl
 
 
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -4102,7 +4102,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import io.circe.generic.auto._
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
@@ -4119,7 +4119,7 @@ case class DeleteGenrePlanner(
     for {
       // Step 1: Validate admin identity and permissions
       _ <- IO(logger.info(s"Validating admin permissions for adminID: ${adminID}."))
-      isAdminValid <- ValidateAdminMapping(adminID, adminToken).send
+      isAdminValid <- validateAdminMapping(adminID, adminToken).send
       _ <- if (!isAdminValid) {
         IO.raiseError(new IllegalAccessException(s"Admin validation failed for adminID $adminID"))
       } else IO.unit
@@ -4178,7 +4178,7 @@ case class DeleteGenrePlanner(
 package Impl
 
 
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -4201,7 +4201,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import io.circe._
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
@@ -4218,7 +4218,7 @@ case class DeleteSongPlanner(
     for {
       // Step 1: 验证管理员身份
       _ <- IO(logger.info(s"验证管理员身份，adminID: ${adminID}, adminToken: ${adminToken}"))
-      isAdminValid <- ValidateAdminMapping(adminID, adminToken).send
+      isAdminValid <- validateAdminMapping(adminID, adminToken).send
       _ <- IO(logger.info(s"管理员验证结果: ${isAdminValid}"))
       _ <- if (!isAdminValid) IO.raiseError(new Exception("管理员认证失败")) else IO.unit
 
@@ -4295,7 +4295,7 @@ package Impl
 
 import Objects.CreatorService.Band
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -4320,7 +4320,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class FilterSongsByEntityPlanner(
@@ -4337,7 +4337,7 @@ case class FilterSongsByEntityPlanner(
     for {
       // Step 1: Validate userToken and userID mapping
       _ <- IO(logger.info("Validating userToken and userID mapping"))
-      isValid <- ValidateUserMapping(userID, userToken).send
+      isValid <- validateUserMapping(userID, userToken).send
       _ <- if (!isValid) IO.raiseError(new IllegalArgumentException("Invalid userToken or userID mapping")) else IO.unit
 
       // Step 2: Validate entityID if applicable
@@ -4425,7 +4425,7 @@ case class FilterSongsByEntityPlanner(
 package Impl
 
 
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -4447,7 +4447,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import io.circe._
 import io.circe.syntax._
 import io.circe.generic.auto._
@@ -4467,7 +4467,7 @@ case class SearchSongsByNamePlanner(
     for {
       // Step 1: Validate user rights
       _ <- IO(logger.info(s"[Step 1] Validate user rights for userID=${userID}, userToken=${userToken}"))
-      isValid <- ValidateUserMapping(userID, userToken).send
+      isValid <- validateUserMapping(userID, userToken).send
       _ <- IO {
         if (!isValid) logger.error(s"[Step 1.1] User validation failed for userID=${userID}, userToken=${userToken}")
         else logger.info("[Step 1.1] User validation succeeded")
@@ -4518,7 +4518,7 @@ import Objects.CreatorService.{Artist, Band}
 import Objects.MusicService.Genre
 import APIs.MusicService.ValidateSongOwnership
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -4544,7 +4544,7 @@ import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
 import Objects.CreatorService.Band
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
@@ -4570,7 +4570,7 @@ case class UpdateSongMetadataPlanner(
     for {
       // Step 1: Validate userToken and userID
       _ <- IO(logger.info("Validating userToken and userID..."))
-      isValidToken <- ValidateUserMapping(userID, userToken).send
+      isValidToken <- validateUserMapping(userID, userToken).send
       _ <- if (!isValidToken) IO.raiseError(new Exception("Invalid user token")) else IO.unit
 
       // Step 2: Validate song ownership
@@ -4694,7 +4694,7 @@ package Impl
 
 import Objects.CreatorService.Band
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -4718,7 +4718,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class UploadNewSongMessage(
@@ -4747,7 +4747,7 @@ case class UploadNewSongPlanner(
     for {
       // Step 1: Validate user token and ID association
       _ <- IO(logger.info(s"验证用户令牌与用户ID的关联关系：userID=${message.userID}, userToken=${message.userToken}"))
-      isValidUser <- ValidateUserMapping(message.userID, message.userToken).send
+      isValidUser <- validateUserMapping(message.userID, message.userToken).send
       _ <- if (!isValidUser) IO.raiseError(new IllegalArgumentException("Invalid userToken or userID association.")) else IO.unit
 
       // Step 2: Validate song name is not empty
@@ -4848,8 +4848,8 @@ package Impl
 
 import Objects.CreatorService.Band
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.ValidateAdminMapping
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateAdminMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -4871,7 +4871,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import io.circe.syntax._
 import org.joda.time.DateTime
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
@@ -4888,7 +4888,7 @@ case class ValidateSongOwnershipPlanner(
   override def plan(using PlanContext): IO[Boolean] = {
     for {
       // Step 1: Validate user token
-      isUserValid <- ValidateUserMapping(userID, userToken).send
+      isUserValid <- validateUserMapping(userID, userToken).send
       _ <- IO(logger.info(s"用户令牌验证结果: ${isUserValid}"))
       _ <- if (!isUserValid) IO.raiseError(new IllegalArgumentException("Invalid user or token")) else IO.unit
       
@@ -4961,7 +4961,7 @@ case class ValidateSongOwnershipPlanner(
   }
 
   private def checkAdminPrivileges()(using PlanContext): IO[Boolean] = {
-    ValidateAdminMapping(userID, userToken).send
+    validateAdminMapping(userID, userToken).send
   }
 } 
 ========== End of src\main\scala\Impl\ValidateSongOwnershipPlanner.scala ========== 

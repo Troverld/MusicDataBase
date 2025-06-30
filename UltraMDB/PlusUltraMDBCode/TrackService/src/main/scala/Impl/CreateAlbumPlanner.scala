@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import APIs.CreatorService.{validArtistOwnership, validBandOwnership}
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
@@ -50,7 +50,7 @@ case class CreateAlbumPlanner(
   override def plan(using PlanContext): IO[String] = {
     for {
       // Step 1: 验证管理员Token
-      isAdminValid <- ValidateAdminMapping(adminID, adminToken).send
+      isAdminValid <- validateAdminMapping(adminID, adminToken).send
       _ <- if (!isAdminValid) {
         IO.raiseError(new IllegalAccessException(s"Admin ID $adminID and token validation failed"))
       } else {

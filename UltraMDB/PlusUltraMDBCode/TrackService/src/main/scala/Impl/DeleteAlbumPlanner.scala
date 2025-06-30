@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -25,7 +25,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import io.circe._
 import io.circe.syntax._
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
@@ -42,7 +42,7 @@ case class DeleteAlbumPlanner(
     for {
       // Step 1: Validate adminToken and adminID
       _ <- IO(logger.info(s"[Step 1] 验证管理员是否具有删除权限"))
-      isAdminValid <- ValidateAdmin(adminID, adminToken)
+      isAdminValid <- validateAdmin(adminID, adminToken)
       _ <- if (isAdminValid) IO(logger.info(s"[Step 1.1] 管理员验证通过: adminID=${adminID}")) else IO.raiseError(new Exception("管理员验证失败"))
 
       // Step 2: Ensure albumID exists and is not referenced
@@ -70,9 +70,9 @@ case class DeleteAlbumPlanner(
     } yield deletionSuccessful
   }
 
-  // Function to validate admin through ValidateAdminMapping API
-  private def ValidateAdmin(adminID: String, adminToken: String)(using PlanContext): IO[Boolean] = {
-    ValidateAdminMapping(adminID, adminToken).send.map {
+  // Function to validate admin through validateAdminMapping API
+  private def validateAdmin(adminID: String, adminToken: String)(using PlanContext): IO[Boolean] = {
+    validateAdminMapping(adminID, adminToken).send.map {
       case true =>
         logger.info(s"管理员 adminID=${adminID} 验证通过")
         true

@@ -2,7 +2,7 @@ package Impl
 
 
 
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -27,7 +27,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class CreateNewGenrePlanner(
@@ -46,7 +46,7 @@ case class CreateNewGenrePlanner(
       for {
         // Step 1: 验证管理员权限
         _ <- IO(logger.info(s"验证管理员权限: 管理员ID=${adminID}, 管理员Token=${adminToken}"))
-        _ <- ValidateAdmin()
+        _ <- validateAdmin()
 
         // Step 2.1: 检查曲风名称是否为空
         _ <- IO(logger.info(s"检查曲风名称 ${name} 是否为空"))
@@ -71,11 +71,11 @@ case class CreateNewGenrePlanner(
 
   /**
    * 验证管理员权限
-   * Step 1.1: 调用ValidateAdminMapping以验证权限
+   * Step 1.1: 调用validateAdminMapping以验证权限
    * @return IO[Unit]
    */
-  private def ValidateAdmin()(using PlanContext): IO[Unit] = {
-    ValidateAdminMapping(adminID, adminToken).send.flatMap { (isValid,msg) =>
+  private def validateAdmin()(using PlanContext): IO[Unit] = {
+    validateAdminMapping(adminID, adminToken).send.flatMap { (isValid,msg) =>
       if (isValid) IO(logger.info("管理员权限验证通过"))
       else IO.raiseError(new IllegalStateException("管理员认证失败"))
     }

@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -25,7 +25,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import io.circe.syntax._
 import io.circe._
 import io.circe.generic.auto._
@@ -42,9 +42,9 @@ case class CreateArtistMessagePlanner(
 
   override def plan(using PlanContext): IO[String] = {
     for {
-      // Step 1: Verify adminToken and adminID mapping with ValidateAdminMapping API
+      // Step 1: Verify adminToken and adminID mapping with validateAdminMapping API
       _ <- IO(logger.info("[Step 1] 验证管理员认证信息"))
-      isValid <- ValidateAdminMapping(adminID, adminToken).send
+      isValid <- validateAdminMapping(adminID, adminToken).send
       _ <- if (!isValid) {
         IO(logger.error("[Step 1] 管理员认证失败，验证失败"))
           .flatMap(_ => IO.raiseError(new IllegalArgumentException("管理员认证失败")))

@@ -5,7 +5,7 @@ import Objects.CreatorService.{Artist, Band}
 import Objects.MusicService.Genre
 import APIs.MusicService.ValidateSongOwnership
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -31,7 +31,7 @@ import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
 import Objects.CreatorService.Band
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
@@ -58,7 +58,7 @@ case class UpdateSongMetadataPlanner(
       for {
         // Step 1: Validate userToken and userID
         _ <- IO(logger.info("Validating userToken and userID..."))
-        (isValidToken,msg1) <- ValidateUserMapping(userID, userToken).send
+        (isValidToken,msg1) <- validateUserMapping(userID, userToken).send
         _ <- if (!isValidToken)
           IO.raiseError(new Exception("Invalid user token"))
         else IO.unit

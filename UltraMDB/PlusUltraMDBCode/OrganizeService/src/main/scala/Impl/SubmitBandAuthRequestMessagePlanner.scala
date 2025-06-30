@@ -1,6 +1,6 @@
 package Impl
 
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -36,7 +36,7 @@ case class SubmitBandAuthRequestMessagePlanner(
     // 2. 将核心逻辑包裹在try/catch块中，以实现健壮的错误处理
     val logic: IO[String] = for {
       // 步骤 1: 验证用户令牌
-      _ <- ValidateUser()
+      _ <- validateUser()
 
       // 步骤 2: 验证乐队是否存在，并确认用户当前不是其管理员
       _ <- validateBandAndNotManager()
@@ -61,10 +61,10 @@ case class SubmitBandAuthRequestMessagePlanner(
   }
 
   /** 步骤1的实现：验证用户 */
-  private def ValidateUser()(using PlanContext): IO[Unit] = {
+  private def validateUser()(using PlanContext): IO[Unit] = {
     logInfo("步骤 1: 验证用户令牌") >>
       // 4. 精确处理API的(Boolean, String)返回类型
-      ValidateUserMapping(userID, userToken).send.flatMap {
+      validateUserMapping(userID, userToken).send.flatMap {
         case (true, _) =>
           logInfo(s"用户 ${userID} 验证通过")
         case (false, message) =>

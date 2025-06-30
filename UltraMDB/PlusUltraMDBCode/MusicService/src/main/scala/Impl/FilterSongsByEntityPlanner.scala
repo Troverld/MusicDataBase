@@ -3,7 +3,7 @@ package Impl
 
 import Objects.CreatorService.Band
 import Objects.CreatorService.Artist
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
@@ -28,7 +28,7 @@ import cats.effect.IO
 import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 import Common.ServiceUtils.schemaName
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 case class FilterSongsByEntityPlanner(
@@ -46,7 +46,7 @@ case class FilterSongsByEntityPlanner(
       for {
         // Step 1: Validate userToken and userID mapping
         _ <- IO(logger.info("Validating userToken and userID mapping"))
-        (isValid,msg) <- ValidateUserMapping(userID, userToken).send
+        (isValid,msg) <- validateUserMapping(userID, userToken).send
         _ <- if (!isValid)
           IO.raiseError(new IllegalArgumentException("Invalid userToken or userID mapping"))
         else IO.unit

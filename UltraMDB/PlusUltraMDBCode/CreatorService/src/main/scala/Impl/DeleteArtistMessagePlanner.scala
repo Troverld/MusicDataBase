@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.ValidateAdminMapping
+import APIs.OrganizeService.validateAdminMapping
 import Objects.MusicService.Song
 import Objects.TrackService.Album
 import Common.API.{PlanContext, Planner}
@@ -43,7 +43,7 @@ case class DeleteArtistMessagePlanner(
     for {
       // Step 1: Validate admin rights
       _ <- IO(logger.info("[Step 1] 验证管理员身份"))
-      isValid <- ValidateAdminMapping(adminID, adminToken).send
+      isValid <- validateAdminMapping(adminID, adminToken).send
       _ <- handleAdminValidation(isValid)
 
       // Step 2: Check if artistID exists

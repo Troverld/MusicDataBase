@@ -1,7 +1,7 @@
 package Impl
 
 
-import APIs.OrganizeService.ValidateUserMapping
+import APIs.OrganizeService.validateUserMapping
 import APIs.CreatorService.validArtistOwnership
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
@@ -43,7 +43,7 @@ case class UpdateArtistMessagePlanner(
   override def plan(using PlanContext): IO[String] = for {
     // Step 1: Validate userToken and userID mapping
     _ <- IO(logger.info(s"[Step 1] 验证用户映射: userID=${userID}, userToken=${userToken}"))
-    isValidUser <- ValidateUserMapping(userID, userToken).send
+    isValidUser <- validateUserMapping(userID, userToken).send
     _ <- if (!isValidUser) IO.raiseError(new IllegalArgumentException("用户验证失败"))
          else IO(logger.info("[Step 1.1] 用户验证成功"))
 
