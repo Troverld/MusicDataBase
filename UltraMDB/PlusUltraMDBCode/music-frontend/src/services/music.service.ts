@@ -5,7 +5,7 @@ import { getUser } from '../utils/storage';
 export const musicService = {
   async uploadSong(songData: Partial<Song>): Promise<[string | null, string]> {
     const user = getUser();
-    if (!user || !user.userToken) {
+    if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
 
@@ -28,7 +28,7 @@ export const musicService = {
 
   async updateSong(songID: string, songData: Partial<Song>): Promise<[boolean, string]> {
     const user = getUser();
-    if (!user || !user.userToken) {
+    if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
 
@@ -52,7 +52,7 @@ export const musicService = {
 
   async deleteSong(songID: string): Promise<[boolean, string]> {
     const user = getUser();
-    if (!user || !user.userToken) {
+    if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
 
@@ -68,7 +68,7 @@ export const musicService = {
 
   async searchSongs(keywords: string): Promise<[string[] | null, string]> {
     const user = getUser();
-    if (!user || !user.userToken) {
+    if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
 

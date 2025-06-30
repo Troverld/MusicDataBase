@@ -52,19 +52,21 @@ app.post('/api/UserRegisterMessage', (req, res) => {
 
 // User Login
 app.post('/api/UserLoginMessage', (req, res) => {
-  const { userName, hashedPassword } = req.body;
+  const { userName, password } = req.body;  // 使用 password 而不是 hashedPassword
   
-  const user = db.users.find(u => u.userName === userName && u.password === hashedPassword);
+  const user = db.users.find(u => u.userName === userName && u.password === password);
   
   if (user) {
     const token = `token-${generateId()}`;
+    const userID = user.userID || generateId();
     user.userToken = token;
-    user.userID = user.userID || generateId();
+    user.userID = userID;
     
-    // Save token
+    // 保存更新
     fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
     
-    res.json([token, "登录成功"]);
+    // 返回 [[userID, token], message] 格式
+    res.json([[userID, token], "登录成功"]);
   } else {
     res.json([null, "用户名或密码错误"]);
   }

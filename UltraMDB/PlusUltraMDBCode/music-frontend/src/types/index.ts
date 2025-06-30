@@ -13,6 +13,14 @@ export interface User {
     userName: string;
     password: string;
   }
+
+  // 添加新的类型定义以匹配后端返回
+  export type LoginResponse = [
+    [string, string] | null,  // [userID, userToken] 或 null
+    string                    // 错误信息
+  ];
+
+  export type RegisterResponse = [string | null, string];
   
   export interface Song {
     songID: string;

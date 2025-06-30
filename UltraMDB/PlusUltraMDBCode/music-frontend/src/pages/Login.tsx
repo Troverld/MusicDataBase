@@ -6,7 +6,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     userName: '',
-    password: ''
+    password: ''  // 使用 password 而不是 hashedPassword
   });
   const [error, setError] = useState('');
 
@@ -22,12 +22,14 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const [token, message] = await authService.login(formData);
+      const result = await authService.login(formData);
       
-      if (token) {
+      if (result[0]) {
+        // 登录成功，result[0] 包含 [userID, userToken]
         navigate('/');
       } else {
-        setError(message || 'Login failed');
+        // 登录失败，result[1] 包含错误信息
+        setError(result[1] || 'Login failed');
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
@@ -53,7 +55,7 @@ const Login: React.FC = () => {
           <label>Password</label>
           <input
             type="password"
-            name="password"
+            name="password"  // 改为 password
             value={formData.password}
             onChange={handleChange}
             required
