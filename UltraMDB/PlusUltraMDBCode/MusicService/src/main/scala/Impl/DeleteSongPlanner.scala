@@ -52,9 +52,9 @@ case class DeleteSongPlanner(
         _ <- if (!songExists) IO.raiseError(new Exception("歌曲不存在")) else IO.unit
 
         // Step 3: 检查引用情况
-        _ <- IO(logger.info(s"检查歌曲是否被引用, songID: ${songID}"))
-        isReferenced <- checkSongReferenced(songID)
-        _ <- if (isReferenced) IO.raiseError(new Exception("歌曲被引用，无法删除")) else IO.unit
+//        _ <- IO(logger.info(s"检查歌曲是否被引用, songID: ${songID}"))
+//        isReferenced <- checkSongReferenced(songID)
+//        _ <- if (isReferenced) IO.raiseError(new Exception("歌曲被引用，无法删除")) else IO.unit
 
         // Step 4: 删除歌曲记录
         _ <- IO(logger.info(s"从SongTable删除歌曲记录, songID: ${songID}"))
