@@ -2,13 +2,10 @@ import axios, { AxiosInstance } from 'axios';
 import { getToken, getUser } from '../utils/storage';
 import { PlanContext } from '../types';
 
-// 开发模式标识
-const isDevelopment = process.env.NODE_ENV === 'development';
-
 // 服务端口映射，根据后端ServiceUtils.portMap配置
 const SERVICE_PORTS = {
   organize: 10011,   // OrganizeService
-  music: isDevelopment ? 10011 : 10010,      // MusicService - 开发模式下使用同一端口
+  music: 10010,      // MusicService
   creator: 10012,    // CreatorService
   track: 10013       // TrackService
 };
