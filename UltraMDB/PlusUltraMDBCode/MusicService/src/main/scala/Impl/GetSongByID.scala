@@ -85,30 +85,39 @@ case class GetSongByID(
       List(SqlParameter("String", songID))
     ).flatMap {
       case Some(rawJson) =>
-        // 字段名列表
+        // 需要修复的字段名列表
         val listFields = List("creators", "performers", "lyricists", "composers", "arrangers", "instrumentalists", "genres")
 
         val patchedJson = rawJson.mapObject { jsonObj =>
-          // 对每个字段尝试转换字符串数组为真正数组
-          listFields.foldLeft(jsonObj) { case (acc, field) =>
+          val fixedLists = listFields.foldLeft(jsonObj) { case (acc, field) =>
             acc(field) match {
               case Some(jsonVal) if jsonVal.isString =>
                 val jsonStr = jsonVal.asString.getOrElse("[]")
                 io.circe.parser.parse(jsonStr) match {
                   case Right(arrayJson) if arrayJson.isArray =>
                     acc.add(field, arrayJson)
-                  case _ =>
-                    acc // 如果无法解析就跳过
+                  case _ => acc
                 }
-              case _ =>
-                acc
+              case _ => acc
             }
           }
+
+          // 修复 releaseTime（从字符串时间戳 -> 数字时间戳）
+          val fixedTime = fixedLists("releaseTime") match {
+            case Some(jsonVal) if jsonVal.isString =>
+              jsonVal.asString.flatMap(str => scala.util.Try(str.toLong).toOption) match {
+                case Some(timestamp) => fixedLists.add("releaseTime", Json.fromLong(timestamp))
+                case None => fixedLists
+              }
+            case _ => fixedLists
+          }
+
+          fixedTime
         }
 
         decodeTypeIO[Song](patchedJson).attempt.map {
           case Right(song) => (Some(song), "")
-          case Left(err)   => (None, "Decoding failed: " + err.getMessage)
+          case Left(err) => (None, "Decoding failed: " + err.getMessage)
         }
 
       case None =>

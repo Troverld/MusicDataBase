@@ -28,13 +28,18 @@ import java.util.UUID
  */
 
 case class Song(
-  songID: String,
-  name: String,
-  releaseTime: DateTime,
-  creators: List[String],
-  performers: List[String],
-  genres: List[String]
-){
+                 songID: String,
+                 name: String,
+                 releaseTime: DateTime,
+                 creators: List[String],
+                 performers: List[String],
+                 lyricists: List[String],
+                 arrangers: List[String],
+                 instrumentalists: List[String],
+                 composers: List[String],
+                 genres: List[String],
+                 uploader_id: String
+               ){
 
   //process class code 预留标志位，不要删除
 
@@ -44,7 +49,7 @@ case class Song(
 
 case object Song{
 
-    
+
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
@@ -57,10 +62,10 @@ case object Song{
   }
 
   private val jacksonDecoder: Decoder[Song] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Song]() {})) } 
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Song]() {})) }
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
-  
+
   // Circe + Jackson 兜底的 Encoder
   given songEncoder: Encoder[Song] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
