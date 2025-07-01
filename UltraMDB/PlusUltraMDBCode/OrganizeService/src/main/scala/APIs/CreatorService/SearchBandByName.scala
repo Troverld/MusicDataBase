@@ -17,47 +17,47 @@ import scala.util.Try
 import org.joda.time.DateTime
 import java.util.UUID
 
-import Objects.CreatorService.Artist
+import Objects.CreatorService.Band
 
 /**
- * GetArtistByID
- * desc: 根据提供的艺术家ID，获取完整的艺术家元数据。需要用户认证。
+ * SearchBandByName
+ * desc: 根据提供的乐队ID，获取完整的乐队元数据。需要用户认证。
  * @param userID: String (发起请求的用户ID)
  * @param userToken: String (用户的认证令牌)
- * @param artistID: String (要查询的艺术家的唯一ID)
- * @return (Option[Artist], String): (成功时包含艺术家对象，失败时为None；附带操作信息)
+ * @param BandName: String (要模糊查询的乐队名称)
+ * @return (Option[List[String]], String): (成功时包含乐队id列表，失败时为None；附带操作信息)
  */
-case class GetArtistByID(
+case class SearchBandByName(
   userID: String,
   userToken: String,
-  artistID: String
-) extends API[(Option[Artist], String)](CreatorServiceCode)
+  BandName: String
+) extends API[(Option[List[String]], String)](CreatorServiceCode)
 
-case object GetArtistByID{
+case object SearchBandByName{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[GetArtistByID] = deriveEncoder
-  private val circeDecoder: Decoder[GetArtistByID] = deriveDecoder
+  private val circeEncoder: Encoder[SearchBandByName] = deriveEncoder
+  private val circeDecoder: Decoder[SearchBandByName] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[GetArtistByID] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[SearchBandByName] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[GetArtistByID] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[GetArtistByID]() {})) } 
+  private val jacksonDecoder: Decoder[SearchBandByName] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[SearchBandByName]() {})) } 
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given getArtistByIDEncoder: Encoder[GetArtistByID] = Encoder.instance { config =>
+  given SearchBandByNameEncoder: Encoder[SearchBandByName] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given getArtistByIDDecoder: Decoder[GetArtistByID] = Decoder.instance { cursor =>
+  given SearchBandByNameDecoder: Decoder[SearchBandByName] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 

@@ -24,13 +24,13 @@ import Objects.CreatorService.Band
  * desc: 根据提供的乐队ID，获取完整的乐队元数据。需要用户认证。
  * @param userID: String (发起请求的用户ID)
  * @param userToken: String (用户的认证令牌)
- * @param songID: String (要查询的乐队的唯一ID)
+ * @param bandID: String (要查询的乐队的唯一ID)
  * @return (Option[Band], String): (成功时包含乐队对象，失败时为None；附带操作信息)
  */
 case class GetBandByID(
   userID: String,
   userToken: String,
-  artistID: String
+  bandID: String
 ) extends API[(Option[Band], String)](CreatorServiceCode)
 
 case object GetBandByID{

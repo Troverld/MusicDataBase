@@ -27,6 +27,8 @@ import Impl.AddBandManagerPlanner
 import Impl.CreateArtistMessagePlanner
 import Impl.GetArtistByIDPlanner
 import Impl.GetBandByIDPlanner
+import Impl.SearchArtistByNamePlanner
+import Impl.SearchBandByNamePlanner
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -118,6 +120,20 @@ object Routes:
       case "GetBandByID" =>
         IO(
           decode[GetBandByIDPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+       
+      case "SearchArtistByName" =>
+        IO(
+          decode[SearchArtistByNamePlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+       
+      case "SearchBandByName" =>
+        IO(
+          decode[SearchBandByNamePlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
