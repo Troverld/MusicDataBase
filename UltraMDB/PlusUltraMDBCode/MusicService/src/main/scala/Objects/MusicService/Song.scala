@@ -38,7 +38,7 @@ case class Song(
                  instrumentalists: List[String],
                  composers: List[String],
                  genres: List[String],
-                 uploader_id: String
+                 uploaderID: String
                ){
 
   //process class code 预留标志位，不要删除
