@@ -5,7 +5,7 @@ import { PlanContext } from '../types';
 // 服务端口映射，根据后端ServiceUtils.portMap配置
 const SERVICE_PORTS = {
   organize: 10011,   // OrganizeService
-  music: 10010,      // MusicService  
+  music: 10010,      // MusicService
   creator: 10012,    // CreatorService
   track: 10013       // TrackService
 };
@@ -24,7 +24,7 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'UpdateSongMetadata': 'music',
   'DeleteSong': 'music',
   'SearchSongsByName': 'music',
-  'GetSongByID': 'music',  // 添加这个API
+  'GetSongByID': 'music',
   'CreateNewGenre': 'music',
   'DeleteGenre': 'music',
   'FilterSongsByEntity': 'music',

@@ -134,7 +134,7 @@ case class UpdateSongMetadataPlanner(
       validateIDsExist(ids) >>
       writeDB(
         s"UPDATE ${schemaName}.song_table SET ${fieldName} = ? WHERE song_id = ?;",
-        List(SqlParameter("Array[String]", ids.asJson.noSpaces), SqlParameter("String", songID))
+        List(SqlParameter("String", ids.asJson.noSpaces), SqlParameter("String", songID))
       ).void
   }
 
@@ -143,7 +143,7 @@ case class UpdateSongMetadataPlanner(
       validateGenresExist(genres) >>
       writeDB(
         s"UPDATE ${schemaName}.song_table SET genres = ? WHERE song_id = ?;",
-        List(SqlParameter("Array[String]", genres.asJson.noSpaces), SqlParameter("String", songID))
+        List(SqlParameter("String", genres.asJson.noSpaces), SqlParameter("String", songID))
       ).void
   }
 
