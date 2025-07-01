@@ -140,31 +140,69 @@ const GenreManagement: React.FC = () => {
         }}>
           <h2 style={{ marginBottom: '10px', color: '#333' }}>删除曲风</h2>
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
-            输入要删除的曲风ID。注意：删除曲风可能会影响使用该曲风的歌曲。
+            从下拉框中选择要删除的曲风。注意：删除曲风可能会影响使用该曲风的歌曲。
           </p>
           
           <form onSubmit={handleDeleteSubmit}>
             <div className="form-group">
-              <label>曲风ID*</label>
-              <input
-                type="text"
-                value={deleteFormData.genreID}
-                onChange={(e) => setDeleteFormData({genreID: e.target.value})}
-                placeholder="例如：genre-001"
-                required
-                disabled={loading}
-              />
-              <small style={{ display: 'block', marginTop: '5px', color: '#666' }}>
-                曲风ID通常以 "genre-" 开头，如 genre-001, genre-002 等
-              </small>
+              <label>选择要删除的曲风*</label>
+              {genres.length === 0 ? (
+                <div style={{ 
+                  padding: '12px', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px',
+                  backgroundColor: '#f8f9fa',
+                  color: '#666',
+                  textAlign: 'center'
+                }}>
+                  暂无可删除的曲风
+                </div>
+              ) : (
+                <select
+                  value={deleteFormData.genreID}
+                  onChange={(e) => setDeleteFormData({genreID: e.target.value})}
+                  required
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="">请选择要删除的曲风...</option>
+                  {genres.map((genre) => (
+                    <option key={genre.genreID} value={genre.genreID}>
+                      {genre.name} ({genre.genreID})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {deleteFormData.genreID && (
+                <div style={{ 
+                  marginTop: '8px', 
+                  padding: '8px 12px',
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '4px'
+                }}>
+                  <small style={{ color: '#856404' }}>
+                    ⚠️ 即将删除曲风: <strong>
+                      {genres.find(g => g.genreID === deleteFormData.genreID)?.name}
+                    </strong>
+                  </small>
+                </div>
+              )}
             </div>
             
             <button 
               type="submit" 
               className="btn btn-danger"
-              disabled={loading || !deleteFormData.genreID.trim()}
+              disabled={loading || !deleteFormData.genreID.trim() || genres.length === 0}
             >
-              {loading ? '删除中...' : '删除曲风'}
+              {loading ? '删除中...' : '删除选中曲风'}
             </button>
           </form>
         </div>
@@ -231,7 +269,7 @@ const GenreManagement: React.FC = () => {
         )}
       </div>
 
-      {/* Common Genre IDs Reference */}
+      {/* Management Tips */}
       <div style={{ 
         background: '#f8f9fa', 
         padding: '25px', 
@@ -242,8 +280,9 @@ const GenreManagement: React.FC = () => {
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 曲风管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
           <p><strong>添加曲风：</strong> 系统会自动生成唯一的曲风ID，您只需填写名称和描述即可。</p>
-          <p><strong>删除曲风：</strong> 删除曲风前请确认没有歌曲正在使用该曲风，否则可能导致数据不一致。</p>
+          <p><strong>删除曲风：</strong> 从下拉框中选择要删除的曲风，删除前请确认没有歌曲正在使用该曲风。</p>
           <p><strong>曲风使用：</strong> 用户在上传或编辑歌曲时，可以从当前曲风列表中多选曲风进行标记。</p>
+          <p><strong>数据安全：</strong> 所有曲风操作都会立即同步到歌曲管理界面，确保数据一致性。</p>
         </div>
       </div>
     </div>

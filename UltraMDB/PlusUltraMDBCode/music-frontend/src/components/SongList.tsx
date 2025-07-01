@@ -27,8 +27,8 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
     return items.length > 0 ? items.join(', ') : '无';
   };
 
-  const formatGenres = (genreIds: string[]) => {
-    if (genreIds.length === 0) return '无';
+  const formatGenres = (genreIds: string[]): string[] => {
+    if (genreIds.length === 0) return [];
     const genreNames = getGenreNamesByIds(genreIds);
     return genreNames;
   };
@@ -64,9 +64,13 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
           <div style={{ marginTop: '10px' }}>
             <strong>曲风:</strong>
             <div style={{ marginTop: '5px' }}>
-              {formatGenres(song.genres).map((genreName, index) => (
-                <span key={index} className="chip">{genreName}</span>
-              ))}
+              {formatGenres(song.genres).length > 0 ? (
+                formatGenres(song.genres).map((genreName: string, index: number) => (
+                  <span key={index} className="chip">{genreName}</span>
+                ))
+              ) : (
+                <span className="chip" style={{ backgroundColor: '#f8f9fa', color: '#6c757d' }}>无</span>
+              )}
             </div>
           </div>
 
