@@ -9,3 +9,15 @@ yarn-debug.log*
 yarn-error.log*
 build/
 .DS_Store
+
+# 忽略项目上下文文件
+*_project_context.txt
+frontend_project_context.txt
+scala_project_context.txt
+
+# 忽略批处理文件
+*.bat
+collect.bat
+
+# 忽略 package-lock.json (如果您确定要忽略的话)
+package-lock.json

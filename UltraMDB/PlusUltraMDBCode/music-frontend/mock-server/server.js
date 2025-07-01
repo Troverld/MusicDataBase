@@ -190,7 +190,7 @@ app.post('/api/SearchSongsByName', (req, res) => {
   res.json([songIds, "搜索成功"]);
 });
 
-// Get Song By ID - 新增的API端点
+// Get Song By ID
 app.post('/api/GetSongByID', (req, res) => {
   const { userID, userToken, songID } = req.body;
   
@@ -209,7 +209,68 @@ app.post('/api/GetSongByID', (req, res) => {
   res.json([song, "获取歌曲成功"]);
 });
 
-// Get song details (additional endpoint for testing) - 保留现有的批量获取功能
+// Create New Genre
+app.post('/api/CreateNewGenre', (req, res) => {
+  const { adminID, adminToken, name, description } = req.body;
+  
+  // Verify admin (for demo, any logged-in user can create genres)
+  const user = db.users.find(u => u.userToken === adminToken);
+  if (!user) {
+    return res.json([null, "管理员认证失败"]);
+  }
+  
+  // Check if genre name already exists
+  if (db.genres.find(g => g.name.toLowerCase() === name.toLowerCase())) {
+    return res.json([null, "曲风名称已存在"]);
+  }
+  
+  // Create new genre
+  const genreId = `genre-${String(db.genres.length + 1).padStart(3, '0')}`;
+  const newGenre = {
+    genreID: genreId,
+    name,
+    description
+  };
+  
+  db.genres.push(newGenre);
+  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
+  
+  res.json([genreId, "曲风创建成功"]);
+});
+
+// Delete Genre
+app.post('/api/DeleteGenre', (req, res) => {
+  const { adminID, adminToken, genreID } = req.body;
+  
+  // Verify admin (for demo, any logged-in user can delete genres)
+  const user = db.users.find(u => u.userToken === adminToken);
+  if (!user) {
+    return res.json([false, "管理员认证失败"]);
+  }
+  
+  // Find genre
+  const genreIndex = db.genres.findIndex(g => g.genreID === genreID);
+  if (genreIndex === -1) {
+    return res.json([false, "曲风不存在"]);
+  }
+  
+  // Check if any songs use this genre
+  const songsUsingGenre = db.songs.filter(song => 
+    song.genres && song.genres.includes(genreID)
+  );
+  
+  if (songsUsingGenre.length > 0) {
+    return res.json([false, `无法删除曲风：有 ${songsUsingGenre.length} 首歌曲正在使用此曲风`]);
+  }
+  
+  // Delete genre
+  db.genres.splice(genreIndex, 1);
+  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
+  
+  res.json([true, "曲风删除成功"]);
+});
+
+// Get song details (additional endpoint for testing)
 app.post('/api/GetSongDetails', (req, res) => {
   const { songIDs } = req.body;
   
@@ -229,4 +290,6 @@ app.listen(PORT, () => {
   console.log('- POST /api/DeleteSong');
   console.log('- POST /api/SearchSongsByName');
   console.log('- POST /api/GetSongByID');
+  console.log('- POST /api/CreateNewGenre');
+  console.log('- POST /api/DeleteGenre');
 });
