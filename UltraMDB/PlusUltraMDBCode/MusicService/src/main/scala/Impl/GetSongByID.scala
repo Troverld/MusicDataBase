@@ -1,6 +1,5 @@
 package Impl
 
-import APIs.MusicService.ValidateSongOwnership
 import Common.API.{PlanContext, Planner}
 import APIs.OrganizeService.validateUserMapping
 import cats.effect.IO
@@ -39,10 +38,11 @@ import APIs.OrganizeService.validateUserMapping
 import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
 case class GetSongByID(
-                        userID: String,
-                        userToken: String,
-                        songID: String
-                      ) extends Planner[(Option[Song], String)]{
+    userID: String,
+    userToken: String,
+    songID: String,
+    override val planContext: PlanContext
+) extends Planner[(Option[Song], String)]{
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
   override def plan(using planContext: PlanContext): IO[(Option[Song], String)] = {
@@ -60,11 +60,13 @@ case class GetSongByID(
         else IO.unit
 
         _ <- IO(logger.info(s"Getting song by songID=${songID} in SongTable."))
-        songOpt <- getSongByID
+
+
+        songOpt <- performSearch
 
       } yield songOpt  // 成功：返回 true 和空错误信息
       ).handleErrorWith { e =>
-      IO(logger.error(s"更新歌曲元数据失败: ${e.getMessage}")) *>
+      IO(logger.error(s"查询歌曲数据失败: ${e.getMessage}")) *>
         IO.pure((None, e.getMessage))  // 失败：返回 false 和错误信息
     }
   }
@@ -76,23 +78,41 @@ case class GetSongByID(
     ).map(_.isDefined)
   }
 
-  private def getSongByID(using PlanContext): IO[(Option[Song], String)] = {
-    (
-      readDBJsonOptional(
-        s"SELECT * FROM $schemaName.song_table WHERE song_id = ?;",
-        List(SqlParameter("String", songID))
-      ).flatMap {
-        case Some(json) =>
-          val jsonStr = json.noSpaces // ✅ 转为 String 才能 decode
-          io.circe.parser.decode[Song](jsonStr) match {
-            case Right(song) => IO.pure((Some(song),""))
-            case Left(err) => IO.raiseError(new Exception(s"解析歌曲数据失败: ${err.getMessage}"))
+
+  private def performSearch(using PlanContext): IO[(Option[Song], String)] = {
+    readDBJsonOptional(
+      s"SELECT * FROM ${schemaName}.song_table WHERE song_id = ?;",
+      List(SqlParameter("String", songID))
+    ).flatMap {
+      case Some(rawJson) =>
+        // 字段名列表
+        val listFields = List("creators", "performers", "lyricists", "composers", "arrangers", "instrumentalists", "genres")
+
+        val patchedJson = rawJson.mapObject { jsonObj =>
+          // 对每个字段尝试转换字符串数组为真正数组
+          listFields.foldLeft(jsonObj) { case (acc, field) =>
+            acc(field) match {
+              case Some(jsonVal) if jsonVal.isString =>
+                val jsonStr = jsonVal.asString.getOrElse("[]")
+                io.circe.parser.parse(jsonStr) match {
+                  case Right(arrayJson) if arrayJson.isArray =>
+                    acc.add(field, arrayJson)
+                  case _ =>
+                    acc // 如果无法解析就跳过
+                }
+              case _ =>
+                acc
+            }
           }
-        case None => IO.pure((None,s"未找到歌曲"))
-      }
-    ).handleErrorWith { e =>
-      IO(logger.error(s"查找歌曲失败: ${e.getMessage}")) *>
-        IO.pure((None, e.getMessage))  // 失败：返回 false 和错误信息
+        }
+
+        decodeTypeIO[Song](patchedJson).attempt.map {
+          case Right(song) => (Some(song), "")
+          case Left(err)   => (None, "Decoding failed: " + err.getMessage)
+        }
+
+      case None =>
+        IO.pure((None, "Song not found."))
     }
   }
 

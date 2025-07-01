@@ -23,6 +23,7 @@ import Impl.UploadNewSongPlanner
 import Impl.FilterSongsByEntityPlanner
 import Impl.CreateNewGenrePlanner
 import Impl.ValidateSongOwnershipPlanner
+import Impl.GetSongByID
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -40,11 +41,18 @@ object Routes:
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for DeleteGenre[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
-       
+
       case "SearchSongsByName" =>
         IO(
           decode[SearchSongsByNamePlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchSongsByName[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
+      case "GetSongByID" =>
+        IO(
+          decode[GetSongByID](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSongsByID[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
