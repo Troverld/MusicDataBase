@@ -1,0 +1,170 @@
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\CreatorService\Artist.scala
+
+/**
+ * Artist
+desc: 艺术家信息
+@param artistID: String (艺术家的唯一ID)
+@param name: String (艺术家的名字)
+@param bio: String (艺术家的简介)
+@param managedBy: String (管理艺术家的用户ID的列表)
+ */
+case class Artist(
+  artistID: String,
+  name: String,
+  bio: String,
+  managedBy: List[String]
+)
+
+================================================================================
+
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\CreatorService\Band.scala
+
+/**
+ * Band
+desc: 表示一个音乐组合的信息
+@param bandID: String (乐队的唯一标识)
+@param name: String (乐队名称)
+@param members: String (乐队成员的ID列表)
+@param bio: String (乐队的简介)
+@param managedBy: String (负责管理该乐队的管理者ID列表)
+ */
+case class Band(
+  bandID: String,
+  name: String,
+  members: List[String],
+  bio: String,
+  managedBy: List[String]
+)
+
+================================================================================
+
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\MusicService\Genre.scala
+
+/**
+ * Genre
+desc: 音乐流派信息，包括ID、名称以及描述
+@param genreID: String (流派的唯一标识符)
+@param name: String (流派的名称)
+@param description: String (流派的描述与相关信息)
+ */
+case class Genre(
+  genreID: String,
+  name: String,
+  description: String
+)
+
+================================================================================
+
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\MusicService\Song.scala
+
+/**
+ * Song
+desc: 歌曲信息，包括ID、名称、发布时间、创作者、表演者和所属分类
+@param songID: String (歌曲的唯一ID)
+@param name: String (歌曲名称)
+@param releaseTime: DateTime (歌曲的发布时间)
+@param creators: String (歌曲的创作者)
+@param performers: String (歌曲的表演者)
+@param genres: String (歌曲所属的分类)
+ */
+case class Song(
+  songID: String,
+  name: String,
+  releaseTime: DateTime,
+  creators: List[String],
+  performers: List[String],
+  genres: List[String]
+)
+
+================================================================================
+
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\OrganizeService\User.scala
+
+/**
+ * User
+desc: 用户信息，包含用户的账号信息与密码
+@param userID: String (用户的唯一标识)
+@param account: String (用户登录账号)
+@param password: String (用户登录密码)
+ */
+case class User(
+  userID: String,
+  account: String,
+  password: String
+)
+
+================================================================================
+
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\TrackService\Album.scala
+
+/**
+ * Album
+desc: 专辑信息
+@param albumID: String (专辑的唯一标识)
+@param name: String (专辑名称)
+@param creators: String (专辑的创建者)
+@param collaborators: String (专辑的协作者)
+@param releaseTime: DateTime (专辑发布时间)
+@param description: String (专辑的详细描述)
+@param contents: String (专辑的内容列表)
+ */
+case class Album(
+  albumID: String,
+  name: String,
+  creators: List[String],
+  collaborators: List[String],
+  releaseTime: DateTime,
+  description: Option[String] = None,
+  contents: List[String]
+)
+
+================================================================================
+
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\TrackService\Collection.scala
+
+/**
+ * Collection
+desc: 集合信息, 用于表示专辑集、歌单等，包含集合的基本信息
+@param collectionID: String (集合的唯一ID)
+@param name: String (集合的名字)
+@param ownerID: String (集合创建者的唯一ID)
+@param maintainers: String (集合维护者的用户ID列表)
+@param uploadTime: DateTime (集合的上传时间)
+@param description: String (集合的描述信息)
+@param contents: String (集合中包含的内容ID列表)
+ */
+case class Collection(
+  collectionID: String,
+  name: String,
+  ownerID: String,
+  maintainers: List[String],
+  uploadTime: DateTime,
+  description: String,
+  contents: List[String]
+)
+
+================================================================================
+
+// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\TrackService\Playlist.scala
+
+/**
+ * Playlist
+desc: 播放列表，包含当前播放的歌曲及播放模式等
+@param playlistID: String (播放列表的唯一标识)
+@param ownerID: String (播放列表所有者的唯一标识)
+@param contents: String (播放列表包含的歌曲ID列表)
+@param currentSongID: String (当前正在播放的歌曲ID)
+@param currentPosition: Int (当前播放的具体位置（秒）)
+@param playMode: PlayMode:1102 (当前播放模式)
+ */
+case class Playlist(
+  playlistID: String,
+  ownerID: String,
+  contents: List[String],
+  currentSongID: String,
+  currentPosition: Int,
+  playMode: PlayMode
+)
+
+================================================================================
+
