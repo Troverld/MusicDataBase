@@ -10,6 +10,7 @@ const SongManagement: React.FC = () => {
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -24,37 +25,44 @@ const SongManagement: React.FC = () => {
   });
 
   const handleSearch = async () => {
-    if (!searchKeyword.trim()) return;
+    if (!searchKeyword.trim()) {
+      setSongs([]);
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
     
     try {
       const [songIDs, message] = await musicService.searchSongs(searchKeyword);
-      if (songIDs) {
-        // In a real app, you would fetch song details by IDs
-        // For now, we'll just show the IDs
-        setSongs(songIDs.map(id => ({ 
-          songID: id, 
-          name: `Song ${id}`, 
-          releaseTime: Date.now(),
-          creators: [],
-          performers: [],
-          genres: []
-        })));
+      if (songIDs && songIDs.length > 0) {
+        // 获取歌曲的详细信息
+        const songDetails = await musicService.getSongsByIds(songIDs);
+        setSongs(songDetails);
+        
+        if (songDetails.length === 0) {
+          setError('未找到匹配的歌曲详情');
+        }
       } else {
-        setError(message);
+        setSongs([]);
+        setError(message || '未找到匹配的歌曲');
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || '搜索失败');
+      setSongs([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (songID: string) => {
-    if (!window.confirm('Are you sure you want to delete this song?')) return;
+    if (!window.confirm('确定要删除这首歌曲吗？')) return;
     
     try {
       const [success, message] = await musicService.deleteSong(songID);
       if (success) {
         setSongs(songs.filter(s => s.songID !== songID));
-        setSuccess('Song deleted successfully');
+        setSuccess('歌曲删除成功');
       } else {
         setError(message);
       }
@@ -100,30 +108,26 @@ const SongManagement: React.FC = () => {
       if (editingSong) {
         const [success, message] = await musicService.updateSong(editingSong.songID, songData);
         if (success) {
-          setSuccess('Song updated successfully');
+          setSuccess('歌曲更新成功');
           setShowModal(false);
-          // Refresh song list
-          handleSearch();
+          // 刷新歌曲列表
+          if (searchKeyword.trim()) {
+            handleSearch();
+          }
         } else {
           setError(message);
         }
       } else {
         const [songID, message] = await musicService.uploadSong(songData);
         if (songID) {
-          setSuccess('Song uploaded successfully');
+          setSuccess('歌曲上传成功');
           setShowModal(false);
-          // Reset form
-          setFormData({
-            name: '',
-            releaseTime: new Date().toISOString().split('T')[0],
-            creators: '',
-            performers: '',
-            lyricists: '',
-            composers: '',
-            arrangers: '',
-            instrumentalists: '',
-            genres: ''
-          });
+          // 重置表单
+          resetForm();
+          // 如果当前有搜索，刷新搜索结果
+          if (searchKeyword.trim()) {
+            handleSearch();
+          }
         } else {
           setError(message);
         }
@@ -148,21 +152,41 @@ const SongManagement: React.FC = () => {
     setEditingSong(null);
   };
 
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+  };
+
+  // 当搜索关键词变化时清除消息
+  useEffect(() => {
+    clearMessages();
+  }, [searchKeyword]);
+
   return (
     <div>
-      <h1>Song Management</h1>
+      <h1>歌曲管理</h1>
       
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
       
       <div className="search-box">
-        <input
-          type="text"
-          placeholder="Search songs..."
-          value={searchKeyword}
-          onChange={(e) => setSearchKeyword(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-        />
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="搜索歌曲..."
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            style={{ flex: 1 }}
+          />
+          <button 
+            className="btn btn-primary" 
+            onClick={handleSearch}
+            disabled={loading}
+          >
+            {loading ? '搜索中...' : '搜索'}
+          </button>
+        </div>
       </div>
       
       <button 
@@ -170,22 +194,28 @@ const SongManagement: React.FC = () => {
         onClick={() => { resetForm(); setShowModal(true); }}
         style={{ marginBottom: '20px' }}
       >
-        Upload New Song
+        上传新歌曲
       </button>
       
-      <SongList songs={songs} onEdit={handleEdit} onDelete={handleDelete} />
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p>正在加载歌曲信息...</p>
+        </div>
+      ) : (
+        <SongList songs={songs} onEdit={handleEdit} onDelete={handleDelete} />
+      )}
       
       {showModal && (
         <div className="modal" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{editingSong ? 'Edit Song' : 'Upload New Song'}</h2>
+              <h2>{editingSong ? '编辑歌曲' : '上传新歌曲'}</h2>
               <button onClick={() => setShowModal(false)}>×</button>
             </div>
             
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Song Name*</label>
+                <label>歌曲名称*</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -195,7 +225,7 @@ const SongManagement: React.FC = () => {
               </div>
               
               <div className="form-group">
-                <label>Release Date*</label>
+                <label>发布日期*</label>
                 <input
                   type="date"
                   value={formData.releaseTime}
@@ -206,29 +236,29 @@ const SongManagement: React.FC = () => {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Creators (comma separated)</label>
+                  <label>创作者 (逗号分隔)</label>
                   <input
                     type="text"
                     value={formData.creators}
                     onChange={(e) => setFormData({...formData, creators: e.target.value})}
-                    placeholder="artist1, artist2"
+                    placeholder="艺术家1, 艺术家2"
                   />
                 </div>
                 
                 <div className="form-group">
-                  <label>Performers (comma separated)</label>
+                  <label>演唱者 (逗号分隔)</label>
                   <input
                     type="text"
                     value={formData.performers}
                     onChange={(e) => setFormData({...formData, performers: e.target.value})}
-                    placeholder="artist1, artist2"
+                    placeholder="歌手1, 歌手2"
                   />
                 </div>
               </div>
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Lyricists (comma separated)</label>
+                  <label>作词者 (逗号分隔)</label>
                   <input
                     type="text"
                     value={formData.lyricists}
@@ -237,7 +267,7 @@ const SongManagement: React.FC = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label>Composers (comma separated)</label>
+                  <label>作曲者 (逗号分隔)</label>
                   <input
                     type="text"
                     value={formData.composers}
@@ -248,7 +278,7 @@ const SongManagement: React.FC = () => {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Arrangers (comma separated)</label>
+                  <label>编曲者 (逗号分隔)</label>
                   <input
                     type="text"
                     value={formData.arrangers}
@@ -257,7 +287,7 @@ const SongManagement: React.FC = () => {
                 </div>
                 
                 <div className="form-group">
-                  <label>Instrumentalists (comma separated)</label>
+                  <label>演奏者 (逗号分隔)</label>
                   <input
                     type="text"
                     value={formData.instrumentalists}
@@ -267,17 +297,17 @@ const SongManagement: React.FC = () => {
               </div>
               
               <div className="form-group">
-                <label>Genres (comma separated)</label>
+                <label>曲风 (逗号分隔)</label>
                 <input
                   type="text"
                   value={formData.genres}
                   onChange={(e) => setFormData({...formData, genres: e.target.value})}
-                  placeholder="pop, rock, jazz"
+                  placeholder="流行, 摇滚, 爵士"
                 />
               </div>
               
               <button type="submit" className="btn btn-primary">
-                {editingSong ? 'Update Song' : 'Upload Song'}
+                {editingSong ? '更新歌曲' : '上传歌曲'}
               </button>
             </form>
           </div>

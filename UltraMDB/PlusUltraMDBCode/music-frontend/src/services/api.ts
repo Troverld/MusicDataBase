@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import { getToken, getUser } from '../utils/storage';
 import { PlanContext } from '../types';
 
-// ·şÎñ¶Ë¿ÚÓ³Éä£¨¸ù¾İºó¶Ë ServiceUtils.portMap ¼ÆËã£©
+// æœåŠ¡ç«¯å£æ˜ å°„ï¼Œæ ¹æ®åç«¯ServiceUtils.portMapé…ç½®
 const SERVICE_PORTS = {
   organize: 10011,   // OrganizeService
   music: 10010,      // MusicService  
@@ -10,7 +10,7 @@ const SERVICE_PORTS = {
   track: 10013       // TrackService
 };
 
-// API µ½·şÎñµÄÓ³Éä
+// APIåˆ°æœåŠ¡çš„æ˜ å°„
 const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   // OrganizeService APIs
   'UserLoginMessage': 'organize',
@@ -24,6 +24,7 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'UpdateSongMetadata': 'music',
   'DeleteSong': 'music',
   'SearchSongsByName': 'music',
+  'GetSongByID': 'music',  // æ·»åŠ è¿™ä¸ªAPI
   'CreateNewGenre': 'music',
   'DeleteGenre': 'music',
   'FilterSongsByEntity': 'music',
@@ -33,9 +34,11 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'CreateArtistMessage': 'creator',
   'UpdateArtistMessage': 'creator',
   'DeleteArtistMessage': 'creator',
+  'GetArtistByID': 'creator',
   'CreateBandMessage': 'creator',
   'UpdateBandMessage': 'creator',
   'DeleteBandMessage': 'creator',
+  'GetBandByID': 'creator',
   'AddArtistManager': 'creator',
   'AddBandManager': 'creator',
   'validArtistOwnership': 'creator',
@@ -54,7 +57,7 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'validateCollectionOwnership': 'track'
 };
 
-// ÎªÃ¿¸ö·şÎñ´´½¨ axios ÊµÀı
+// ä¸ºæ¯ä¸ªæœåŠ¡åˆ›å»ºaxioså®ä¾‹
 const serviceInstances: Record<string, AxiosInstance> = {};
 
 Object.entries(SERVICE_PORTS).forEach(([service, port]) => {
@@ -65,7 +68,7 @@ Object.entries(SERVICE_PORTS).forEach(([service, port]) => {
     },
   });
   
-  // Ìí¼ÓÇëÇóÀ¹½ØÆ÷
+  // æ·»åŠ è¯·æ±‚æ‹¦æˆªå™¨
   instance.interceptors.request.use((config) => {
     const planContext: PlanContext = {
       traceID: generateTraceID(),
@@ -107,4 +110,4 @@ export const callAPI = async <T>(endpoint: string, data: any): Promise<T> => {
   }
 };
 
-export default serviceInstances.organize; // Ä¬ÈÏµ¼³ö organize ·şÎñ
+export default serviceInstances.organize; // é»˜è®¤å¯¼å‡ºorganizeæœåŠ¡

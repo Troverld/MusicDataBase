@@ -52,7 +52,7 @@ app.post('/api/UserRegisterMessage', (req, res) => {
 
 // User Login
 app.post('/api/UserLoginMessage', (req, res) => {
-  const { userName, password } = req.body;  // 使用 password 而不是 hashedPassword
+  const { userName, password } = req.body;
   
   const user = db.users.find(u => u.userName === userName && u.password === password);
   
@@ -190,7 +190,26 @@ app.post('/api/SearchSongsByName', (req, res) => {
   res.json([songIds, "搜索成功"]);
 });
 
-// Get song details (additional endpoint for testing)
+// Get Song By ID - 新增的API端点
+app.post('/api/GetSongByID', (req, res) => {
+  const { userID, userToken, songID } = req.body;
+  
+  // Verify user
+  const user = db.users.find(u => u.userToken === userToken);
+  if (!user) {
+    return res.json([null, "用户认证失败"]);
+  }
+  
+  // Find song
+  const song = db.songs.find(s => s.songID === songID);
+  if (!song) {
+    return res.json([null, "歌曲不存在"]);
+  }
+  
+  res.json([song, "获取歌曲成功"]);
+});
+
+// Get song details (additional endpoint for testing) - 保留现有的批量获取功能
 app.post('/api/GetSongDetails', (req, res) => {
   const { songIDs } = req.body;
   
@@ -209,4 +228,5 @@ app.listen(PORT, () => {
   console.log('- POST /api/UpdateSongMetadata');
   console.log('- POST /api/DeleteSong');
   console.log('- POST /api/SearchSongsByName');
+  console.log('- POST /api/GetSongByID');
 });
