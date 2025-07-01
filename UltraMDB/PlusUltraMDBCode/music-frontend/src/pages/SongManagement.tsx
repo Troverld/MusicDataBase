@@ -12,6 +12,7 @@ const SongManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   
   const { genres, getGenreNamesByIds, getGenreIdsByNames } = useGenres();
   
@@ -99,6 +100,24 @@ const SongManagement: React.FC = () => {
     }));
   };
 
+  const handleGenreRemove = (genreId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedGenres: prev.selectedGenres.filter(id => id !== genreId)
+    }));
+  };
+
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
+  };
+
+  const getSelectedGenreNames = () => {
+    return formData.selectedGenres.map(id => {
+      const genre = genres.find(g => g.genreID === id);
+      return genre ? genre.name : id;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -122,6 +141,7 @@ const SongManagement: React.FC = () => {
         if (success) {
           setSuccess('歌曲更新成功');
           setShowModal(false);
+          setDropdownOpen(false);
           // 刷新歌曲列表
           if (searchKeyword.trim()) {
             handleSearch();
@@ -134,6 +154,7 @@ const SongManagement: React.FC = () => {
         if (songID) {
           setSuccess('歌曲上传成功');
           setShowModal(false);
+          setDropdownOpen(false);
           // 重置表单
           resetForm();
           // 如果当前有搜索，刷新搜索结果
@@ -218,11 +239,11 @@ const SongManagement: React.FC = () => {
       )}
       
       {showModal && (
-        <div className="modal" onClick={() => setShowModal(false)}>
+        <div className="modal" onClick={() => { setShowModal(false); setDropdownOpen(false); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingSong ? '编辑歌曲' : '上传新歌曲'}</h2>
-              <button onClick={() => setShowModal(false)}>×</button>
+              <button onClick={() => { setShowModal(false); setDropdownOpen(false); }}>×</button>
             </div>
             
             <form onSubmit={handleSubmit}>
@@ -310,50 +331,71 @@ const SongManagement: React.FC = () => {
               
               <div className="form-group">
                 <label>曲风选择</label>
-                <div className="genre-selection-container">
-                  {genres.length === 0 ? (
-                    <div className="genre-selection-empty">
-                      暂无可用曲风，请联系管理员添加
-                    </div>
-                  ) : (
-                    <div className="genre-list">
-                      {genres.map((genre) => (
-                        <div 
-                          key={genre.genreID} 
-                          className={`genre-item ${formData.selectedGenres.includes(genre.genreID) ? 'selected' : ''}`}
-                          onClick={() => handleGenreToggle(genre.genreID)}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formData.selectedGenres.includes(genre.genreID)}
-                            onChange={() => handleGenreToggle(genre.genreID)}
-                          />
-                          <div className="genre-item-content">
-                            <div className="genre-item-name">{genre.name}</div>
-                            {genre.description && (
-                              <div className="genre-item-description" title={genre.description}>
-                                {genre.description}
-                              </div>
-                            )}
-                          </div>
+                <div className="multi-select-dropdown">
+                  <div 
+                    className={`multi-select-trigger ${dropdownOpen ? 'open' : ''}`}
+                    onClick={toggleDropdown}
+                    tabIndex={0}
+                  >
+                    {formData.selectedGenres.length === 0 ? (
+                      <span className="multi-select-placeholder">请选择曲风...</span>
+                    ) : (
+                      <div className="multi-select-values">
+                        {formData.selectedGenres.map(id => {
+                          const genre = genres.find(g => g.genreID === id);
+                          return (
+                            <span key={id} className="multi-select-tag">
+                              <span className="multi-select-tag-text">
+                                {genre ? genre.name : id}
+                              </span>
+                              <span 
+                                className="multi-select-tag-remove"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleGenreRemove(id);
+                                }}
+                              >
+                                ×
+                              </span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {dropdownOpen && (
+                    <div className="multi-select-dropdown-menu">
+                      {genres.length === 0 ? (
+                        <div className="multi-select-empty">
+                          暂无可用曲风，请联系管理员添加
                         </div>
-                      ))}
+                      ) : (
+                        genres.map((genre) => (
+                          <div 
+                            key={genre.genreID} 
+                            className={`multi-select-option ${formData.selectedGenres.includes(genre.genreID) ? 'selected' : ''}`}
+                            onClick={() => handleGenreToggle(genre.genreID)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formData.selectedGenres.includes(genre.genreID)}
+                              onChange={() => handleGenreToggle(genre.genreID)}
+                            />
+                            <div className="multi-select-option-content">
+                              <div className="multi-select-option-name">{genre.name}</div>
+                              {genre.description && (
+                                <div className="multi-select-option-description">
+                                  {genre.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
-                {formData.selectedGenres.length > 0 && (
-                  <div className="selected-genres-summary">
-                    <div className="selected-genres-text">
-                      ✓ 已选择 {formData.selectedGenres.length} 个曲风
-                    </div>
-                    <div className="selected-genres-list">
-                      {formData.selectedGenres.map(id => {
-                        const genre = genres.find(g => g.genreID === id);
-                        return genre ? genre.name : id;
-                      }).join(', ')}
-                    </div>
-                  </div>
-                )}
               </div>
               
               <button type="submit" className="btn btn-primary">
