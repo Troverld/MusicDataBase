@@ -316,26 +316,27 @@ const SongManagement: React.FC = () => {
                       暂无可用曲风，请联系管理员添加
                     </div>
                   ) : (
-                    <div className="genre-grid">
+                    <div className="genre-list">
                       {genres.map((genre) => (
-                        <label 
+                        <div 
                           key={genre.genreID} 
-                          className={`genre-option ${formData.selectedGenres.includes(genre.genreID) ? 'selected' : ''}`}
+                          className={`genre-item ${formData.selectedGenres.includes(genre.genreID) ? 'selected' : ''}`}
+                          onClick={() => handleGenreToggle(genre.genreID)}
                         >
                           <input
                             type="checkbox"
                             checked={formData.selectedGenres.includes(genre.genreID)}
                             onChange={() => handleGenreToggle(genre.genreID)}
                           />
-                          <div className="genre-option-content">
-                            <div className="genre-option-name">{genre.name}</div>
+                          <div className="genre-item-content">
+                            <div className="genre-item-name">{genre.name}</div>
                             {genre.description && (
-                              <div className="genre-option-description">
+                              <div className="genre-item-description" title={genre.description}>
                                 {genre.description}
                               </div>
                             )}
                           </div>
-                        </label>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -343,8 +344,7 @@ const SongManagement: React.FC = () => {
                 {formData.selectedGenres.length > 0 && (
                   <div className="selected-genres-summary">
                     <div className="selected-genres-text">
-                      <span>✓</span>
-                      已选择 {formData.selectedGenres.length} 个曲风
+                      ✓ 已选择 {formData.selectedGenres.length} 个曲风
                     </div>
                     <div className="selected-genres-list">
                       {formData.selectedGenres.map(id => {
