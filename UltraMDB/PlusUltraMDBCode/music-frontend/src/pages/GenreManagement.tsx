@@ -163,14 +163,7 @@ const GenreManagement: React.FC = () => {
                   onChange={(e) => setDeleteFormData({genreID: e.target.value})}
                   required
                   disabled={loading}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    backgroundColor: 'white'
-                  }}
+                  className="fixed-select"
                 >
                   <option value="">请选择要删除的曲风...</option>
                   {genres.map((genre) => (
