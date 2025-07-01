@@ -9,6 +9,12 @@ const SERVICE_PORTS = {
   creator: 10012,    // CreatorService
   track: 10013       // TrackService
 };
+// const SERVICE_PORTS = {
+//   organize: 10011,   // Mock server
+//   music: 10011,      // Mock server (修改)
+//   creator: 10011,    // Mock server (修改)
+//   track: 10011       // Mock server (修改)
+// };
 
 // API到服务的映射
 const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
@@ -16,7 +22,7 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'UserLoginMessage': 'organize',
   'UserRegisterMessage': 'organize',
   'UserLogoutMessage': 'organize',
-  'validateUserMapping': 'organize',
+  'validateUs erMapping': 'organize',
   'validateAdminMapping': 'organize',
   
   // MusicService APIs

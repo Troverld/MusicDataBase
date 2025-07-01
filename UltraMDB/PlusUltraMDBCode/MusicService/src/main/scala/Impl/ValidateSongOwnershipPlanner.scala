@@ -89,17 +89,33 @@ case class ValidateSongOwnershipPlanner(
       _ <- IO(logger.info(s"歌曲上传者ID: $uploaderID, 当前用户ID: $userID"))
     } yield uploaderID == userID
   }
-  
+
+
   private def isUserCreatorOrManager()(using PlanContext): IO[Boolean] = {
     for {
       _ <- IO(logger.info(s"开始验证是否为创作者或管理者"))
+
       songDataOpt <- readDBJsonOptional(
         s"SELECT creators FROM ${schemaName}.song_table WHERE song_id = ?",
         List(SqlParameter("String", songID))
       )
-      creatorsList <- IO {
-        songDataOpt.map(json => decodeField[List[String]](json, "creators")).getOrElse(List())
+
+      creatorsList <- songDataOpt match {
+        case Some(json) =>
+          json.hcursor.get[String]("creators") match {
+            case Right(creatorsStr) =>
+              io.circe.parser.decode[List[String]](creatorsStr) match {
+                case Right(list) => IO.pure(list)
+                case Left(err) =>
+                  IO(logger.error(s"解析 creators 字段失败: ${err.getMessage}")) *> IO.pure(List())
+              }
+            case Left(err) =>
+              IO(logger.error(s"读取 creators 字段失败: ${err.getMessage}")) *> IO.pure(List())
+          }
+        case None =>
+          IO(logger.error("歌曲数据不存在")) *> IO.pure(List())
       }
+
       _ <- IO(logger.info(s"歌曲创作者列表: ${creatorsList}"))
 
       isManagedByUser <- creatorsList.existsM(isManagedByUserID)

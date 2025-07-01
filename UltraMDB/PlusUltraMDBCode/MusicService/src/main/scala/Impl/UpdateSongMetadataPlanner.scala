@@ -170,7 +170,7 @@ case class UpdateSongMetadataPlanner(
   private def validateGenresExist(genres: List[String])(using PlanContext): IO[Unit] = {
     genres.map { genreID =>
       readDBJsonOptional(
-        s"SELECT 1 FROM ${schemaName}.genre WHERE genre_id = ?;",
+        s"SELECT 1 FROM ${schemaName}.genre_table WHERE genre_id = ?;",
         List(SqlParameter("String", genreID))
       ).flatMap {
         case Some(_) => IO.unit
