@@ -34,7 +34,7 @@ case class GetGenreList(
 
         result <- performSearch
 
-      } yield result  // 成功：返回 true 和空错误信息
+      } yield (Some(result),"")  // 成功：返回 true 和空错误信息
       ).handleErrorWith { e =>
       IO(logger.error(s"查询风格数据失败: ${e.getMessage}")) *>
         IO.pure((None, e.getMessage))  // 失败：返回 false 和错误信息
@@ -42,15 +42,15 @@ case class GetGenreList(
   }
 
 
-  private def performSearch(using PlanContext): IO[(List[Genre],String)] = {
-    (readDBRows(
+  private def performSearch(using PlanContext): IO[List[Genre]] = {
+    readDBRows(
       s"SELECT * FROM ${schemaName}.genre_table",
       List.empty[SqlParameter]).flatMap { rows =>
         IO {
           logger.info(s"Query result count=${rows.length}")
           rows.map(json => decodeType[Genre](json))
         }
-      },"")
+      }
   }
 
 }

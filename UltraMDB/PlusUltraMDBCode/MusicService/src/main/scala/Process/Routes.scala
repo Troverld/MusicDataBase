@@ -13,22 +13,16 @@ import io.circe.syntax.*
 import org.http4s.*
 import org.http4s.client.Client
 import org.http4s.dsl.io.*
+
 import scala.collection.concurrent.TrieMap
 import Common.Serialize.CustomColumnTypes.*
-import Impl.DeleteGenrePlanner
-import Impl.SearchSongsByNamePlanner
-import Impl.DeleteSongPlanner
-import Impl.UpdateSongMetadataPlanner
-import Impl.UploadNewSongPlanner
-import Impl.FilterSongsByEntityPlanner
-import Impl.CreateNewGenrePlanner
-import Impl.ValidateSongOwnershipPlanner
-import Impl.GetSongByID
+import Impl.{CreateNewGenrePlanner, DeleteGenrePlanner, DeleteSongPlanner, FilterSongsByEntityPlanner, GetGenreList, GetSongByID, SearchSongsByNamePlanner, UpdateSongMetadataPlanner, UploadNewSongPlanner, ValidateSongOwnershipPlanner}
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
+
 import java.util.UUID
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
 object Routes:
   val projects: TrieMap[String, Topic[IO, String]] = TrieMap.empty
