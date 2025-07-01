@@ -55,6 +55,13 @@ object Routes:
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSongsByID[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
+
+      case "GetGenreList" =>
+        IO(
+          decode[GetGenreList](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetGenreList[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
        
       case "DeleteSong" =>
         IO(

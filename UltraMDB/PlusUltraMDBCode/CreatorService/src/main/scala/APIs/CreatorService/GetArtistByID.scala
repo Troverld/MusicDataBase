@@ -24,7 +24,7 @@ import Objects.CreatorService.Artist
  * desc: 根据提供的艺术家ID，获取完整的艺术家元数据。需要用户认证。
  * @param userID: String (发起请求的用户ID)
  * @param userToken: String (用户的认证令牌)
- * @param bandID: String (要查询的艺术家的唯一ID)
+ * @param songID: String (要查询的艺术家的唯一ID)
  * @return (Option[Artist], String): (成功时包含艺术家对象，失败时为None；附带操作信息)
  */
 case class GetArtistByID(

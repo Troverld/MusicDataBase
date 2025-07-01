@@ -21,7 +21,7 @@ import java.util.UUID
 case class GetGenreList(
   userID: String,
   userToken: String,
-) extends API[(List[Genre], String)](MusicServiceCode)
+) extends API[(Option[List[Genre]], String)](MusicServiceCode)
 
 
 

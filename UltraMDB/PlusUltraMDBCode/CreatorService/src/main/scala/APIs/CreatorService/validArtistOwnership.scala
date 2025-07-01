@@ -19,7 +19,7 @@ import java.util.UUID
 
 
 /**
- * ValidArtistOwnership
+ * validArtistOwnership
  * desc: 验证某用户是否拥有对指定艺术家的管理权限
  * @param userID: String (用户ID)
  * @param userToken: String (用户Token)
@@ -27,7 +27,7 @@ import java.util.UUID
  * @return (Boolean, String): (用户是否拥有权限, 错误信息)
  */
 
-case class ValidArtistOwnership(
+case class validArtistOwnership(
   userID: String,
   userToken: String,
   artistID: String
@@ -35,31 +35,31 @@ case class ValidArtistOwnership(
 
 
 
-case object ValidArtistOwnership{
+case object validArtistOwnership{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[ValidArtistOwnership] = deriveEncoder
-  private val circeDecoder: Decoder[ValidArtistOwnership] = deriveDecoder
+  private val circeEncoder: Encoder[validArtistOwnership] = deriveEncoder
+  private val circeDecoder: Decoder[validArtistOwnership] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[ValidArtistOwnership] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[validArtistOwnership] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[ValidArtistOwnership] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[ValidArtistOwnership]() {})) } 
+  private val jacksonDecoder: Decoder[validArtistOwnership] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[validArtistOwnership]() {})) } 
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given ValidArtistOwnershipEncoder: Encoder[ValidArtistOwnership] = Encoder.instance { config =>
+  given validArtistOwnershipEncoder: Encoder[validArtistOwnership] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given ValidArtistOwnershipDecoder: Decoder[ValidArtistOwnership] = Decoder.instance { cursor =>
+  given validArtistOwnershipDecoder: Decoder[validArtistOwnership] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 

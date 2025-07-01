@@ -19,7 +19,7 @@ import java.util.UUID
 
 
 /**
- * ValidBandOwnership
+ * validBandOwnership
  * desc: 验证某用户是否拥有对指定乐队的管理权限
  * @param userID: String (用户ID)
  * @param userToken: String (用户令牌，用于验证用户身份有效性)
@@ -27,7 +27,7 @@ import java.util.UUID
  * @return (Boolean, String): (用户是否拥有权限, 错误信息)
  */
 
-case class ValidBandOwnership(
+case class validBandOwnership(
   userID: String,
   userToken: String,
   bandID: String
@@ -35,31 +35,31 @@ case class ValidBandOwnership(
 
 
 
-case object ValidBandOwnership{
+case object validBandOwnership{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[ValidBandOwnership] = deriveEncoder
-  private val circeDecoder: Decoder[ValidBandOwnership] = deriveDecoder
+  private val circeEncoder: Encoder[validBandOwnership] = deriveEncoder
+  private val circeDecoder: Decoder[validBandOwnership] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[ValidBandOwnership] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[validBandOwnership] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[ValidBandOwnership] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[ValidBandOwnership]() {})) } 
+  private val jacksonDecoder: Decoder[validBandOwnership] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[validBandOwnership]() {})) } 
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given ValidBandOwnershipEncoder: Encoder[ValidBandOwnership] = Encoder.instance { config =>
+  given validBandOwnershipEncoder: Encoder[validBandOwnership] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given ValidBandOwnershipDecoder: Decoder[ValidBandOwnership] = Decoder.instance { cursor =>
+  given validBandOwnershipDecoder: Decoder[validBandOwnership] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
