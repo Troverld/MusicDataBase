@@ -1,113 +1,130 @@
 package Impl
 
+// 外部服务API的导入
+import APIs.CreatorService.{GetArtistByID, ValidArtistOwnership}
 
-import APIs.OrganizeService.validateUserMapping
-import APIs.CreatorService.validArtistOwnership
+// 内部项目通用库的导入
 import Common.API.{PlanContext, Planner}
+import Objects.CreatorService.Artist
 import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
+
+// 第三方库的导入
 import cats.effect.IO
+import cats.implicits._
 import org.slf4j.LoggerFactory
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.DBAPI._
-import Common.API.{PlanContext, Planner}
-import cats.effect.IO
-import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-import Common.ServiceUtils.schemaName
-import APIs.CreatorService.validArtistOwnership
-import io.circe.Json
-import io.circe.syntax._
-import org.joda.time.DateTime
-import io.circe._
-import io.circe.generic.auto._
-import cats.implicits.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import io.circe.generic.auto.deriveEncoder // Temporary import
 
+/**
+ * Planner for UpdateArtistMessage: Handles updating an artist's name and/or bio.
+ *
+ * This implementation first validates ownership via the ValidArtistOwnership API,
+ * then fetches the current artist state via the GetArtistByID API to apply updates.
+ *
+ * @param userID      The ID of the user initiating the update.
+ * @param userToken   The user's authentication token.
+ * @param artistID    The ID of the artist to update.
+ * @param name        The optional new name for the artist.
+ * @param bio         The optional new bio for the artist.
+ * @param planContext The implicit execution context.
+ */
 case class UpdateArtistMessagePlanner(
-    userID: String,
-    userToken: String,
-    artistID: String,
-    name: Option[String],
-    bio: Option[String],
-    override val planContext: PlanContext
-) extends Planner[String] {
+  userID: String,
+  userToken: String,
+  artistID: String,
+  name: Option[String],
+  bio: Option[String],
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] { // Corrected return type
 
-  private val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  override def plan(using PlanContext): IO[String] = for {
-    // Step 1: Validate userToken and userID mapping
-    _ <- IO(logger.info(s"[Step 1] 验证用户映射: userID=${userID}, userToken=${userToken}"))
-    isValidUser <- validateUserMapping(userID, userToken).send
-    _ <- if (!isValidUser) IO.raiseError(new IllegalArgumentException("用户验证失败"))
-         else IO(logger.info("[Step 1.1] 用户验证成功"))
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    // Check if there's anything to update at all.
+    if (name.isEmpty && bio.isEmpty) {
+      return IO.pure((false, "没有提供任何更新内容"))
+    }
 
-    // Step 2: Validate user ownership of artistID
-    _ <- IO(logger.info(s"[Step 2] 验证用户管理艺术家权限: userID=${userID}, artistID=${artistID}"))
-    isOwner <- validArtistOwnership(userID, artistID).send
-    _ <- if (!isOwner) IO.raiseError(new IllegalArgumentException("您无权限修改该艺术家信息"))
-         else IO(logger.info("[Step 2.1] 用户拥有管理权限"))
+    val logic: IO[(Boolean, String)] = for {
+      // Step 1: Verify the user has the right to perform this action.
+      // This single call handles both user authentication and ownership verification.
+      _ <- verifyOwnership()
 
-    // Step 3: Check if artistID exists in the database
-    _ <- IO(logger.info(s"[Step 3] 验证艺术家ID是否存在: artistID=${artistID}"))
-    artistExists <- checkArtistExists(artistID)
-    _ <- if (!artistExists) IO.raiseError(new IllegalArgumentException("艺术家ID不存在"))
-         else IO(logger.info("[Step 3.1] 艺术家ID验证通过"))
+      // Step 2: Fetch the current artist data to use as a base for the update.
+      currentArtist <- getArtist()
 
-    // Step 4: Update artist information if applicable
-    _ <- IO(logger.info(s"[Step 4] 尝试更新艺术家信息: name=${name.getOrElse("未提供")}, bio=${bio.getOrElse("未提供")}"))
-    updateResult <- updateArtistInfo(artistID, name, bio)
-    _ <- IO(logger.info(s"[Step 4.1] 艺术家信息更新操作完成，结果: ${updateResult}"))
+      // Step 3: Apply the updates and persist to the database.
+      _ <- updateArtist(currentArtist)
+    } yield (true, "艺术家信息更新成功")
 
-  } yield "更新成功"
-
-  // Step 3.1: Check if the artistID exists in the database
-  private def checkArtistExists(artistID: String)(using PlanContext): IO[Boolean] = {
-    val sql =
-      s"SELECT COUNT(*) FROM ${schemaName}.artist_table WHERE artist_id = ?;"
-    val parameters = List(SqlParameter("String", artistID))
-
-    IO(logger.info(s"[Step 3.1] 检测艺术家是否存在的SQL: ${sql}，参数: ${parameters}")) >>
-      readDBInt(sql, parameters).map { count =>
-        logger.info(s"[Step 3.2] 检测结果: ${count > 0}")
-        count > 0
-      }
-  }
-
-  // Step 4.x: Update artist information in the database
-  private def updateArtistInfo(artistID: String, name: Option[String], bio: Option[String])(using PlanContext): IO[String] = {
-    val updates = buildUpdateSql(name, bio)
-    if (updates.isEmpty) {
-      logger.info("[Step 4.x] 没有需要更新的字段，略过更新步骤")
-      IO.pure("没有更新内容")
-    } else {
-      val sql = s"UPDATE ${schemaName}.artist_table SET ${updates.mkString(", ")} WHERE artist_id = ?;"
-      val parameters = buildSqlParameters(name, bio, artistID)
-      IO(logger.info(s"[Step 4.x] 更新艺术家信息的SQL: ${sql}，参数: ${parameters}")) >>
-        writeDB(sql, parameters).map(result => {
-          logger.info(s"[Step 4.x] 数据库操作结果: ${result}")
-          result
-        })
+    logic.handleErrorWith { error =>
+      logError(s"更新艺术家 ${artistID} 的操作失败", error) >>
+        IO.pure((false, error.getMessage))
     }
   }
 
-  // Helper function to construct SQL update string
-  private def buildUpdateSql(name: Option[String], bio: Option[String]): List[String] = {
-    var updates = List.empty[String]
-    name.foreach(_ => updates = updates :+ "name = ?")
-    bio.foreach(_ => updates = updates :+ "bio = ?")
-    updates
+  /**
+   * Verifies that the user has ownership rights over the artist.
+   * This delegates the check to the dedicated validation API.
+   */
+  private def verifyOwnership()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户 ${userID} 对艺术家 ${artistID} 的管理权限")
+    ValidArtistOwnership(userID, userToken, artistID).send.flatMap {
+      case (true, _) =>
+        logInfo("权限验证通过。")
+      case (false, message) =>
+        IO.raiseError(new Exception(s"权限验证失败: $message"))
+    }
   }
 
-  // Helper function to construct SQL parameters
-  private def buildSqlParameters(name: Option[String], bio: Option[String], artistID: String): List[SqlParameter] = {
-    val nameParam = name.map(n => SqlParameter("String", n))
-    val bioParam = bio.map(b => SqlParameter("String", b))
-    (nameParam.toList ++ bioParam.toList) :+ SqlParameter("String", artistID)
+  /**
+   * Fetches the current state of the artist using the GetArtistByID API.
+   * This is necessary to fill in any fields that are not being updated.
+   */
+  private def getArtist()(using PlanContext): IO[Artist] = {
+    logInfo(s"正在获取艺术家 ${artistID} 的当前信息以进行更新")
+    GetArtistByID(userID, userToken, artistID).send.flatMap {
+      case (Some(artist), _) =>
+        logInfo("成功获取到艺术家当前信息。")
+        IO.pure(artist)
+      case (None, message) =>
+        IO.raiseError(new Exception(s"无法获取艺术家信息: $message"))
+    }
   }
+
+  /**
+   * Updates the artist's information in the database with the new values.
+   */
+  private def updateArtist(currentArtist: Artist)(using PlanContext): IO[Unit] = {
+    // Use the provided new value, or fall back to the current value if None.
+    val newName = name.getOrElse(currentArtist.name)
+    val newBio = bio.getOrElse(currentArtist.bio)
+
+    logInfo(s"正在执行数据库更新。新名称: '$newName', 新简介: '$newBio'")
+
+    val query =
+      s"""
+         UPDATE "${schemaName}"."artist_table"
+         SET name = ?, bio = ?
+         WHERE artist_id = ?
+      """
+
+    writeDB(
+      query,
+      List(
+        SqlParameter("String", newName),
+        SqlParameter("String", newBio),
+        SqlParameter("String", artistID)
+      )
+    ).void
+  }
+
+  /** Logs an informational message with the trace ID. */
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  /** Logs an error message with the trace ID and the cause. */
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }

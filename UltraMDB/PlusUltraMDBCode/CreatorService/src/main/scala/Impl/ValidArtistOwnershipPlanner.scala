@@ -1,79 +1,98 @@
 package Impl
 
+// 外部服务API的导入
+import APIs.CreatorService.GetArtistByID
+import APIs.OrganizeService.validateAdminMapping // API to check for admin status
 
+// 内部项目通用库的导入
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
-import Common.Object.SqlParameter
-import Common.ServiceUtils.schemaName
+import Objects.CreatorService.Artist
+
+// 第三方库的导入
 import cats.effect.IO
+import cats.implicits._
 import org.slf4j.LoggerFactory
-import io.circe.Json
-import io.circe.syntax._
-import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.DBAPI._
-import Common.API.{PlanContext, Planner}
-import cats.effect.IO
-import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-import Common.ServiceUtils.schemaName
+import io.circe.generic.auto.deriveEncoder
 
-import io.circe._
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-
+/**
+ * Planner for ValidArtistOwnership: Checks if a user has management rights over a specific artist.
+ *
+ * A user is considered to have ownership if EITHER of the following is true:
+ * 1. They are listed in the artist's `managedBy` field.
+ * 2. They are a system administrator.
+ *
+ * @param userID      The ID of the user whose ownership is being checked.
+ * @param userToken   The user's authentication token.
+ * @param artistID    The ID of the artist in question.
+ * @param planContext The implicit execution context.
+ */
 case class ValidArtistOwnershipPlanner(
-                                        userID: String,
-                                        artistID: String,
-                                        override val planContext: PlanContext
-                                      ) extends Planner[Boolean] {
-  val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
+  userID: String,
+  userToken: String,
+  artistID: String,
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] {
 
-  override def plan(using PlanContext): IO[Boolean] = {
-    for {
-      // Step 1: Fetch managed_by field from the ArtistTable based on artistID
-      _ <- IO(logger.info(s"开始验证用户是否拥有管理艺术家[artistID=${artistID}]的权限"))
-      managedBy <- getManagedBy(artistID)
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-      // Step 2: Check if managedBy contains the userID
-      _ <- IO(logger.info(s"检查managed_by字段是否包含用户[userID=${userID}]"))
-      isOwner <- IO(managedBy.contains(userID))
-      _ <- IO(logger.info(s"验证结果为isOwner=${isOwner}"))
-    } yield isOwner
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    val logic: IO[(Boolean, String)] = for {
+      // Step 1: Fetch the artist information. This will not fail if the artist doesn't exist.
+      artistOpt <- getArtistViaAPI()
+
+      // Step 2: Concurrently, check if the current user is an administrator.
+      isAdmin <- checkIsAdmin()
+
+    } yield {
+      // Step 3: Combine the results with pure logic.
+      // Check if the user is in the artist's management list.
+      // .exists is a safe and concise way to handle the Option. It returns false if artistOpt is None.
+      val isInManagedByList = artistOpt.exists(_.managedBy.contains(userID))
+
+      // Final ownership is true if either condition is met.
+      val hasOwnership = isInManagedByList || isAdmin
+
+      val message = if (hasOwnership) "用户拥有管理权限" else "用户无管理权限"
+      (hasOwnership, message)
+    }
+
+    // Unified error handling for any unexpected system failures during API calls.
+    logic.handleErrorWith { error =>
+      logError(s"验证用户 ${userID} 对艺术家 ${artistID} 的权限时发生错误", error) >>
+        IO.pure((false, error.getMessage))
+    }
   }
 
-  private def getManagedBy(artistID: String)(using PlanContext): IO[List[String]] = {
-    for {
-      _ <- IO(logger.info(s"从数据库读取artistID=${artistID}的managed_by字段"))
-      sql <- IO {
-        s"""
-         SELECT managed_by
-         FROM ${schemaName}.artist_table
-         WHERE artist_id = ?;
-       """
-      }
-      parameters <- IO { List(SqlParameter("String", artistID)) }
-      _ <- IO(logger.info(s"SQL查询语句: ${sql}"))
-      managedByRawOpt <- readDBJsonOptional(sql, parameters)
-      managedBy <- managedByRawOpt match {
-        case Some(json) =>
-          for {
-            managedByRaw <- IO(decodeField[String](json, "managed_by"))
-            _ <- IO(logger.info(s"获取到的managed_by字段: ${managedByRaw}"))
-            managedByList <- IO(decodeType[List[String]](managedByRaw))
-          } yield managedByList
-
-        case None =>
-          for {
-            _ <- IO(logger.warn(s"未查询到artistID=${artistID}对应的记录，返回空列表"))
-          } yield List.empty[String]
-      }
-    } yield managedBy
+  /**
+   * Calls the GetArtistByID API.
+   * This helper gracefully handles the API's (Option[Artist], String) response,
+   * returning only the IO[Option[Artist]] for use in the main logic.
+   */
+  private def getArtistViaAPI()(using PlanContext): IO[Option[Artist]] = {
+    logInfo(s"正在通过API获取艺术家信息: artistID=${artistID}")
+    GetArtistByID(userID, userToken, artistID).send.map { case (artistOpt, msg) =>
+      logInfo(s"GetArtistByID API 响应: $msg")
+      artistOpt // Return the Option part of the tuple.
+    }
   }
+
+  /**
+   * Checks if the current user is an administrator by calling the validation API.
+   * Note: We pass the user's credentials to the admin validation endpoint.
+   */
+  private def checkIsAdmin()(using PlanContext): IO[Boolean] = {
+    logInfo(s"正在检查用户 ${userID} 是否为管理员")
+    validateAdminMapping(adminID = userID, adminToken = userToken).send.map { case (isAdmin, msg) =>
+      logInfo(s"validateAdminMapping API 响应: $msg")
+      isAdmin // Return the Boolean part of the tuple.
+    }
+  }
+
+  /** Logs an informational message with the trace ID. */
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  /** Logs an error message with the trace ID and the cause. */
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }
