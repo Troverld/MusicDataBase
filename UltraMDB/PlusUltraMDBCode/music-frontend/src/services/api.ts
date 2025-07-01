@@ -27,6 +27,7 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'GetSongByID': 'music',
   'CreateNewGenre': 'music',
   'DeleteGenre': 'music',
+  'GetGenreList': 'music',  // 添加这个API映射
   'FilterSongsByEntity': 'music',
   'ValidateSongOwnership': 'music',
   

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { musicService } from '../services/music.service';
 import { Song } from '../types';
 import SongList from '../components/SongList';
+import { useGenres } from '../hooks/useGenres';
 
 const SongManagement: React.FC = () => {
   const [songs, setSongs] = useState<Song[]>([]);
@@ -12,6 +13,8 @@ const SongManagement: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   
+  const { genres, getGenreNamesByIds, getGenreIdsByNames } = useGenres();
+  
   const [formData, setFormData] = useState({
     name: '',
     releaseTime: new Date().toISOString().split('T')[0],
@@ -21,7 +24,7 @@ const SongManagement: React.FC = () => {
     composers: '',
     arrangers: '',
     instrumentalists: '',
-    genres: ''
+    selectedGenres: [] as string[] // 存储选中的曲风ID
   });
 
   const handleSearch = async () => {
@@ -82,9 +85,18 @@ const SongManagement: React.FC = () => {
       composers: song.composers?.join(', ') || '',
       arrangers: song.arrangers?.join(', ') || '',
       instrumentalists: song.instrumentalists?.join(', ') || '',
-      genres: song.genres.join(', ')
+      selectedGenres: song.genres // 直接使用曲风ID数组
     });
     setShowModal(true);
+  };
+
+  const handleGenreToggle = (genreId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedGenres: prev.selectedGenres.includes(genreId)
+        ? prev.selectedGenres.filter(id => id !== genreId)
+        : [...prev.selectedGenres, genreId]
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,7 +113,7 @@ const SongManagement: React.FC = () => {
       composers: formData.composers.split(',').map(s => s.trim()).filter(s => s),
       arrangers: formData.arrangers.split(',').map(s => s.trim()).filter(s => s),
       instrumentalists: formData.instrumentalists.split(',').map(s => s.trim()).filter(s => s),
-      genres: formData.genres.split(',').map(s => s.trim()).filter(s => s)
+      genres: formData.selectedGenres // 直接使用曲风ID数组
     };
 
     try {
@@ -147,7 +159,7 @@ const SongManagement: React.FC = () => {
       composers: '',
       arrangers: '',
       instrumentalists: '',
-      genres: ''
+      selectedGenres: []
     });
     setEditingSong(null);
   };
@@ -297,13 +309,55 @@ const SongManagement: React.FC = () => {
               </div>
               
               <div className="form-group">
-                <label>曲风 (逗号分隔)</label>
-                <input
-                  type="text"
-                  value={formData.genres}
-                  onChange={(e) => setFormData({...formData, genres: e.target.value})}
-                  placeholder="流行, 摇滚, 爵士"
-                />
+                <label>曲风选择</label>
+                <div style={{ 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px', 
+                  padding: '10px',
+                  maxHeight: '200px',
+                  overflowY: 'auto'
+                }}>
+                  {genres.length === 0 ? (
+                    <p style={{ color: '#666', margin: 0, fontSize: '14px' }}>
+                      暂无可用曲风，请联系管理员添加
+                    </p>
+                  ) : (
+                    genres.map((genre) => (
+                      <label 
+                        key={genre.genreID} 
+                        style={{ 
+                          display: 'block', 
+                          marginBottom: '8px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.selectedGenres.includes(genre.genreID)}
+                          onChange={() => handleGenreToggle(genre.genreID)}
+                          style={{ marginRight: '8px' }}
+                        />
+                        <strong>{genre.name}</strong>
+                        {genre.description && (
+                          <span style={{ color: '#666', marginLeft: '8px' }}>
+                            ({genre.description})
+                          </span>
+                        )}
+                      </label>
+                    ))
+                  )}
+                </div>
+                {formData.selectedGenres.length > 0 && (
+                  <div style={{ marginTop: '8px' }}>
+                    <small style={{ color: '#666' }}>
+                      已选择: {formData.selectedGenres.map(id => {
+                        const genre = genres.find(g => g.genreID === id);
+                        return genre ? genre.name : id;
+                      }).join(', ')}
+                    </small>
+                  </div>
+                )}
               </div>
               
               <button type="submit" className="btn btn-primary">

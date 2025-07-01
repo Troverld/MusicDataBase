@@ -209,6 +209,20 @@ app.post('/api/GetSongByID', (req, res) => {
   res.json([song, "获取歌曲成功"]);
 });
 
+// Get Genre List - 新增API
+app.post('/api/GetGenreList', (req, res) => {
+  const { userID, userToken } = req.body;
+  
+  // Verify user
+  const user = db.users.find(u => u.userToken === userToken);
+  if (!user) {
+    return res.json([null, "用户认证失败"]);
+  }
+  
+  // Return all genres
+  res.json([db.genres, "获取曲风列表成功"]);
+});
+
 // Create New Genre
 app.post('/api/CreateNewGenre', (req, res) => {
   const { adminID, adminToken, name, description } = req.body;
@@ -290,6 +304,7 @@ app.listen(PORT, () => {
   console.log('- POST /api/DeleteSong');
   console.log('- POST /api/SearchSongsByName');
   console.log('- POST /api/GetSongByID');
+  console.log('- POST /api/GetGenreList');  // 新增
   console.log('- POST /api/CreateNewGenre');
   console.log('- POST /api/DeleteGenre');
 });
