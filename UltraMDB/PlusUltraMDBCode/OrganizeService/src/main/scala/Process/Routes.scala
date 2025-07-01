@@ -15,15 +15,15 @@ import org.http4s.client.Client
 import org.http4s.dsl.io.*
 import scala.collection.concurrent.TrieMap
 import Common.Serialize.CustomColumnTypes.*
-import Impl.ApproveBandAuthRequestMessagePlanner
 import Impl.UserLoginMessagePlanner
-import Impl.SubmitBandAuthRequestMessagePlanner
 import Impl.UserLogoutMessagePlanner
-import Impl.SubmitArtistAuthRequestMessagePlanner
+import Impl.SubmitAuthRequestMessagePlanner
+import Impl.ApproveAuthRequestMessagePlanner
 import Impl.UserRegisterMessagePlanner
-import Impl.ApproveArtistAuthRequestMessagePlanner
 import Impl.validateAdminMappingPlanner
 import Impl.validateUserMappingPlanner
+import Impl.GetRequestByIDPlanner
+import Impl.GetAuthRequestListMessagePlanner
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -35,10 +35,24 @@ object Routes:
 
   private def executePlan(messageType: String, str: String): IO[String] =
     messageType match {
-      case "ApproveBandAuthRequestMessage" =>
+      case "ApproveAuthRequestMessage" =>
         IO(
-          decode[ApproveBandAuthRequestMessagePlanner](str) match
+          decode[ApproveAuthRequestMessagePlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for ApproveBandAuthRequestMessage[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
+      case "GetRequestByID" =>
+        IO(
+          decode[GetRequestByIDPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAdminMapping[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
+      case "GetAuthRequestListMessage" =>
+        IO(
+          decode[GetAuthRequestListMessagePlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAdminMapping[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
@@ -49,9 +63,9 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "SubmitBandAuthRequestMessage" =>
+      case "SubmitAuthRequestMessage" =>
         IO(
-          decode[SubmitBandAuthRequestMessagePlanner](str) match
+          decode[SubmitAuthRequestMessagePlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SubmitBandAuthRequestMessage[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
@@ -63,24 +77,10 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "SubmitArtistAuthRequestMessage" =>
-        IO(
-          decode[SubmitArtistAuthRequestMessagePlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SubmitArtistAuthRequestMessage[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
-       
       case "UserRegisterMessage" =>
         IO(
           decode[UserRegisterMessagePlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for UserRegisterMessage[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
-       
-      case "ApproveArtistAuthRequestMessage" =>
-        IO(
-          decode[ApproveArtistAuthRequestMessagePlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for ApproveArtistAuthRequestMessage[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
         

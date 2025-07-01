@@ -2,33 +2,34 @@ package Process
 
 import Common.API.{API, PlanContext, TraceID}
 import Common.DBAPI.{initSchema, writeDB}
+import Common.Object.SqlParameter // Explicitly import SqlParameter for clarity
 import Common.ServiceUtils.schemaName
-import Global.ServerConfig
-import cats.effect.IO
-import io.circe.generic.auto.*
-import java.util.UUID
-import Global.DBConfig
+import Global.{DBConfig, GlobalVariables, ServerConfig}
 import Process.ProcessUtils.server2DB
-import Global.GlobalVariables
-import Utils.CryptoUtils // 引入我们的加密工具
+import Utils.CryptoUtils
+import cats.effect.IO
+import java.util.UUID
+import io.circe.generic.auto.deriveEncoder
 
 object Init {
   def init(config: ServerConfig): IO[Unit] = {
     given PlanContext = PlanContext(traceID = TraceID(UUID.randomUUID().toString), 0)
     given DBConfig = server2DB(config)
 
-    // 定义初始管理员信息
-    val initialAdminId = "00000000-0000-0000-0000-000000000001" // 使用一个固定的、可识别的UUID
+    // --- Preserved: Initial administrator account details ---
+    val initialAdminId = "00000000-0000-0000-0000-000000000001"
     val initialAdminUsername = "admin"
-    val initialAdminPassword = "admin123" // 在生产环境中应使用更安全的密码，或从安全配置中读取
+    // In a real production environment, this should come from a secure configuration source.
+    val initialAdminPassword = "admin123"
 
     val program: IO[Unit] = for {
-      _ <- IO(GlobalVariables.isTest=config.isTest)
+      _ <- IO(GlobalVariables.isTest = config.isTest)
       _ <- API.init(config.maximumClientConnection)
       _ <- Common.DBAPI.SwitchDataSourceMessage(projectName = Global.ServiceCenter.projectName).send
       _ <- initSchema(schemaName)
+      _ <- IO.println("Schema initialized. Creating/Updating tables...")
 
-      // -- 用户表 --
+      // -- Preserved: User Table (No changes needed) --
       _ <- writeDB(
         s"""
         CREATE TABLE IF NOT EXISTS "${schemaName}"."user_table" (
@@ -43,7 +44,7 @@ object Init {
         List()
       )
 
-      // -- 管理员表 --
+      // -- Preserved: Admin Table (No changes needed) --
       _ <- writeDB(
         s"""
         CREATE TABLE IF NOT EXISTS "${schemaName}"."admin_table" (
@@ -57,42 +58,37 @@ object Init {
         List()
       )
 
-      // -- 艺术家认证请求表 --
+      // --- [REFACTORED] Unified Authentication Request Table ---
+      // This single table replaces the separate artist_auth_request_table and band_auth_request_table.
       _ <- writeDB(
         s"""
-        CREATE TABLE IF NOT EXISTS "${schemaName}"."artist_auth_request_table" (
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."auth_request_table" (
             request_id VARCHAR NOT NULL PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            artist_id TEXT NOT NULL,
+            user_id VARCHAR NOT NULL,
+            target_id VARCHAR NOT NULL,      -- The ID of the artist OR band
+            target_type VARCHAR NOT NULL,    -- Stores "Artist" or "Band"
             certification TEXT NOT NULL,
-            status TEXT NOT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            status VARCHAR NOT NULL,         -- Stores "Pending", "Approved", "Rejected"
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            processed_by VARCHAR,          -- The admin who processed the request (NULL if not yet processed)
+            processed_at TIMESTAMP,          -- The timestamp of processing (NULL if not yet processed)
+            
+            -- Adding a composite index can speed up lookups for pending requests
+            CONSTRAINT unique_pending_request UNIQUE (user_id, target_id, target_type, status)
         );
         """,
         List()
       )
+      _ <- IO.println("Unified 'auth_request_table' created/updated.")
+      
+      // -- [REMOVED] The old, separate tables are no longer needed. --
+      // The logic that created artist_auth_request_table and band_auth_request_table is now gone.
 
-      // -- 乐队认证请求表 --
-      _ <- writeDB(
-        s"""
-        CREATE TABLE IF NOT EXISTS "${schemaName}"."band_auth_request_table" (
-            request_id VARCHAR NOT NULL PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            band_id TEXT NOT NULL,
-            certification TEXT,
-            status TEXT NOT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        """,
-        List()
-      )
+      // -- Preserved: Logic to create the initial administrator --
+      _ <- IO.println("Checking and setting up initial administrator account...")
+      encryptedPassword <- IO(CryptoUtils.encryptPassword(initialAdminPassword))
 
-      // -- 插入初始管理员数据 --
-      _ <- IO.println("正在检查并创建初始管理员账户...")
-      // 1. 加密初始密码
-      encryptedPassword = CryptoUtils.encryptPassword(initialAdminPassword)
-
-      // 2. 插入到 user_table。ON CONFLICT (account) DO NOTHING 确保如果该用户名的用户已存在，则什么也不做。
+      // 1. Insert into user_table. ON CONFLICT ensures this is idempotent.
       _ <- writeDB(
         s"""
         INSERT INTO "${schemaName}"."user_table" (user_id, account, password)
@@ -100,13 +96,13 @@ object Init {
         ON CONFLICT (account) DO NOTHING;
         """,
         List(
-          Common.Object.SqlParameter("String", initialAdminId),
-          Common.Object.SqlParameter("String", initialAdminUsername),
-          Common.Object.SqlParameter("String", encryptedPassword)
+          SqlParameter("String", initialAdminId),
+          SqlParameter("String", initialAdminUsername),
+          SqlParameter("String", encryptedPassword)
         )
       )
 
-      // 3. 插入到 admin_table。ON CONFLICT (admin_id) DO NOTHING 确保如果该管理员记录已存在，则什么也不做。
+      // 2. Insert into admin_table. ON CONFLICT ensures this is idempotent.
       _ <- writeDB(
         s"""
         INSERT INTO "${schemaName}"."admin_table" (admin_id)
@@ -114,16 +110,15 @@ object Init {
         ON CONFLICT (admin_id) DO NOTHING;
         """,
         List(
-          Common.Object.SqlParameter("String", initialAdminId)
+          SqlParameter("String", initialAdminId)
         )
       )
-      _ <- IO.println("初始管理员账户设置完成。")
-
+      _ <- IO.println("Initial administrator account setup is complete.")
 
     } yield ()
 
     program.handleErrorWith(err => IO {
-      println("[Error] Process.Init.init 失败, 请检查 db-manager 是否启动及端口问题")
+      println(s"[Error] Process.Init.init failed in project ${Global.ServiceCenter.projectName}. Please check db-manager connection and configuration.")
       err.printStackTrace()
     })
   }

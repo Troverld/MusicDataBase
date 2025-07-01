@@ -19,16 +19,16 @@ import java.util.UUID
 
 
 /**
- * ApproveBandAuthRequestMessage
- * desc: 管理员审核一个绑定乐队的请求，用于管理员角色管理绑定申请
- * @param adminID: String (管理员的唯一标识)
- * @param adminToken: String (管理员的认证令牌，用于验证身份)
- * @param requestID: String (乐队绑定申请的唯一请求ID)
- * @param approve: Boolean (审核结果，true表示通过，false表示拒绝)
+ * ApproveAuthRequestMessage
+ * desc: 管理员审核绑定创作者的请求
+ * @param adminID: String (管理员ID)
+ * @param adminToken: String (管理员认证令牌)
+ * @param requestID: String (绑定请求的唯一标识)
+ * @param approve: Boolean (是否批准该绑定申请)
  * @return (Boolean, String): (审核是否成功, 错误信息)
  */
 
-case class ApproveBandAuthRequestMessage(
+case class ApproveAuthRequestMessage(
   adminID: String,
   adminToken: String,
   requestID: String,
@@ -37,31 +37,31 @@ case class ApproveBandAuthRequestMessage(
 
 
 
-case object ApproveBandAuthRequestMessage{
+case object ApproveAuthRequestMessage{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[ApproveBandAuthRequestMessage] = deriveEncoder
-  private val circeDecoder: Decoder[ApproveBandAuthRequestMessage] = deriveDecoder
+  private val circeEncoder: Encoder[ApproveAuthRequestMessage] = deriveEncoder
+  private val circeDecoder: Decoder[ApproveAuthRequestMessage] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[ApproveBandAuthRequestMessage] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[ApproveAuthRequestMessage] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[ApproveBandAuthRequestMessage] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[ApproveBandAuthRequestMessage]() {})) } 
+  private val jacksonDecoder: Decoder[ApproveAuthRequestMessage] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[ApproveAuthRequestMessage]() {})) } 
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given approveBandAuthRequestMessageEncoder: Encoder[ApproveBandAuthRequestMessage] = Encoder.instance { config =>
+  given approveAuthRequestMessageEncoder: Encoder[ApproveAuthRequestMessage] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given approveBandAuthRequestMessageDecoder: Decoder[ApproveBandAuthRequestMessage] = Decoder.instance { cursor =>
+  given approveAuthRequestMessageDecoder: Decoder[ApproveAuthRequestMessage] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
