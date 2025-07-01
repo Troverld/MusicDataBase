@@ -1,5 +1,6 @@
 import React from 'react';
 import { Song } from '../types';
+import { useGenres } from '../hooks/useGenres';
 
 interface SongListProps {
   songs: Song[];
@@ -8,6 +9,8 @@ interface SongListProps {
 }
 
 const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
+  const { getGenreNamesByIds } = useGenres();
+
   if (songs.length === 0) {
     return (
       <div className="empty-state">
@@ -22,6 +25,12 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
 
   const formatList = (items: string[]) => {
     return items.length > 0 ? items.join(', ') : '无';
+  };
+
+  const formatGenres = (genreIds: string[]): string[] => {
+    if (genreIds.length === 0) return [];
+    const genreNames = getGenreNamesByIds(genreIds);
+    return genreNames;
   };
 
   return (
@@ -55,9 +64,13 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
           <div style={{ marginTop: '10px' }}>
             <strong>曲风:</strong>
             <div style={{ marginTop: '5px' }}>
-              {song.genres.map((genre) => (
-                <span key={genre} className="chip">{genre}</span>
-              ))}
+              {formatGenres(song.genres).length > 0 ? (
+                formatGenres(song.genres).map((genreName: string, index: number) => (
+                  <span key={index} className="chip">{genreName}</span>
+                ))
+              ) : (
+                <span className="chip" style={{ backgroundColor: '#f8f9fa', color: '#6c757d' }}>无</span>
+              )}
             </div>
           </div>
 

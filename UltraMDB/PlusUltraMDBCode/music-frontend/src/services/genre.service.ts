@@ -3,6 +3,22 @@ import { Genre } from '../types';
 import { getUser } from '../utils/storage';
 
 export const genreService = {
+  // 获取所有曲风列表
+  async getAllGenres(): Promise<[Genre[] | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken
+    };
+
+    const result = await callAPI<[Genre[] | null, string]>('GetGenreList', data);
+    return result;
+  },
+
   async createGenre(genreData: { name: string; description: string }): Promise<[string | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {

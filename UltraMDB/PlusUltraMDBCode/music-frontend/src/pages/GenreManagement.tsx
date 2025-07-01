@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { genreService } from '../services/genre.service';
+import { useGenres } from '../hooks/useGenres';
 
 const GenreManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // 使用曲风Hook获取最新的曲风列表
+  const { genres, fetchGenres } = useGenres();
   
   // Add Genre Form State
   const [addFormData, setAddFormData] = useState({
@@ -33,6 +37,8 @@ const GenreManagement: React.FC = () => {
       if (genreID) {
         setSuccess(`曲风创建成功！曲风ID: ${genreID}`);
         setAddFormData({ name: '', description: '' });
+        // 刷新曲风列表
+        await fetchGenres();
       } else {
         setError(message || '创建曲风失败');
       }
@@ -59,6 +65,8 @@ const GenreManagement: React.FC = () => {
       if (success) {
         setSuccess('曲风删除成功！');
         setDeleteFormData({ genreID: '' });
+        // 刷新曲风列表
+        await fetchGenres();
       } else {
         setError(message || '删除曲风失败');
       }
@@ -132,37 +140,136 @@ const GenreManagement: React.FC = () => {
         }}>
           <h2 style={{ marginBottom: '10px', color: '#333' }}>删除曲风</h2>
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
-            输入要删除的曲风ID。注意：删除曲风可能会影响使用该曲风的歌曲。
+            从下拉框中选择要删除的曲风。注意：删除曲风可能会影响使用该曲风的歌曲。
           </p>
           
           <form onSubmit={handleDeleteSubmit}>
             <div className="form-group">
-              <label>曲风ID*</label>
-              <input
-                type="text"
-                value={deleteFormData.genreID}
-                onChange={(e) => setDeleteFormData({genreID: e.target.value})}
-                placeholder="例如：genre-001"
-                required
-                disabled={loading}
-              />
-              <small style={{ display: 'block', marginTop: '5px', color: '#666' }}>
-                曲风ID通常以 "genre-" 开头，如 genre-001, genre-002 等
-              </small>
+              <label>选择要删除的曲风*</label>
+              {genres.length === 0 ? (
+                <div style={{ 
+                  padding: '12px', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px',
+                  backgroundColor: '#f8f9fa',
+                  color: '#666',
+                  textAlign: 'center'
+                }}>
+                  暂无可删除的曲风
+                </div>
+              ) : (
+                <select
+                  value={deleteFormData.genreID}
+                  onChange={(e) => setDeleteFormData({genreID: e.target.value})}
+                  required
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="">请选择要删除的曲风...</option>
+                  {genres.map((genre) => (
+                    <option key={genre.genreID} value={genre.genreID}>
+                      {genre.name} ({genre.genreID})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {deleteFormData.genreID && (
+                <div style={{ 
+                  marginTop: '8px', 
+                  padding: '8px 12px',
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '4px'
+                }}>
+                  <small style={{ color: '#856404' }}>
+                    ⚠️ 即将删除曲风: <strong>
+                      {genres.find(g => g.genreID === deleteFormData.genreID)?.name}
+                    </strong>
+                  </small>
+                </div>
+              )}
             </div>
             
             <button 
               type="submit" 
               className="btn btn-danger"
-              disabled={loading || !deleteFormData.genreID.trim()}
+              disabled={loading || !deleteFormData.genreID.trim() || genres.length === 0}
             >
-              {loading ? '删除中...' : '删除曲风'}
+              {loading ? '删除中...' : '删除选中曲风'}
             </button>
           </form>
         </div>
       </div>
 
-      {/* Common Genre IDs Reference */}
+      {/* Current Genres List */}
+      <div style={{ 
+        background: 'white', 
+        padding: '30px', 
+        borderRadius: '8px', 
+        marginTop: '40px',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h2 style={{ marginBottom: '20px', color: '#333' }}>📋 当前系统曲风列表</h2>
+        {genres.length === 0 ? (
+          <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+            暂无曲风数据，请添加新曲风
+          </p>
+        ) : (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+            gap: '15px'
+          }}>
+            {genres.map((genre) => (
+              <div 
+                key={genre.genreID} 
+                style={{ 
+                  padding: '15px', 
+                  background: '#f8f9fa', 
+                  borderRadius: '6px', 
+                  border: '1px solid #e9ecef' 
+                }}
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'flex-start',
+                  marginBottom: '8px'
+                }}>
+                  <h4 style={{ margin: 0, color: '#495057' }}>{genre.name}</h4>
+                  <span style={{ 
+                    fontSize: '12px', 
+                    color: '#6c757d', 
+                    background: '#e9ecef',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontFamily: 'monospace'
+                  }}>
+                    {genre.genreID}
+                  </span>
+                </div>
+                <p style={{ 
+                  margin: 0, 
+                  fontSize: '14px', 
+                  color: '#6c757d',
+                  lineHeight: '1.4'
+                }}>
+                  {genre.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Management Tips */}
       <div style={{ 
         background: '#f8f9fa', 
         padding: '25px', 
@@ -170,26 +277,13 @@ const GenreManagement: React.FC = () => {
         marginTop: '40px',
         border: '1px solid #e9ecef'
       }}>
-        <h3 style={{ marginBottom: '15px', color: '#495057' }}>📚 常见曲风ID参考</h3>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '15px',
-          marginBottom: '15px'
-        }}>
-          <div style={{ padding: '10px', background: 'white', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-            <strong>genre-001:</strong> Pop (流行音乐)
-          </div>
-          <div style={{ padding: '10px', background: 'white', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-            <strong>genre-002:</strong> Rock (摇滚音乐)
-          </div>
-          <div style={{ padding: '10px', background: 'white', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-            <strong>genre-003:</strong> Jazz (爵士音乐)
-          </div>
+        <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 曲风管理提示</h3>
+        <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
+          <p><strong>添加曲风：</strong> 系统会自动生成唯一的曲风ID，您只需填写名称和描述即可。</p>
+          <p><strong>删除曲风：</strong> 从下拉框中选择要删除的曲风，删除前请确认没有歌曲正在使用该曲风。</p>
+          <p><strong>曲风使用：</strong> 用户在上传或编辑歌曲时，可以从当前曲风列表中多选曲风进行标记。</p>
+          <p><strong>数据安全：</strong> 所有曲风操作都会立即同步到歌曲管理界面，确保数据一致性。</p>
         </div>
-        <p style={{ fontSize: '12px', color: '#6c757d', margin: '0' }}>
-          ⚠️ 这些是系统中预设的曲风ID，删除前请确认没有歌曲在使用这些曲风。
-        </p>
       </div>
     </div>
   );
