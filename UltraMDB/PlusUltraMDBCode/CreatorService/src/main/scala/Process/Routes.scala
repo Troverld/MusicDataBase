@@ -21,9 +21,12 @@ import Impl.AddArtistManagerPlanner
 import Impl.UpdateArtistMessagePlanner
 import Impl.CreateBandMessagePlanner
 import Impl.DeleteArtistMessagePlanner
-import Impl.validBandOwnershipPlanner
+import Impl.ValidArtistOwnershipPlanner
+import Impl.ValidBandOwnershipPlanner
 import Impl.AddBandManagerPlanner
 import Impl.CreateArtistMessagePlanner
+import Impl.GetArtistByIDPlanner
+import Impl.GetBandByIDPlanner
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -77,9 +80,16 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "validBandOwnership" =>
+      case "ValidArtistOwnership" =>
         IO(
-          decode[validBandOwnershipPlanner](str) match
+          decode[ValidArtistOwnershipPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validBandOwnership[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+       
+      case "ValidBandOwnership" =>
+        IO(
+          decode[ValidBandOwnershipPlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validBandOwnership[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
@@ -94,6 +104,20 @@ object Routes:
       case "CreateArtistMessage" =>
         IO(
           decode[CreateArtistMessagePlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+       
+      case "GetArtistByID" =>
+        IO(
+          decode[GetArtistByIDPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+       
+      case "GetBandByID" =>
+        IO(
+          decode[GetBandByIDPlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten

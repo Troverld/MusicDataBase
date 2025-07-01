@@ -1,126 +1,128 @@
 package Impl
 
+// 外部服务API的导入
+import APIs.CreatorService.{GetArtistByID, GetBandByID, ValidBandOwnership}
 
-import APIs.OrganizeService.validateUserMapping
-import APIs.CreatorService.validArtistOwnership
-import APIs.CreatorService.validBandOwnership
+// 内部项目通用库的导入
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
+import Objects.CreatorService.{Artist, Band}
+
+// 第三方库的导入
 import cats.effect.IO
-import io.circe.Json
+import cats.implicits._ // This import provides the .parTraverse extension method
+import io.circe.generic.auto._
+import io.circe.syntax._
 import org.slf4j.LoggerFactory
-import io.circe.syntax._
-import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits._
-import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.DBAPI._
-import Common.API.{PlanContext, Planner}
-import cats.effect.IO
-import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-import Common.ServiceUtils.schemaName
-import APIs.CreatorService.validBandOwnership
-import io.circe._
-import cats.implicits.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
+/**
+ * Planner for UpdateBandMessage: Handles updating a band's name, bio, and/or members.
+ *
+ * @param userID      The ID of the user initiating the update.
+ * @param userToken   The user's authentication token.
+ * @param bandID      The ID of the band to update.
+ * @param name        The optional new name for the band.
+ * @param members     The optional new list of member IDs.
+ * @param bio         The optional new bio for the band.
+ * @param planContext The implicit execution context.
+ */
 case class UpdateBandMessagePlanner(
-                                     userID: String,
-                                     userToken: String,
-                                     bandID: String,
-                                     name: Option[String],
-                                     members: List[String],
-                                     bio: Option[String],
-                                     override val planContext: PlanContext
-                                   ) extends Planner[String] {
-  val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
+  userID: String,
+  userToken: String,
+  bandID: String,
+  name: Option[String],
+  members: Option[List[String]],
+  bio: Option[String],
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] {
 
-  override def plan(using PlanContext): IO[String] = {
-    for {
-      // Step 1: Validate user token and userID mapping
-      _ <- IO(logger.info(s"[Step 1] 验证用户令牌和用户ID映射关系，userID=$userID"))
-      isUserValid <- validateUserMapping(userID, userToken).send
-      _ <- if (!isUserValid) IO.raiseError(new Exception("用户令牌无效")) else IO(logger.info("[Step 1.1] 用户令牌验证成功"))
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-      // Step 2: Check if the user has the ownership of the band
-      _ <- IO(logger.info(s"[Step 2] 验证用户对乐队的管理权限，bandID=$bandID"))
-      isBandOwner <- validBandOwnership(userID, userToken, bandID).send
-      _ <- if (!isBandOwner) IO.raiseError(new Exception("无权限修改该乐队信息")) else IO(logger.info("[Step 2.1] 用户对乐队的管理权限验证通过"))
-
-      // Step 3: Check if the band exists in the database
-      _ <- IO(logger.info(s"[Step 3] 检查乐队是否存在，bandID=$bandID"))
-      bandExists <- validateBandExistence(bandID)
-      _ <- if (!bandExists) IO.raiseError(new Exception("乐队ID不存在")) else IO(logger.info("[Step 3.1] 乐队存在"))
-
-      // Step 4: Update band information
-      _ <- IO(logger.info("[Step 4] 开始更新乐队信息"))
-      _ <- updateBandInfo()
-
-    } yield "更新成功"
-  }
-
-  private def validateBandExistence(bandID: String)(using PlanContext): IO[Boolean] = {
-    IO(logger.info(s"[validateBandExistence] 查询band_table是否有对应乐队ID: $bandID")) >>
-      readDBInt(
-        s"""
-          |SELECT COUNT(1)
-          |FROM ${schemaName}.band_table
-          |WHERE band_id = ?;
-        """.stripMargin,
-        List(SqlParameter("String", bandID))
-      ).map(_ > 0)
-  }
-
-  private def updateBandInfo()(using PlanContext): IO[Unit] = {
-    val updates = scala.collection.mutable.ArrayBuffer.empty[String]
-    val sqlParams = scala.collection.mutable.ArrayBuffer.empty[SqlParameter]
-
-    if (name.isDefined) {
-      updates += "name = ?"
-      sqlParams += SqlParameter("String", name.get)
-      logger.info(s"[updateBandInfo] 将name更新为：${name.get}")
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    if (name.isEmpty && members.isEmpty && bio.isEmpty) {
+      return IO.pure((false, "没有提供任何更新内容"))
     }
 
-    if (bio.isDefined) {
-      updates += "bio = ?"
-      sqlParams += SqlParameter("String", bio.get)
-      logger.info(s"[updateBandInfo] 将bio更新为：${bio.get}")
-    }
+    val logic: IO[(Boolean, String)] = for {
+      _ <- verifyOwnership()
+      _ <- validateMemberIDs(members)
+      currentBand <- getBand()
+      _ <- updateBand(currentBand, members)
+    } yield (true, "乐队信息更新成功")
 
-    if (members.nonEmpty) {
-      logger.info("[updateBandInfo] 开始验证每个成员ID的有效性")
-      val memberValidityChecks = members.map(memberID => validArtistOwnership(userID, memberID).send)
-
-      for {
-        memberValidity <- memberValidityChecks.sequence
-        _ <- if (memberValidity.contains(false)) IO.raiseError(new Exception("部分成员ID无效")) else IO(logger.info("[updateBandInfo] 所有成员ID有效"))
-      } yield ()
-
-      updates += "members = ?"
-      sqlParams += SqlParameter("String", members.asJson.noSpaces) // JSON格式存储
-      logger.info(s"[updateBandInfo] 将members更新为：${members.mkString("[", ", ", "]")}")
-    }
-
-    if (updates.isEmpty) {
-      IO(logger.info("[updateBandInfo] 更新操作跳过，因为没有需要更新的字段"))
-    } else {
-      val sql =
-        s"""
-          |UPDATE ${schemaName}.band_table
-          |SET ${updates.mkString(", ")}
-          |WHERE band_id = ?;
-        """.stripMargin
-
-      sqlParams += SqlParameter("String", bandID)
-      writeDB(sql, sqlParams.toList).map(_ => logger.info("[updateBandInfo] 乐队信息更新成功"))
+    logic.handleErrorWith { error =>
+      logError(s"更新乐队 ${bandID} 的操作失败", error) >>
+        IO.pure((false, error.getMessage))
     }
   }
+
+  private def verifyOwnership()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户 ${userID} 对乐队 ${bandID} 的管理权限")
+    ValidBandOwnership(userID, userToken, bandID).send.flatMap {
+      case (true, _) => logInfo("权限验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"权限验证失败: $message"))
+    }
+  }
+
+  /**
+   * 并行验证提供的成员ID列表中的每个ID是否都对应一个存在的艺术家。
+   */
+  private def validateMemberIDs(memberIDsOpt: Option[List[String]])(using PlanContext): IO[Unit] = {
+    memberIDsOpt match {
+      case Some(ids) if ids.nonEmpty =>
+        logInfo(s"正在并行验证 ${ids.length} 个成员ID的有效性...")
+        // -- THE FIX IS HERE --
+        // Call .parTraverse directly on the collection `ids`
+        ids.parTraverse { memberID =>
+          GetArtistByID(userID, userToken, memberID).send.map(result => memberID -> result._1.isDefined)
+        }.flatMap { results =>
+          // The rest of the logic remains the same, but now it's more robust
+          val invalidResults = results.filterNot(_._2)
+          if (invalidResults.nonEmpty) {
+            val invalidIDs = invalidResults.map(_._1)
+            IO.raiseError(new Exception(s"部分成员ID无效或不存在: ${invalidIDs.mkString(", ")}"))
+          } else {
+            logInfo("所有成员ID均有效。")
+          }
+        }
+      case _ => IO.unit // No members provided, no validation needed.
+    }
+  }
+
+  private def getBand()(using PlanContext): IO[Band] = {
+    logInfo(s"正在获取乐队 ${bandID} 的当前信息")
+    GetBandByID(userID, userToken, bandID).send.flatMap {
+      case (Some(band), _) => logInfo("成功获取到乐队当前信息。").as(band)
+      case (None, message) => IO.raiseError(new Exception(s"无法获取乐队信息: $message"))
+    }
+  }
+
+  private def updateBand(currentBand: Band, newMembers: Option[List[String]])(using PlanContext): IO[Unit] = {
+    val finalName = name.getOrElse(currentBand.name)
+    val finalBio = bio.getOrElse(currentBand.bio)
+    val finalMembers = newMembers.getOrElse(currentBand.members)
+
+    logInfo(s"正在执行数据库更新。")
+    val query =
+      s"""
+         UPDATE "${schemaName}"."band_table"
+         SET name = ?, bio = ?, members = ?
+         WHERE band_id = ?
+      """
+
+    writeDB(
+      query,
+      List(
+        SqlParameter("String", finalName),
+        SqlParameter("String", finalBio),
+        SqlParameter("String", finalMembers.asJson.noSpaces),
+        SqlParameter("String", bandID)
+      )
+    ).void
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }

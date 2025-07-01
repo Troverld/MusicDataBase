@@ -1,142 +1,122 @@
 package Impl
 
-
+// External service APIs
+import APIs.MusicService.FilterSongsByEntity
 import APIs.OrganizeService.validateAdminMapping
-import Objects.MusicService.Song
-import Objects.TrackService.Album
+// import APIs.TrackService.FilterAlbumsByEntity // Ideal future API
+
+// Internal project common libraries
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
+
+// Third-party libraries and standard library
 import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._ // Assuming companion objects are now the standard
+
 import org.slf4j.LoggerFactory
-import io.circe.Json
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
-import org.joda.time.DateTime
-import cats.implicits.*
-import Common.DBAPI._
-import Common.API.{PlanContext, Planner}
-import cats.effect.IO
-import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-import Common.ServiceUtils.schemaName
-import Objects.TrackService.Album
-import io.circe.parser._
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
+/**
+ * Planner for DeleteBandMessage: Handles the deletion of a band.
+ *
+ * This action is restricted to administrators and is protected against deleting
+ * bands that are still referenced by other entities (e.g., songs, albums).
+ *
+ * @param adminID    The ID of the administrator performing the action.
+ * @param adminToken The administrator's authentication token.
+ * @param bandID     The ID of the band to be deleted.
+ * @param planContext The implicit execution context.
+ */
 case class DeleteBandMessagePlanner(
-                                     adminID: String,
-                                     adminToken: String,
-                                     bandID: String,
-                                     override val planContext: PlanContext
-                                   ) extends Planner[String] {
-  val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
+  adminID: String,
+  adminToken: String,
+  bandID: String,
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] { // Corrected return type
 
-  override def plan(using planContext: PlanContext): IO[String] = {
-    for {
-      // Step 1: Validate adminToken and ID, and admin privileges
-      _ <- IO(logger.info("验证管理员权限"))
-      isValidAdmin <- validateAdminMapping(adminID, adminToken).send
-      _ <- if (!isValidAdmin) IO.raiseError(new IllegalArgumentException("管理员认证失败")) else IO(logger.info("管理员验证成功"))
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-      // Step 2: Check if the bandID exists in the BandTable
-      _ <- IO(logger.info(s"检查乐队ID '${bandID}' 是否存在"))
-      bandExists <- checkBandExists(bandID)
-      _ <- if (!bandExists) IO.raiseError(new IllegalArgumentException("乐队ID不存在")) else IO(logger.info("乐队存在验证通过"))
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    val logic: IO[(Boolean, String)] = for {
+      // Step 1: Verify administrator credentials.
+      _ <- verifyIsAdmin()
 
-      // Step 3: Verify if the bandID is referenced in Songs or Albums
-      _ <- IO(logger.info(s"检查乐队ID '${bandID}' 是否有引用"))
-      isReferenced <- checkIfBandIsReferenced(bandID)
-      _ <- if (isReferenced) IO.raiseError(new IllegalArgumentException("乐队已被引用，无法删除")) else IO(logger.info("乐队无引用验证通过"))
+      // Step 2: Verify the band actually exists before proceeding.
+      _ <- verifyBandExists()
 
-      // Step 4: Delete the band from the BandTable
-      _ <- IO(logger.info(s"从数据库中删除乐队ID '${bandID}'"))
-      deletionResult <- deleteBand(bandID)
-      _ <- IO(logger.info(s"删除操作成功: $deletionResult"))
+      // Step 3: Ensure the (now confirmed to exist) band is not referenced.
+      _ <- checkBandIsNotReferenced()
 
-    } yield "删除成功"
+      // Step 4: Perform the final deletion.
+      _ <- deleteBandFromDB()
+
+    } yield (true, "乐队删除成功")
+
+    logic.handleErrorWith { error =>
+      logError(s"删除乐队 ${bandID} 的操作失败", error) >>
+        IO.pure((false, error.getMessage))
+    }
   }
 
-  // Helper function: Check if the bandID exists in the BandTable
-  private def checkBandExists(bandID: String)(using PlanContext): IO[Boolean] = {
-    for {
-      _ <- IO(logger.info(s"创建检查乐队ID '${bandID}' 的数据库查询语句"))
-      sql <- IO {
-        s"""
-          SELECT 1
-          FROM ${schemaName}.band_table
-          WHERE band_id = ?;
-        """
-      }
-      result <- readDBJsonOptional(sql, List(SqlParameter("String", bandID))).map(_.isDefined)
-      _ <- IO(logger.info(s"检查乐队ID '${bandID}' 结果: ${result}"))
-    } yield result
+  private def verifyIsAdmin()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证管理员权限: adminID=${adminID}")
+    validateAdminMapping(adminID, adminToken).send.flatMap {
+      case (true, _) => logInfo("管理员权限验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"管理员认证失败: $message"))
+    }
   }
 
-  // Helper function: Check if the bandID is referenced in Song/Album tables
-  private def checkIfBandIsReferenced(bandID: String)(using PlanContext): IO[Boolean] = {
-    val bandIdJson = s"""["${bandID}"]""" // JSON array format
-
-    for {
-      _ <- IO(logger.info(s"检查乐队ID '${bandID}' 是否被Song表引用"))
-      songSql <- IO {
-        s"""
-          SELECT 1
-          FROM ${schemaName}.song
-          WHERE performers @> ?::jsonb OR creators @> ?::jsonb;
-        """
-      }
-      referencedInSongs <- readDBJsonOptional(
-        songSql,
-        List(
-          SqlParameter("String", bandIdJson),
-          SqlParameter("String", bandIdJson)
-        )
-      ).map(_.isDefined)
-
-      _ <- IO(logger.info(s"检查乐队ID '${bandID}' 是否被Album表引用"))
-      albumSql <- IO {
-        s"""
-          SELECT 1
-          FROM ${schemaName}.album
-          WHERE creators @> ?::jsonb OR collaborators @> ?::jsonb;
-        """
-      }
-      referencedInAlbums <- readDBJsonOptional(
-        albumSql,
-        List(
-          SqlParameter("String", bandIdJson),
-          SqlParameter("String", bandIdJson)
-        )
-      ).map(_.isDefined)
-
-      result <- IO {
-        referencedInSongs || referencedInAlbums
-      }
-      _ <- IO(logger.info(s"乐队是否被引用 (Songs: ${referencedInSongs}, Albums: ${referencedInAlbums}): ${result}"))
-    } yield result
+  private def verifyBandExists()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在确认乐队是否存在: ${bandID}")
+    val sql = s"""SELECT 1 FROM "${schemaName}"."band_table" WHERE band_id = ?"""
+    readDBRows(sql, List(SqlParameter("String", bandID))).flatMap {
+      case Nil => IO.raiseError(new Exception("乐队ID不存在"))
+      case _   => logInfo("乐队存在，继续执行。")
+    }
   }
 
-  // Helper function: Delete the band record from the BandTable
-  private def deleteBand(bandID: String)(using PlanContext): IO[String] = {
-    for {
-      _ <- IO(logger.info(s"创建删除乐队ID '${bandID}' 的SQL语句"))
-      sql <- IO {
-        s"""
-          DELETE FROM ${schemaName}.band_table
-          WHERE band_id = ?;
-        """
+  private def checkBandIsNotReferenced()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在并行检查乐队 ${bandID} 是否被其他实体引用...")
+
+    // Check 1: Is the band referenced in any songs?
+    val songReferenceCheck: IO[Boolean] =
+      FilterSongsByEntity(adminID, adminToken, entityID = Some(bandID), entityType = Some("band")).send.map {
+        case (Some(songList), _) => songList.nonEmpty
+        case (None, _)           => false
       }
-      result <- writeDB(sql, List(SqlParameter("String", bandID)))
-      _ <- IO(logger.info(s"删除乐队记录结果: $result"))
-    } yield result
+
+    // Check 2: Is the band referenced in any albums? (Temporary direct query)
+    val albumReferenceCheck: IO[Boolean] = {
+      logInfo("执行对 album 表的直接引用检查 (待改进为API调用)")
+      val bandIdAsJsonArray = s"""["$bandID"]"""
+      val sql = s"""SELECT 1 FROM "${schemaName}"."album" WHERE creators::jsonb @> ?::jsonb OR collaborators::jsonb @> ?::jsonb LIMIT 1"""
+      readDBRows(sql, List(SqlParameter("String", bandIdAsJsonArray))).map(_.nonEmpty)
+    }
+
+    // Run checks in parallel for efficiency.
+    (songReferenceCheck, albumReferenceCheck).parTupled.flatMap {
+      case (isReferencedInSongs, isReferencedInAlbums) =>
+        val errors = List(
+          if (isReferencedInSongs) Some("歌曲") else None,
+          if (isReferencedInAlbums) Some("专辑") else None
+        ).flatten
+
+        if (errors.nonEmpty) {
+          IO.raiseError(new Exception(s"无法删除：乐队已被 ${errors.mkString("、")} 引用"))
+        } else {
+          logInfo("引用检查通过，乐队未被引用。")
+        }
+    }
   }
+
+  private def deleteBandFromDB()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在从数据库中删除乐队: ${bandID}")
+    val sql = s"""DELETE FROM "${schemaName}"."band_table" WHERE band_id = ?"""
+    writeDB(sql, List(SqlParameter("String", bandID))).void
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }
