@@ -5,6 +5,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import SongManagement from './pages/SongManagement';
 import GenreManagement from './pages/GenreManagement';
+import ArtistManagement from './pages/ArtistManagement';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
@@ -19,6 +20,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="songs" element={<SongManagement />} />
           <Route path="genres" element={<GenreManagement />} />
+          <Route path="artists" element={<ArtistManagement />} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

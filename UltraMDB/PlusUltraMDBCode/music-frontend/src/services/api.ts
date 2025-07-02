@@ -9,12 +9,6 @@ const SERVICE_PORTS = {
   creator: 10012,    // CreatorService
   track: 10013       // TrackService
 };
-// const SERVICE_PORTS = {
-//   organize: 10011,   // Mock server
-//   music: 10011,      // Mock server (修改)
-//   creator: 10011,    // Mock server (修改)
-//   track: 10011       // Mock server (修改)
-// };
 
 // API到服务的映射
 const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
@@ -22,8 +16,12 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'UserLoginMessage': 'organize',
   'UserRegisterMessage': 'organize',
   'UserLogoutMessage': 'organize',
-  'validateUs erMapping': 'organize',
+  'validateUserMapping': 'organize',
   'validateAdminMapping': 'organize',
+  'SubmitArtistAuthRequestMessage': 'organize',
+  'SubmitBandAuthRequestMessage': 'organize',
+  'ApproveArtistAuthRequestMessage': 'organize',
+  'ApproveBandAuthRequestMessage': 'organize',
   
   // MusicService APIs
   'UploadNewSong': 'music',
@@ -33,7 +31,7 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'GetSongByID': 'music',
   'CreateNewGenre': 'music',
   'DeleteGenre': 'music',
-  'GetGenreList': 'music',  // 添加这个API映射
+  'GetGenreList': 'music',
   'FilterSongsByEntity': 'music',
   'ValidateSongOwnership': 'music',
   
@@ -42,10 +40,12 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'UpdateArtistMessage': 'creator',
   'DeleteArtistMessage': 'creator',
   'GetArtistByID': 'creator',
+  'SearchArtistByName': 'creator',
   'CreateBandMessage': 'creator',
   'UpdateBandMessage': 'creator',
   'DeleteBandMessage': 'creator',
   'GetBandByID': 'creator',
+  'SearchBandByName': 'creator',
   'AddArtistManager': 'creator',
   'AddBandManager': 'creator',
   'validArtistOwnership': 'creator',

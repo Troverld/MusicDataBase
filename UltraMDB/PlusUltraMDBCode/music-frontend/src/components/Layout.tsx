@@ -29,6 +29,7 @@ const Layout: React.FC = () => {
           <div>
             <Link to="/">Dashboard</Link>
             <Link to="/songs">Songs</Link>
+            <Link to="/artists">Artists</Link>
             <Link to="/genres">Genres</Link>
             <a href="#" onClick={handleLogout}>Logout</a>
           </div>

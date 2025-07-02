@@ -346,15 +346,18 @@ select::-ms-expand {
   flex: 1;
 }
 
-/* 多选下拉框样式 */
+/* 重新设计的多选下拉框样式 - 彻底解决宽度和高度问题 */
 .multi-select-dropdown {
   position: relative;
   width: 100%;
+  max-width: 100%;
 }
 
 .multi-select-trigger {
   width: 100%;
-  padding: 10px 40px 10px 10px;
+  min-height: 42px;
+  max-height: 120px; /* 限制最大高度 */
+  padding: 8px 30px 8px 10px; /* 减少右侧padding */
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
@@ -364,10 +367,11 @@ select::-ms-expand {
   background-repeat: no-repeat;
   background-size: 16px;
   cursor: pointer;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
+  transition: all 0.3s ease;
+  display: block;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
 }
 
 .multi-select-trigger:hover {
@@ -383,50 +387,70 @@ select::-ms-expand {
 
 .multi-select-trigger.open {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m14 12-4-4-4 4'/%3e%3c/svg%3e");
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 .multi-select-placeholder {
-  color: #666;
+  color: #999;
+  font-style: italic;
+  padding: 2px 0;
+  line-height: 1.4;
 }
 
 .multi-select-values {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
+  gap: 3px;
+  align-items: flex-start;
   min-height: 20px;
+  max-width: calc(100% - 25px); /* 为箭头留出空间 */
+  overflow: hidden;
+  padding: 2px 0;
 }
 
 .multi-select-tag {
   background-color: #e3f2fd;
   color: #1976d2;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  max-width: 120px;
+  gap: 3px;
+  max-width: 100px; /* 减小最大宽度 */
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin: 1px;
 }
 
 .multi-select-tag-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 70px; /* 进一步减小文本宽度 */
 }
 
 .multi-select-tag-remove {
   cursor: pointer;
   color: #1976d2;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
-  opacity: 0.7;
+  opacity: 0.8;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .multi-select-tag-remove:hover {
   opacity: 1;
+  background-color: rgba(25, 118, 210, 0.2);
 }
 
 .multi-select-dropdown-menu {
@@ -435,27 +459,30 @@ select::-ms-expand {
   left: 0;
   right: 0;
   background: white;
-  border: 1px solid #ddd;
+  border: 1px solid #007bff;
   border-top: none;
   border-radius: 0 0 4px 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  max-height: 200px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 1050; /* 提高z-index */
+  max-height: 250px; /* 增加最大高度 */
   overflow-y: auto;
+  overflow-x: hidden;
   width: 100%;
   box-sizing: border-box;
+  margin-top: -1px; /* 与trigger无缝连接 */
 }
 
 .multi-select-option {
   padding: 10px 12px;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid #f0f0f0;
   display: flex;
   align-items: flex-start;
   gap: 8px;
   width: 100%;
   box-sizing: border-box;
+  min-height: 40px;
 }
 
 .multi-select-option:last-child {
@@ -471,33 +498,79 @@ select::-ms-expand {
 }
 
 .multi-select-option input[type="checkbox"] {
-  margin-top: 2px;
+  margin: 2px 0 0 0;
   accent-color: #007bff;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
 }
 
 .multi-select-option-content {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 
 .multi-select-option-name {
   font-weight: 500;
   color: #333;
-  font-size: 14px;
+  font-size: 13px;
   margin-bottom: 2px;
+  line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .multi-select-option-description {
   color: #666;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  margin-top: 2px;
 }
 
 .multi-select-empty {
-  padding: 20px;
+  padding: 20px 12px;
   text-align: center;
-  color: #666;
-  font-size: 14px;
+  color: #999;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* 选中计数器 */
+.multi-select-counter {
+  background-color: #007bff;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-left: 8px;
+  display: inline-block;
+}
+
+/* 确保模态框内的下拉框正确显示 */
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s ease;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  position: relative; /* 确保下拉框定位正确 */
+}
+
+/* 确保下拉框在模态框中不被裁剪 */
+.modal-content .multi-select-dropdown-menu {
+  z-index: 1060; /* 比模态框更高的z-index */
+  position: absolute;
+  max-height: 200px; /* 限制高度以适应模态框 */
 }
 
 /* 自定义滚动条样式 */
@@ -530,6 +603,7 @@ select::-ms-expand {
   .modal-content {
     margin: 20px;
     width: calc(100% - 40px);
+    padding: 20px;
   }
 
   .container {
@@ -537,10 +611,22 @@ select::-ms-expand {
   }
 
   .multi-select-tag {
-    max-width: 100px;
+    max-width: 80px;
+  }
+
+  .multi-select-tag-text {
+    max-width: 50px;
   }
 
   .multi-select-values {
-    max-width: calc(100% - 50px);
+    width: calc(100% - 30px);
+  }
+
+  .multi-select-option {
+    padding: 10px;
+  }
+
+  .multi-select-option-content {
+    font-size: 13px;
   }
 }

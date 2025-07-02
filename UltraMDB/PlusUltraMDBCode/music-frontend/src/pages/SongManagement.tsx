@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { musicService } from '../services/music.service';
 import { Song } from '../types';
 import SongList from '../components/SongList';
@@ -14,7 +14,11 @@ const SongManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   
-  const { genres, getGenreNamesByIds, getGenreIdsByNames } = useGenres();
+  // 使用 Set 来管理选中的曲风ID
+  const [selectedGenresSet, setSelectedGenresSet] = useState<Set<string>>(new Set());
+  
+  const { genres } = useGenres();
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -24,9 +28,25 @@ const SongManagement: React.FC = () => {
     lyricists: '',
     composers: '',
     arrangers: '',
-    instrumentalists: '',
-    selectedGenres: [] as string[] // 存储选中的曲风ID
+    instrumentalists: ''
   });
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   const handleSearch = async () => {
     if (!searchKeyword.trim()) {
@@ -85,36 +105,58 @@ const SongManagement: React.FC = () => {
       lyricists: song.lyricists?.join(', ') || '',
       composers: song.composers?.join(', ') || '',
       arrangers: song.arrangers?.join(', ') || '',
-      instrumentalists: song.instrumentalists?.join(', ') || '',
-      selectedGenres: song.genres // 直接使用曲风ID数组
+      instrumentalists: song.instrumentalists?.join(', ') || ''
     });
+    // 使用 Set 来管理选中的曲风
+    setSelectedGenresSet(new Set(song.genres));
     setShowModal(true);
   };
 
+  // 切换曲风选中状态
   const handleGenreToggle = (genreId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedGenres: prev.selectedGenres.includes(genreId)
-        ? prev.selectedGenres.filter(id => id !== genreId)
-        : [...prev.selectedGenres, genreId]
-    }));
+    if (!genreId) return; // 防止空ID
+    
+    setSelectedGenresSet(prevSet => {
+      const newSet = new Set(prevSet);
+      const wasSelected = newSet.has(genreId);
+      
+      if (wasSelected) {
+        newSet.delete(genreId);
+        console.log(`Removed genre: ${genreId}`); // 调试信息
+      } else {
+        newSet.add(genreId);
+        console.log(`Added genre: ${genreId}`); // 调试信息
+      }
+      
+      console.log('Current selected genres:', Array.from(newSet)); // 调试信息
+      return newSet;
+    });
   };
 
+  // 移除曲风
   const handleGenreRemove = (genreId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedGenres: prev.selectedGenres.filter(id => id !== genreId)
-    }));
+    setSelectedGenresSet(prevSet => {
+      const newSet = new Set(prevSet);
+      newSet.delete(genreId);
+      return newSet;
+    });
   };
 
+  // 清空所有选中的曲风
+  const handleClearAllGenres = () => {
+    setSelectedGenresSet(new Set());
+  };
+
+  // 切换下拉框显示状态
   const toggleDropdown = () => {
     setDropdownOpen(!dropdownOpen);
   };
 
-  const getSelectedGenreNames = () => {
-    return formData.selectedGenres.map(id => {
+  // 获取选中曲风的显示信息
+  const getSelectedGenresList = () => {
+    return Array.from(selectedGenresSet).map(id => {
       const genre = genres.find(g => g.genreID === id);
-      return genre ? genre.name : id;
+      return { id, name: genre ? genre.name : id };
     });
   };
 
@@ -132,7 +174,7 @@ const SongManagement: React.FC = () => {
       composers: formData.composers.split(',').map(s => s.trim()).filter(s => s),
       arrangers: formData.arrangers.split(',').map(s => s.trim()).filter(s => s),
       instrumentalists: formData.instrumentalists.split(',').map(s => s.trim()).filter(s => s),
-      genres: formData.selectedGenres // 直接使用曲风ID数组
+      genres: Array.from(selectedGenresSet) // 将 Set 转换为数组
     };
 
     try {
@@ -179,9 +221,9 @@ const SongManagement: React.FC = () => {
       lyricists: '',
       composers: '',
       arrangers: '',
-      instrumentalists: '',
-      selectedGenres: []
+      instrumentalists: ''
     });
+    setSelectedGenresSet(new Set());
     setEditingSong(null);
   };
 
@@ -194,6 +236,15 @@ const SongManagement: React.FC = () => {
   useEffect(() => {
     clearMessages();
   }, [searchKeyword]);
+
+  // 当模态框关闭时重置下拉框状态
+  useEffect(() => {
+    if (!showModal) {
+      setDropdownOpen(false);
+    }
+  }, [showModal]);
+
+  const selectedGenresList = getSelectedGenresList();
 
   return (
     <div>
@@ -239,11 +290,11 @@ const SongManagement: React.FC = () => {
       )}
       
       {showModal && (
-        <div className="modal" onClick={() => { setShowModal(false); setDropdownOpen(false); }}>
+        <div className="modal" onClick={() => { setShowModal(false); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingSong ? '编辑歌曲' : '上传新歌曲'}</h2>
-              <button onClick={() => { setShowModal(false); setDropdownOpen(false); }}>×</button>
+              <button onClick={() => setShowModal(false)}>×</button>
             </div>
             
             <form onSubmit={handleSubmit}>
@@ -330,72 +381,143 @@ const SongManagement: React.FC = () => {
               </div>
               
               <div className="form-group">
-                <label>曲风选择</label>
-                <div className="multi-select-dropdown">
+                <label>
+                  曲风选择
+                  {selectedGenresSet.size > 0 && (
+                    <span className="multi-select-counter">
+                      {selectedGenresSet.size}
+                    </span>
+                  )}
+                </label>
+                <div className="multi-select-dropdown" ref={dropdownRef}>
                   <div 
                     className={`multi-select-trigger ${dropdownOpen ? 'open' : ''}`}
                     onClick={toggleDropdown}
                     tabIndex={0}
                   >
-                    {formData.selectedGenres.length === 0 ? (
+                    {selectedGenresSet.size === 0 ? (
                       <span className="multi-select-placeholder">请选择曲风...</span>
                     ) : (
                       <div className="multi-select-values">
-                        {formData.selectedGenres.map(id => {
-                          const genre = genres.find(g => g.genreID === id);
-                          return (
-                            <span key={id} className="multi-select-tag">
-                              <span className="multi-select-tag-text">
-                                {genre ? genre.name : id}
-                              </span>
-                              <span 
-                                className="multi-select-tag-remove"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleGenreRemove(id);
-                                }}
-                              >
-                                ×
-                              </span>
+                        {selectedGenresList.slice(0, 5).map(({ id, name }) => (
+                          <span key={id} className="multi-select-tag">
+                            <span className="multi-select-tag-text" title={name}>
+                              {name}
                             </span>
-                          );
-                        })}
+                            <span 
+                              className="multi-select-tag-remove"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGenreRemove(id);
+                              }}
+                              title="移除"
+                            >
+                              ×
+                            </span>
+                          </span>
+                        ))}
+                        {selectedGenresSet.size > 5 && (
+                          <span className="multi-select-tag" style={{ backgroundColor: '#f8f9fa', color: '#666' }}>
+                            +{selectedGenresSet.size - 5}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
                   
                   {dropdownOpen && (
                     <div className="multi-select-dropdown-menu">
-                      {genres.length === 0 ? (
-                        <div className="multi-select-empty">
-                          暂无可用曲风，请联系管理员添加
-                        </div>
-                      ) : (
-                        genres.map((genre) => (
-                          <div 
-                            key={genre.genreID} 
-                            className={`multi-select-option ${formData.selectedGenres.includes(genre.genreID) ? 'selected' : ''}`}
-                            onClick={() => handleGenreToggle(genre.genreID)}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={formData.selectedGenres.includes(genre.genreID)}
-                              onChange={() => handleGenreToggle(genre.genreID)}
-                            />
-                            <div className="multi-select-option-content">
-                              <div className="multi-select-option-name">{genre.name}</div>
-                              {genre.description && (
-                                <div className="multi-select-option-description">
-                                  {genre.description}
-                                </div>
-                              )}
+                      {selectedGenresSet.size > 0 && (
+                        <div 
+                          className="multi-select-option"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClearAllGenres();
+                          }}
+                          style={{ 
+                            borderBottom: '2px solid #dee2e6',
+                            backgroundColor: '#fff3cd',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          <span style={{ fontSize: '14px' }}>🗑️</span>
+                          <div className="multi-select-option-content">
+                            <div className="multi-select-option-name">
+                              清空所有选择 ({selectedGenresSet.size} 项)
                             </div>
                           </div>
-                        ))
+                        </div>
+                      )}
+                      
+                      {genres.length === 0 ? (
+                        <div className="multi-select-empty">
+                          暂无可用曲风，请先到曲风管理页面添加曲风
+                        </div>
+                      ) : (
+                        genres.map((genre) => {
+                          const isSelected = selectedGenresSet.has(genre.genreID);
+                          return (
+                            <div 
+                              key={genre.genreID} 
+                              className={`multi-select-option ${isSelected ? 'selected' : ''}`}
+                              onMouseDown={(e) => {
+                                // 使用 onMouseDown 替代 onClick，避免与复选框事件冲突
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleGenreToggle(genre.genreID);
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {}} // 完全禁用复选框的事件
+                                onMouseDown={(e) => {
+                                  // 阻止复选框的默认行为
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  // 阻止复选框的点击事件
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                readOnly
+                                style={{ pointerEvents: 'none' }} // 完全禁用复选框的交互
+                              />
+                              <div className="multi-select-option-content">
+                                <div className="multi-select-option-name">
+                                  {genre.name}
+                                  {isSelected && <span style={{ marginLeft: '8px', color: '#007bff', fontWeight: 'bold' }}>✓</span>}
+                                </div>
+                                {genre.description && (
+                                  <div className="multi-select-option-description">
+                                    {genre.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   )}
                 </div>
+                
+                {/* 已选择曲风的详细信息 */}
+                {selectedGenresSet.size > 0 && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '8px 12px',
+                    backgroundColor: '#e8f5e8',
+                    borderLeft: '4px solid #28a745',
+                    borderRadius: '0 4px 4px 0',
+                    fontSize: '12px',
+                    color: '#155724'
+                  }}>
+                    <strong>已选择 {selectedGenresSet.size} 个曲风:</strong> {selectedGenresList.slice(0, 3).map(g => g.name).join(', ')}
+                    {selectedGenresSet.size > 3 && ` 等共${selectedGenresSet.size}个曲风`}
+                  </div>
+                )}
               </div>
               
               <button type="submit" className="btn btn-primary">
