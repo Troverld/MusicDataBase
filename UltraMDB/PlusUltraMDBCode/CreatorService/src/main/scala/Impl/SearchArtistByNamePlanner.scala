@@ -91,7 +91,7 @@ case class SearchArtistByNamePlanner(
     readDBRows(query, List(SqlParameter("String", searchParam))).flatMap { rows =>
       // Safely traverse the list of JSON results and decode the 'artist_id' from each.
       rows.traverse { row =>
-        IO.fromEither(row.hcursor.get[String]("artist_id"))
+        IO.fromEither(row.hcursor.get[String]("artistID"))
       }.handleErrorWith { err =>
         IO.raiseError(new Exception(s"解码 artist_id 失败: ${err.getMessage}"))
       }

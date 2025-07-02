@@ -1,4 +1,4 @@
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\CreatorService\Artist.scala
+// 来源文件: .\CreatorService\Artist.scala
 
 /**
  * Artist
@@ -17,7 +17,7 @@ case class Artist(
 
 ================================================================================
 
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\CreatorService\Band.scala
+// 来源文件: .\CreatorService\Band.scala
 
 /**
  * Band
@@ -38,7 +38,7 @@ case class Band(
 
 ================================================================================
 
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\MusicService\Genre.scala
+// 来源文件: .\MusicService\Genre.scala
 
 /**
  * Genre
@@ -55,7 +55,7 @@ case class Genre(
 
 ================================================================================
 
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\MusicService\Song.scala
+// 来源文件: .\MusicService\Song.scala
 
 /**
  * Song
@@ -69,16 +69,67 @@ desc: 歌曲信息，包括ID、名称、发布时间、创作者、表演者和
  */
 case class Song(
   songID: String,
-  name: String,
-  releaseTime: DateTime,
-  creators: List[String],
-  performers: List[String],
-  genres: List[String]
+                 name: String,
+                 releaseTime: DateTime,
+                 creators: List[String],
+                 performers: List[String],
+                 lyricists: List[String],
+                 arrangers: List[String],
+                 instrumentalists: List[String],
+                 composers: List[String],
+                 genres: List[String],
+                 uploaderID: String
 )
 
 ================================================================================
 
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\OrganizeService\User.scala
+// 来源文件: .\OrganizeService\AuthRequest.scala
+
+/**
+ * RequestStatus
+desc: 表示授权申请的当前状态。
+/
+sealed trait RequestStatus
+object RequestStatus {
+case object Pending extends RequestStatus
+case object Approved extends RequestStatus
+case object Rejected extends RequestStatus
+
+// Provide Encoder/Decoder so it can be serialized with AuthRequest
+// Circe will automatically handle case objects as strings ("Pending", "Approved", etc.)
+implicit val encoder: Encoder[RequestStatus] = deriveEncoder
+implicit val decoder: Decoder[RequestStatus] = deriveDecoder
+}
+
+
+// --- Define the unified AuthRequest object ---
+
+/**
+AuthRequest
+desc: 一个统一的授权申请记录，用于用户申请成为艺术家或乐队的管理者。
+@param requestID 唯一的申请ID。
+@param userID 提交申请的用户ID。
+@param targetID 申请绑定的目标，使用 CreatorID_Type 来区分是艺术家还是乐队。
+@param certification 用户提供的认证材料。
+@param status 申请的当前状态 (Pending, Approved, Rejected)。
+@param createdAt 申请创建的时间戳。
+@param processedBy 处理该申请的管理员ID，在处理前为None。
+@param processedAt 处理该申请的时间戳，在处理前为None。
+ */
+case class AuthRequest(
+  requestID: String,
+  userID: String,
+  targetID: CreatorID_Type,
+  certification: String,
+  status: RequestStatus,
+  createdAt: DateTime,
+  processedBy: Option[String],
+  processedAt: Option[DateTime]
+)
+
+================================================================================
+
+// 来源文件: .\OrganizeService\User.scala
 
 /**
  * User
@@ -95,7 +146,7 @@ case class User(
 
 ================================================================================
 
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\TrackService\Album.scala
+// 来源文件: .\TrackService\Album.scala
 
 /**
  * Album
@@ -120,7 +171,7 @@ case class Album(
 
 ================================================================================
 
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\TrackService\Collection.scala
+// 来源文件: .\TrackService\Collection.scala
 
 /**
  * Collection
@@ -145,7 +196,7 @@ case class Collection(
 
 ================================================================================
 
-// 来源文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\Objects\TrackService\Playlist.scala
+// 来源文件: .\TrackService\Playlist.scala
 
 /**
  * Playlist
