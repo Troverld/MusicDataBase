@@ -1,7 +1,10 @@
 package Impl
 
 // 外部服务API的导入
-import APIs.CreatorService.{GetArtistByID, ValidArtistOwnership}
+// import APIs.CreatorService.{GetArtistByID, ValidArtistOwnership}
+
+import APIs.OrganizeService.validateAdminMapping
+import APIs.CreatorService.GetArtistByID
 
 // 内部项目通用库的导入
 import Common.API.{PlanContext, Planner}
@@ -70,7 +73,7 @@ case class UpdateArtistMessagePlanner(
    */
   private def verifyOwnership()(using PlanContext): IO[Unit] = {
     logInfo(s"正在验证用户 ${userID} 对艺术家 ${artistID} 的管理权限")
-    ValidArtistOwnership(userID, userToken, artistID).send.flatMap {
+    validateAdminMapping(userID, userToken).send.flatMap {
       case (true, _) =>
         logInfo("权限验证通过。")
       case (false, message) =>

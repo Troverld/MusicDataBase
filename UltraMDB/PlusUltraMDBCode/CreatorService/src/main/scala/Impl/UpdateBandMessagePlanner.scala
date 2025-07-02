@@ -1,7 +1,11 @@
 package Impl
 
 // 外部服务API的导入
-import APIs.CreatorService.{GetArtistByID, GetBandByID, ValidBandOwnership}
+// import APIs.CreatorService.{GetArtistByID, GetBandByID, ValidBandOwnership}
+
+
+import APIs.OrganizeService.validateAdminMapping
+import APIs.CreatorService.{GetArtistByID,GetBandByID}
 
 // 内部项目通用库的导入
 import Common.API.{PlanContext, Planner}
@@ -60,7 +64,7 @@ case class UpdateBandMessagePlanner(
 
   private def verifyOwnership()(using PlanContext): IO[Unit] = {
     logInfo(s"正在验证用户 ${userID} 对乐队 ${bandID} 的管理权限")
-    ValidBandOwnership(userID, userToken, bandID).send.flatMap {
+    validateAdminMapping(userID, userToken).send.flatMap {
       case (true, _) => logInfo("权限验证通过。")
       case (false, message) => IO.raiseError(new Exception(s"权限验证失败: $message"))
     }

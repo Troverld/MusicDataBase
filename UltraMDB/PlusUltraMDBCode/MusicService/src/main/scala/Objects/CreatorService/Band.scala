@@ -23,7 +23,7 @@ import java.util.UUID
  * @param name: String (乐队名称)
  * @param members: String (乐队成员的ID列表)
  * @param bio: String (乐队的简介)
- * @param managedBy: String (负责管理该乐队的管理者ID列表)
+//  * @param managedBy: String (负责管理该乐队的管理者ID列表)
  */
 
 case class Band(
@@ -31,7 +31,7 @@ case class Band(
   name: String,
   members: List[String],
   bio: String,
-  managedBy: List[String]
+  // managedBy: List[String]
 ){
 
   //process class code 预留标志位，不要删除

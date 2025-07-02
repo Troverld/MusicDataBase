@@ -17,13 +17,13 @@ import scala.collection.concurrent.TrieMap
 import Common.Serialize.CustomColumnTypes.*
 import Impl.DeleteBandMessagePlanner
 import Impl.UpdateBandMessagePlanner
-import Impl.AddArtistManagerPlanner
+// import Impl.AddArtistManagerPlanner
 import Impl.UpdateArtistMessagePlanner
 import Impl.CreateBandMessagePlanner
 import Impl.DeleteArtistMessagePlanner
-import Impl.ValidArtistOwnershipPlanner
-import Impl.ValidBandOwnershipPlanner
-import Impl.AddBandManagerPlanner
+// import Impl.ValidArtistOwnershipPlanner
+// import Impl.ValidBandOwnershipPlanner
+// import Impl.AddBandManagerPlanner
 import Impl.CreateArtistMessagePlanner
 import Impl.GetArtistByIDPlanner
 import Impl.GetBandByIDPlanner
@@ -54,12 +54,12 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "AddArtistManager" =>
-        IO(
-          decode[AddArtistManagerPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for AddArtistManager[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "AddArtistManager" =>
+      //   IO(
+      //     decode[AddArtistManagerPlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for AddArtistManager[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
        
       case "UpdateArtistMessage" =>
         IO(
@@ -82,26 +82,26 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "ValidArtistOwnership" =>
-        IO(
-          decode[ValidArtistOwnershipPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validBandOwnership[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "ValidArtistOwnership" =>
+      //   IO(
+      //     decode[ValidArtistOwnershipPlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validBandOwnership[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
        
-      case "ValidBandOwnership" =>
-        IO(
-          decode[ValidBandOwnershipPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validBandOwnership[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "ValidBandOwnership" =>
+      //   IO(
+      //     decode[ValidBandOwnershipPlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validBandOwnership[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
        
-      case "AddBandManager" =>
-        IO(
-          decode[AddBandManagerPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for AddBandManager[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "AddBandManager" =>
+      //   IO(
+      //     decode[AddBandManagerPlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for AddBandManager[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
        
       case "CreateArtistMessage" =>
         IO(

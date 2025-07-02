@@ -22,14 +22,14 @@ import java.util.UUID
  * @param artistID: String (艺术家的唯一ID)
  * @param name: String (艺术家的名字)
  * @param bio: String (艺术家的简介)
- * @param managedBy: String (管理艺术家的用户ID的列表)
+//  * @param managedBy: String (管理艺术家的用户ID的列表)
  */
 
 case class Artist(
   artistID: String,
   name: String,
   bio: String,
-  managedBy: List[String]
+  // managedBy: List[String]
 ){
 
   //process class code 预留标志位，不要删除
