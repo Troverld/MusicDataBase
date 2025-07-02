@@ -88,27 +88,37 @@ case class DeleteBandMessagePlanner(
       }
 
     // Check 2: Is the band referenced in any albums? (Temporary direct query)
-    val albumReferenceCheck: IO[Boolean] = {
-      logInfo("执行对 album 表的直接引用检查 (待改进为API调用)")
-      val bandIdAsJsonArray = s"""["$bandID"]"""
-      val sql = s"""SELECT 1 FROM "${schemaName}"."album" WHERE creators::jsonb @> ?::jsonb OR collaborators::jsonb @> ?::jsonb LIMIT 1"""
-      readDBRows(sql, List(SqlParameter("String", bandIdAsJsonArray))).map(_.nonEmpty)
-    }
+    // val albumReferenceCheck: IO[Boolean] = {
+    //   logInfo("执行对 album 表的直接引用检查 (待改进为API调用)")
+    //   val bandIdAsJsonArray = s"""["$bandID"]"""
+    //   val sql = s"""SELECT 1 FROM "${schemaName}"."album" WHERE creators::jsonb @> ?::jsonb OR collaborators::jsonb @> ?::jsonb LIMIT 1"""
+    //   readDBRows(sql, List(SqlParameter("String", bandIdAsJsonArray))).map(_.nonEmpty)
+    // }
 
     // Run checks in parallel for efficiency.
-    (songReferenceCheck, albumReferenceCheck).parTupled.flatMap {
-      case (isReferencedInSongs, isReferencedInAlbums) =>
-        val errors = List(
-          if (isReferencedInSongs) Some("歌曲") else None,
-          if (isReferencedInAlbums) Some("专辑") else None
-        ).flatten
+    // (songReferenceCheck/*, albumReferenceCheck*/).parTupled.flatMap {
+    //   case (isReferencedInSongs/*, isReferencedInAlbums*/) =>
+    //     val errors = List(
+    //       if (isReferencedInSongs) Some("歌曲") else None,
+    //       // if (isReferencedInAlbums) Some("专辑") else None
+    //     ).flatten
 
-        if (errors.nonEmpty) {
-          IO.raiseError(new Exception(s"无法删除：乐队已被 ${errors.mkString("、")} 引用"))
-        } else {
-          logInfo("引用检查通过，乐队未被引用。")
-        }
-    }
+    //     if (errors.nonEmpty) {
+    //       IO.raiseError(new Exception(s"无法删除：乐队已被 ${errors.mkString("、")} 引用"))
+    //     } else {
+    //       logInfo("引用检查通过，乐队未被引用。")
+    //     }
+    // }
+
+    songReferenceCheck.flatMap { isReferenced =>
+      if (isReferenced) {
+        // 如果被歌曲引用，直接抛出错误
+        IO.raiseError(new Exception("无法删除：乐队已被歌曲引用"))
+      } else {
+        // 如果未被引用，打印成功日志并继续
+        logInfo("引用检查通过，乐队未被引用。")
+      }
+}
   }
 
   private def deleteBandFromDB()(using PlanContext): IO[Unit] = {

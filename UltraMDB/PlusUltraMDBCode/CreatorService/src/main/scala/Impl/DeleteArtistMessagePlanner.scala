@@ -89,11 +89,11 @@ case class DeleteArtistMessagePlanner(
         case (None, _)           => false
       }
 
-    val albumReferenceCheck: IO[Boolean] = {
-      logInfo("执行对 album 表的直接引用检查 (待改进为API调用)")
-      val sql = s"""SELECT 1 FROM "${schemaName}"."album" WHERE ? = ANY(creators) LIMIT 1"""
-      readDBRows(sql, List(SqlParameter("String", artistID))).map(_.nonEmpty)
-    }
+    // val albumReferenceCheck: IO[Boolean] = {
+    //   logInfo("执行对 album 表的直接引用检查 (待改进为API调用)")
+    //   val sql = s"""SELECT 1 FROM "${schemaName}"."album" WHERE ? = ANY(creators) LIMIT 1"""
+    //   readDBRows(sql, List(SqlParameter("String", artistID))).map(_.nonEmpty)
+    // }
 
     val bandMembershipCheck: IO[Boolean] = {
       logInfo("执行对 band_table 的直接成员关系检查 (待改进为API调用)")
@@ -102,11 +102,11 @@ case class DeleteArtistMessagePlanner(
       readDBRows(sql, List(SqlParameter("String", artistIdAsJsonArray))).map(_.nonEmpty)
     }
 
-    (songReferenceCheck, albumReferenceCheck, bandMembershipCheck).parTupled.flatMap {
-      case (isReferencedInSongs, isReferencedInAlbums, isMemberOfBand) =>
+    (songReferenceCheck, /*albumReferenceCheck,*/ bandMembershipCheck).parTupled.flatMap {
+      case (isReferencedInSongs, /*isReferencedInAlbums,*/ isMemberOfBand) =>
         val errors = List(
           if (isReferencedInSongs) Some("歌曲") else None,
-          if (isReferencedInAlbums) Some("专辑") else None,
+          // if (isReferencedInAlbums) Some("专辑") else None,
           if (isMemberOfBand) Some("乐队") else None
         ).flatten
 
