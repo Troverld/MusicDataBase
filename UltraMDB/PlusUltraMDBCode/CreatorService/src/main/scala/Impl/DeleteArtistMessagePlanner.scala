@@ -4,6 +4,7 @@ package Impl
 import APIs.CreatorService.GetArtistByID // <--- 关键导入
 import APIs.MusicService.FilterSongsByEntity
 import APIs.OrganizeService.validateAdminMapping
+import io.circe.generic.auto._ // Temporary import
 
 // Internal project common libraries
 import Common.API.{PlanContext, Planner}
