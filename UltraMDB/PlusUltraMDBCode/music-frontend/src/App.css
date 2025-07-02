@@ -346,7 +346,7 @@ select::-ms-expand {
   flex: 1;
 }
 
-/* 多选下拉框样式 */
+/* 改进的多选下拉框样式 - 解决宽度问题 */
 .multi-select-dropdown {
   position: relative;
   width: 100%;
@@ -354,7 +354,8 @@ select::-ms-expand {
 
 .multi-select-trigger {
   width: 100%;
-  padding: 10px 40px 10px 10px;
+  min-height: 42px;
+  padding: 8px 40px 8px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
@@ -365,9 +366,10 @@ select::-ms-expand {
   background-size: 16px;
   cursor: pointer;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  min-height: 40px;
   display: flex;
   align-items: center;
+  word-wrap: break-word;
+  overflow: hidden;
 }
 
 .multi-select-trigger:hover {
@@ -387,6 +389,7 @@ select::-ms-expand {
 
 .multi-select-placeholder {
   color: #666;
+  font-style: italic;
 }
 
 .multi-select-values {
@@ -395,12 +398,14 @@ select::-ms-expand {
   gap: 4px;
   align-items: center;
   min-height: 20px;
+  width: calc(100% - 30px); /* 为箭头留出空间 */
+  overflow: hidden;
 }
 
 .multi-select-tag {
   background-color: #e3f2fd;
   color: #1976d2;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
@@ -408,12 +413,16 @@ select::-ms-expand {
   align-items: center;
   gap: 4px;
   max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .multi-select-tag-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 80px;
 }
 
 .multi-select-tag-remove {
@@ -423,10 +432,16 @@ select::-ms-expand {
   font-size: 14px;
   line-height: 1;
   opacity: 0.7;
+  min-width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .multi-select-tag-remove:hover {
   opacity: 1;
+  background-color: rgba(25, 118, 210, 0.1);
+  border-radius: 50%;
 }
 
 .multi-select-dropdown-menu {
@@ -438,7 +453,7 @@ select::-ms-expand {
   border: 1px solid #ddd;
   border-top: none;
   border-radius: 0 0 4px 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   max-height: 200px;
   overflow-y: auto;
@@ -447,13 +462,13 @@ select::-ms-expand {
 }
 
 .multi-select-option {
-  padding: 10px 12px;
+  padding: 12px;
   cursor: pointer;
   transition: background-color 0.2s ease;
   border-bottom: 1px solid #f5f5f5;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -471,13 +486,15 @@ select::-ms-expand {
 }
 
 .multi-select-option input[type="checkbox"] {
-  margin-top: 2px;
+  margin: 0;
   accent-color: #007bff;
+  flex-shrink: 0;
 }
 
 .multi-select-option-content {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .multi-select-option-name {
@@ -485,12 +502,16 @@ select::-ms-expand {
   color: #333;
   font-size: 14px;
   margin-bottom: 2px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .multi-select-option-description {
   color: #666;
   font-size: 12px;
   line-height: 1.3;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .multi-select-empty {
@@ -498,6 +519,18 @@ select::-ms-expand {
   text-align: center;
   color: #666;
   font-size: 14px;
+  font-style: italic;
+}
+
+/* 选中计数器 */
+.multi-select-counter {
+  background-color: #007bff;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-left: 4px;
 }
 
 /* 自定义滚动条样式 */
@@ -530,6 +563,7 @@ select::-ms-expand {
   .modal-content {
     margin: 20px;
     width: calc(100% - 40px);
+    padding: 20px;
   }
 
   .container {
@@ -537,10 +571,22 @@ select::-ms-expand {
   }
 
   .multi-select-tag {
-    max-width: 100px;
+    max-width: 80px;
+  }
+
+  .multi-select-tag-text {
+    max-width: 50px;
   }
 
   .multi-select-values {
-    max-width: calc(100% - 50px);
+    width: calc(100% - 30px);
+  }
+
+  .multi-select-option {
+    padding: 10px;
+  }
+
+  .multi-select-option-content {
+    font-size: 13px;
   }
 }
