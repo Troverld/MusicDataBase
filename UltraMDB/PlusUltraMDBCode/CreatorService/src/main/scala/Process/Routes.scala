@@ -21,6 +21,7 @@ import Impl.UpdateBandMessagePlanner
 import Impl.UpdateArtistMessagePlanner
 import Impl.CreateBandMessagePlanner
 import Impl.DeleteArtistMessagePlanner
+import Impl.SearchAllBelongingBandsPlanner
 // import Impl.ValidArtistOwnershipPlanner
 // import Impl.ValidBandOwnershipPlanner
 // import Impl.AddBandManagerPlanner
@@ -134,6 +135,13 @@ object Routes:
       case "SearchBandByName" =>
         IO(
           decode[SearchBandByNamePlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+       
+      case "SearchAllBelongingBands" =>
+        IO(
+          decode[SearchAllBelongingBandsPlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten

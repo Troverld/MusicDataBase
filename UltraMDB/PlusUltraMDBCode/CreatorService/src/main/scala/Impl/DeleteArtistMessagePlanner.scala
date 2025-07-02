@@ -1,10 +1,9 @@
 package Impl
 
 // External service APIs
-import APIs.CreatorService.GetArtistByID // <--- 关键导入
+import APIs.CreatorService.{GetArtistByID, SearchAllBelongingBands} // <--- 关键导入
 import APIs.MusicService.FilterSongsByEntity
 import APIs.OrganizeService.validateAdminMapping
-import io.circe.generic.auto._ // Temporary import
 
 // Internal project common libraries
 import Common.API.{PlanContext, Planner}
@@ -16,6 +15,7 @@ import Common.ServiceUtils.schemaName
 import cats.effect.IO
 import cats.implicits._
 import org.slf4j.LoggerFactory
+import io.circe.generic.auto._ // Assuming companion objects are now the standard
 
 case class DeleteArtistMessagePlanner(
   adminID: String,
@@ -31,10 +31,10 @@ case class DeleteArtistMessagePlanner(
       // Step 1: 验证管理员权限
       _ <- verifyIsAdmin()
 
-      // Step 2: [已重构] 使用 API 验证艺术家是否存在
+      // Step 2: 使用 API 验证艺术家是否存在
       _ <- verifyArtistExists()
 
-      // Step 3: 检查艺术家引用关系 (此部分保持不变)
+      // Step 3: [已重构] 检查艺术家引用关系
       _ <- checkArtistIsNotReferenced()
 
       // Step 4: 从数据库删除艺术家
@@ -56,44 +56,44 @@ case class DeleteArtistMessagePlanner(
     }
   }
 
-  /**
-   * 【已重构】
-   * 使用 GetArtistByID API 检查艺术家是否存在。如果不存在则失败。
-   */
   private def verifyArtistExists()(using PlanContext): IO[Unit] = {
     logInfo(s"正在通过 API 确认艺术家是否存在: ${artistID}")
-    // 调用 GetArtistByID API
     GetArtistByID(adminID, adminToken, artistID).send.flatMap {
-      // API 返回一个元组 (Option[Artist], String)
-      case (Some(_), _) =>
-        // 如果 Option[Artist] 是 Some，说明艺术家存在
-        logInfo("艺术家存在，继续执行。")
-      case (None, _) =>
-        // 如果是 None，说明艺术家不存在，抛出错误
-        IO.raiseError(new Exception("艺术家ID不存在"))
+      case (Some(_), _) => logInfo("艺术家存在，继续执行。")
+      case (None, _)    => IO.raiseError(new Exception("艺术家ID不存在"))
     }
   }
 
   /**
-   * [保持不变]
-   * 检查艺术家是否被其他实体引用
+   * 【已重构】
+   * 检查艺术家是否被其他实体引用。
+   * bandMembershipCheck 现在通过调用 SearchAllBelongingBands API 实现。
    */
   private def checkArtistIsNotReferenced()(using PlanContext): IO[Unit] = {
     logInfo(s"正在并行检查艺术家 ${artistID} 是否被其他实体引用...")
 
+    // 检查是否被歌曲引用
     val songReferenceCheck: IO[Boolean] =
       FilterSongsByEntity(adminID, adminToken, entityID = Some(artistID), entityType = Some("artist")).send.map {
         case (Some(songList), _) => songList.nonEmpty
         case _                   => false
       }
 
+    // 【重构核心】检查是否是任何一个乐队的成员
     val bandMembershipCheck: IO[Boolean] = {
-      logInfo("执行对 band_table 的直接成员关系检查 (待改进为API调用)")
-      val sql = s"""SELECT 1 FROM "${schemaName}"."band_table" WHERE members::jsonb @> ?::jsonb LIMIT 1"""
-      val artistIdAsJsonArray = s"""["$artistID"]"""
-      readDBRows(sql, List(SqlParameter("String", artistIdAsJsonArray))).map(_.nonEmpty)
+      logInfo(s"正在通过 API 检查艺术家 ${artistID} 的乐队成员关系...")
+      SearchAllBelongingBands(adminID, adminToken, artistID).send.flatMap {
+        // API 返回 (Option[List[String]], String)
+        case (Some(bandIDs), _) =>
+          // 如果操作成功，检查返回的列表是否非空
+          IO.pure(bandIDs.nonEmpty)
+        case (None, errorMsg) =>
+          // 如果操作失败 (例如，底层的 Planner 抛出错误)，则将此视为一个需要中止的错误
+          IO.raiseError(new Exception(s"检查乐队成员关系失败: $errorMsg"))
+      }
     }
 
+    // 并行执行所有检查
     (songReferenceCheck, bandMembershipCheck).parTupled.flatMap {
       case (isReferencedInSongs, isMemberOfBand) =>
         val errors = List(
