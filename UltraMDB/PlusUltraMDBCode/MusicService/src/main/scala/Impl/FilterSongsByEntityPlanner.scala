@@ -36,7 +36,7 @@ case class FilterSongsByEntityPlanner(
                                        userToken: String,
                                        entityID: Option[String],
                                        entityType: Option[String],
-                                       genres: List[String],
+                                       genres: Option[String],
                                        override val planContext: PlanContext
                                      ) extends Planner[(Option[List[String]], String)] {
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
@@ -124,9 +124,11 @@ case class FilterSongsByEntityPlanner(
     }
 
     // Add filter for genres
-    if (genres.nonEmpty) {
-      sqlBuilder.append(" AND genres && ?::jsonb")
-      parameters += SqlParameter("String", genres.asJson.noSpaces)
+    genres match{
+      case Some(genre) =>
+        sqlBuilder.append(" AND genres && ?::jsonb")
+        parameters += SqlParameter("String", genres.asJson.noSpaces)
+      case None =>
     }
 
     val sql = sqlBuilder.toString()
