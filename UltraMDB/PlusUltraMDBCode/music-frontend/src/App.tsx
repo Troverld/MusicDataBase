@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import SongManagement from './pages/SongManagement';
 import GenreManagement from './pages/GenreManagement';
 import ArtistManagement from './pages/ArtistManagement';
+import BandManagement from './pages/BandManagement';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
@@ -21,6 +22,7 @@ function App() {
           <Route path="songs" element={<SongManagement />} />
           <Route path="genres" element={<GenreManagement />} />
           <Route path="artists" element={<ArtistManagement />} />
+          <Route path="bands" element={<BandManagement />} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

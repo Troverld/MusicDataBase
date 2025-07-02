@@ -17,7 +17,7 @@ const Dashboard: React.FC = () => {
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
           gap: '15px',
-          maxWidth: '800px'
+          maxWidth: '1000px'
         }}>
           <Link to="/songs" className="btn btn-primary" style={{ 
             textAlign: 'center', 
@@ -37,6 +37,16 @@ const Dashboard: React.FC = () => {
             display: 'block'
           }}>
             🎤 Manage Artists
+          </Link>
+          
+          <Link to="/bands" className="btn btn-primary" style={{ 
+            textAlign: 'center', 
+            textDecoration: 'none',
+            padding: '20px',
+            borderRadius: '8px',
+            display: 'block'
+          }}>
+            🎸 Manage Bands
           </Link>
           
           <Link to="/genres" className="btn btn-primary" style={{ 
@@ -62,6 +72,7 @@ const Dashboard: React.FC = () => {
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
           <p><strong>Song Management:</strong> Upload, edit, and delete songs with metadata management.</p>
           <p><strong>Artist Management:</strong> Create and manage artist profiles with biographical information.</p>
+          <p><strong>Band Management:</strong> Create and manage band profiles, including member management.</p>
           <p><strong>Genre Management:</strong> Define and organize music genres for better categorization.</p>
           <p><strong>Admin Features:</strong> Full administrative control over all system content and users.</p>
         </div>
