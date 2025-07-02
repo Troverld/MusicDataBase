@@ -114,13 +114,21 @@ const SongManagement: React.FC = () => {
 
   // 切换曲风选中状态
   const handleGenreToggle = (genreId: string) => {
+    if (!genreId) return; // 防止空ID
+    
     setSelectedGenresSet(prevSet => {
       const newSet = new Set(prevSet);
-      if (newSet.has(genreId)) {
+      const wasSelected = newSet.has(genreId);
+      
+      if (wasSelected) {
         newSet.delete(genreId);
+        console.log(`Removed genre: ${genreId}`); // 调试信息
       } else {
         newSet.add(genreId);
+        console.log(`Added genre: ${genreId}`); // 调试信息
       }
+      
+      console.log('Current selected genres:', Array.from(newSet)); // 调试信息
       return newSet;
     });
   };
@@ -391,7 +399,7 @@ const SongManagement: React.FC = () => {
                       <span className="multi-select-placeholder">请选择曲风...</span>
                     ) : (
                       <div className="multi-select-values">
-                        {selectedGenresList.map(({ id, name }) => (
+                        {selectedGenresList.slice(0, 5).map(({ id, name }) => (
                           <span key={id} className="multi-select-tag">
                             <span className="multi-select-tag-text" title={name}>
                               {name}
@@ -408,9 +416,9 @@ const SongManagement: React.FC = () => {
                             </span>
                           </span>
                         ))}
-                        {selectedGenresSet.size > 3 && (
+                        {selectedGenresSet.size > 5 && (
                           <span className="multi-select-tag" style={{ backgroundColor: '#f8f9fa', color: '#666' }}>
-                            +{selectedGenresSet.size - 3} 更多...
+                            +{selectedGenresSet.size - 5}
                           </span>
                         )}
                       </div>
@@ -422,14 +430,17 @@ const SongManagement: React.FC = () => {
                       {selectedGenresSet.size > 0 && (
                         <div 
                           className="multi-select-option"
-                          onClick={handleClearAllGenres}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClearAllGenres();
+                          }}
                           style={{ 
                             borderBottom: '2px solid #dee2e6',
                             backgroundColor: '#fff3cd',
                             fontWeight: 'bold'
                           }}
                         >
-                          <span>🗑️</span>
+                          <span style={{ fontSize: '14px' }}>🗑️</span>
                           <div className="multi-select-option-content">
                             <div className="multi-select-option-name">
                               清空所有选择 ({selectedGenresSet.size} 项)
@@ -440,7 +451,7 @@ const SongManagement: React.FC = () => {
                       
                       {genres.length === 0 ? (
                         <div className="multi-select-empty">
-                          暂无可用曲风，请联系管理员添加
+                          暂无可用曲风，请先到曲风管理页面添加曲风
                         </div>
                       ) : (
                         genres.map((genre) => {
@@ -449,18 +460,34 @@ const SongManagement: React.FC = () => {
                             <div 
                               key={genre.genreID} 
                               className={`multi-select-option ${isSelected ? 'selected' : ''}`}
-                              onClick={() => handleGenreToggle(genre.genreID)}
+                              onMouseDown={(e) => {
+                                // 使用 onMouseDown 替代 onClick，避免与复选框事件冲突
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleGenreToggle(genre.genreID);
+                              }}
                             >
                               <input
                                 type="checkbox"
                                 checked={isSelected}
-                                onChange={() => handleGenreToggle(genre.genreID)}
-                                onClick={(e) => e.stopPropagation()}
+                                onChange={() => {}} // 完全禁用复选框的事件
+                                onMouseDown={(e) => {
+                                  // 阻止复选框的默认行为
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  // 阻止复选框的点击事件
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                readOnly
+                                style={{ pointerEvents: 'none' }} // 完全禁用复选框的交互
                               />
                               <div className="multi-select-option-content">
                                 <div className="multi-select-option-name">
                                   {genre.name}
-                                  {isSelected && <span style={{ marginLeft: '8px', color: '#007bff' }}>✓</span>}
+                                  {isSelected && <span style={{ marginLeft: '8px', color: '#007bff', fontWeight: 'bold' }}>✓</span>}
                                 </div>
                                 {genre.description && (
                                   <div className="multi-select-option-description">
@@ -476,18 +503,19 @@ const SongManagement: React.FC = () => {
                   )}
                 </div>
                 
-                {/* 已选择曲风的简要信息 */}
+                {/* 已选择曲风的详细信息 */}
                 {selectedGenresSet.size > 0 && (
                   <div style={{ 
                     marginTop: '8px', 
                     padding: '8px 12px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '4px',
+                    backgroundColor: '#e8f5e8',
+                    borderLeft: '4px solid #28a745',
+                    borderRadius: '0 4px 4px 0',
                     fontSize: '12px',
-                    color: '#666'
+                    color: '#155724'
                   }}>
-                    已选择 {selectedGenresSet.size} 个曲风: {selectedGenresList.slice(0, 3).map(g => g.name).join(', ')}
-                    {selectedGenresSet.size > 3 && ` 等${selectedGenresSet.size}个`}
+                    <strong>已选择 {selectedGenresSet.size} 个曲风:</strong> {selectedGenresList.slice(0, 3).map(g => g.name).join(', ')}
+                    {selectedGenresSet.size > 3 && ` 等共${selectedGenresSet.size}个曲风`}
                   </div>
                 )}
               </div>
