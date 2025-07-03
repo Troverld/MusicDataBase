@@ -17,13 +17,13 @@ import scala.collection.concurrent.TrieMap
 import Common.Serialize.CustomColumnTypes.*
 import Impl.UserLoginMessagePlanner
 import Impl.UserLogoutMessagePlanner
-import Impl.SubmitAuthRequestMessagePlanner
-import Impl.ApproveAuthRequestMessagePlanner
+// import Impl.SubmitAuthRequestMessagePlanner
+// import Impl.ApproveAuthRequestMessagePlanner
 import Impl.UserRegisterMessagePlanner
 import Impl.validateAdminMappingPlanner
 import Impl.validateUserMappingPlanner
-import Impl.GetRequestByIDPlanner
-import Impl.GetAuthRequestListMessagePlanner
+// import Impl.GetRequestByIDPlanner
+// import Impl.GetAuthRequestListMessagePlanner
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -35,26 +35,26 @@ object Routes:
 
   private def executePlan(messageType: String, str: String): IO[String] =
     messageType match {
-      case "ApproveAuthRequestMessage" =>
-        IO(
-          decode[ApproveAuthRequestMessagePlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for ApproveBandAuthRequestMessage[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "ApproveAuthRequestMessage" =>
+      //   IO(
+      //     decode[ApproveAuthRequestMessagePlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for ApproveBandAuthRequestMessage[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
 
-      case "GetRequestByID" =>
-        IO(
-          decode[GetRequestByIDPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAdminMapping[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "GetRequestByID" =>
+      //   IO(
+      //     decode[GetRequestByIDPlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAdminMapping[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
 
-      case "GetAuthRequestListMessage" =>
-        IO(
-          decode[GetAuthRequestListMessagePlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAdminMapping[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "GetAuthRequestListMessage" =>
+      //   IO(
+      //     decode[GetAuthRequestListMessagePlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAdminMapping[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
        
       case "UserLoginMessage" =>
         IO(
@@ -63,12 +63,12 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "SubmitAuthRequestMessage" =>
-        IO(
-          decode[SubmitAuthRequestMessagePlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SubmitBandAuthRequestMessage[${err.getMessage}]")
-            case Right(value) => value.fullPlan.map(_.asJson.toString)
-        ).flatten
+      // case "SubmitAuthRequestMessage" =>
+      //   IO(
+      //     decode[SubmitAuthRequestMessagePlanner](str) match
+      //       case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SubmitBandAuthRequestMessage[${err.getMessage}]")
+      //       case Right(value) => value.fullPlan.map(_.asJson.toString)
+      //   ).flatten
        
       case "UserLogoutMessage" =>
         IO(

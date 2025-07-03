@@ -17,7 +17,7 @@ def get_service_path(service_name):
 
 def display_service_options():
     """显示服务选择菜单"""
-    print("\n请选择源服务（其API将被复制到其他服务）:")
+    print("\n请选择源服务（其Objects将被复制到其他服务）:")
     for num, name in SERVICES.items():
         print(f"{num}. {name}")
     print("0. 退出")
