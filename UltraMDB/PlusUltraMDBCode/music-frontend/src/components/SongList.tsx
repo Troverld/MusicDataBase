@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Song } from '../types';
 import { useGenres } from '../hooks/useGenres';
+import { useArtistBand } from '../hooks/useArtistBand';
 
 interface SongListProps {
   songs: Song[];
@@ -10,6 +11,76 @@ interface SongListProps {
 
 const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
   const { getGenreNamesByIds } = useGenres();
+  const { getArtistBandsByIds } = useArtistBand();
+  
+  // 存储ID到名称的映射
+  const [nameMap, setNameMap] = useState<{ [key: string]: string }>({});
+
+  // 获取所有相关的艺术家和乐队ID
+  const getAllCreatorIds = (songs: Song[]) => {
+    const allIds = new Set<string>();
+    
+    songs.forEach(song => {
+      [...(song.creators || []), ...(song.performers || []), 
+       ...(song.lyricists || []), ...(song.composers || []), 
+       ...(song.arrangers || []), ...(song.instrumentalists || [])]
+        .forEach(id => {
+          if (id && id.trim()) {
+            allIds.add(id);
+          }
+        });
+    });
+    
+    return Array.from(allIds);
+  };
+
+  // 加载所有创作者名称
+  useEffect(() => {
+    const loadCreatorNames = async () => {
+      if (songs.length === 0) return;
+      
+      const creatorIds = getAllCreatorIds(songs);
+      if (creatorIds.length === 0) return;
+
+      try {
+        // 尝试将ID识别为艺术家或乐队
+        const creatorItems = await Promise.all(
+          creatorIds.map(async (id) => {
+            try {
+              // 首先尝试作为艺术家ID获取
+              const artistResult = await getArtistBandsByIds([{id, type: 'artist'}]);
+              if (artistResult.length > 0) {
+                return { id, name: artistResult[0].name };
+              }
+              
+              // 如果不是艺术家，尝试作为乐队ID获取
+              const bandResult = await getArtistBandsByIds([{id, type: 'band'}]);
+              if (bandResult.length > 0) {
+                return { id, name: bandResult[0].name };
+              }
+              
+              // 如果都不是，返回ID本身（可能已经是名称）
+              return { id, name: id };
+            } catch (error) {
+              console.warn(`Failed to resolve creator ${id}:`, error);
+              return { id, name: id };
+            }
+          })
+        );
+
+        const newNameMap: { [key: string]: string } = {};
+        creatorItems.forEach(item => {
+          newNameMap[item.id] = item.name;
+        });
+        
+        setNameMap(newNameMap);
+      } catch (error) {
+        console.error('Failed to load creator names:', error);
+      }
+    };
+
+    loadCreatorNames();
+  }, [songs, getArtistBandsByIds]);
 
   if (songs.length === 0) {
     return (
@@ -23,8 +94,12 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
     return new Date(timestamp).toLocaleDateString('zh-CN');
   };
 
-  const formatList = (items: string[]) => {
-    return items.length > 0 ? items.join(', ') : '无';
+  // 将ID列表转换为名称列表进行显示
+  const formatCreatorList = (creatorIds: string[]) => {
+    if (!creatorIds || creatorIds.length === 0) return '无';
+    
+    const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
+    return names.length > 0 ? names.join(', ') : '无';
   };
 
   const formatGenres = (genreIds: string[]): string[] => {
@@ -41,24 +116,24 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
           
           <div style={{ marginBottom: '10px' }}>
             <p><strong>发布时间:</strong> {formatDate(song.releaseTime)}</p>
-            <p><strong>创作者:</strong> {formatList(song.creators)}</p>
-            <p><strong>演唱者:</strong> {formatList(song.performers)}</p>
+            <p><strong>创作者:</strong> {formatCreatorList(song.creators)}</p>
+            <p><strong>演唱者:</strong> {formatCreatorList(song.performers)}</p>
           </div>
 
           {song.lyricists && song.lyricists.length > 0 && (
-            <p><strong>作词:</strong> {formatList(song.lyricists)}</p>
+            <p><strong>作词:</strong> {formatCreatorList(song.lyricists)}</p>
           )}
           
           {song.composers && song.composers.length > 0 && (
-            <p><strong>作曲:</strong> {formatList(song.composers)}</p>
+            <p><strong>作曲:</strong> {formatCreatorList(song.composers)}</p>
           )}
           
           {song.arrangers && song.arrangers.length > 0 && (
-            <p><strong>编曲:</strong> {formatList(song.arrangers)}</p>
+            <p><strong>编曲:</strong> {formatCreatorList(song.arrangers)}</p>
           )}
           
           {song.instrumentalists && song.instrumentalists.length > 0 && (
-            <p><strong>演奏:</strong> {formatList(song.instrumentalists)}</p>
+            <p><strong>演奏:</strong> {formatCreatorList(song.instrumentalists)}</p>
           )}
 
           <div style={{ marginTop: '10px' }}>

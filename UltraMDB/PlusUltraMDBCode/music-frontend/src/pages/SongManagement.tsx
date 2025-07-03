@@ -53,42 +53,74 @@ const SongManagement: React.FC = () => {
     };
   }, [dropdownOpen]);
 
-  // 将艺术家/乐队名称转换为选中项目
-  const convertNamesToSelectedItems = async (names: string[]): Promise<ArtistBandItem[]> => {
-    if (!names || names.length === 0) return [];
+  // 将艺术家/乐队ID转换为选中项目
+  const convertIdsToSelectedItems = async (ids: string[]): Promise<ArtistBandItem[]> => {
+    if (!ids || ids.length === 0) return [];
     
     const results: ArtistBandItem[] = [];
     
-    for (const name of names) {
-      if (!name.trim()) continue;
+    for (const id of ids) {
+      if (!id.trim()) continue;
       
       try {
-        // 搜索这个名称
-        const searchResults = await searchArtistBand(name, 'both');
+        // 首先尝试作为艺术家ID获取
+        let found = false;
+        try {
+          const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
+          if (artistItems.length > 0) {
+            results.push(artistItems[0]);
+            found = true;
+          }
+        } catch (error) {
+          // 继续尝试乐队
+        }
         
-        // 查找精确匹配的项目
-        const exactMatch = searchResults.find(item => 
-          item.name.toLowerCase() === name.trim().toLowerCase()
-        );
+        // 如果不是艺术家，尝试作为乐队ID获取
+        if (!found) {
+          try {
+            const bandItems = await getArtistBandsByIds([{id, type: 'band'}]);
+            if (bandItems.length > 0) {
+              results.push(bandItems[0]);
+              found = true;
+            }
+          } catch (error) {
+            // 继续
+          }
+        }
         
-        if (exactMatch) {
-          results.push(exactMatch);
-        } else {
-          // 如果没有找到精确匹配，创建一个提示项目
+        // 如果都找不到，可能是旧数据中存储的是名称，尝试搜索
+        if (!found) {
+          try {
+            const searchResults = await searchArtistBand(id, 'both');
+            const exactMatch = searchResults.find(item => 
+              item.name.toLowerCase() === id.trim().toLowerCase()
+            );
+            
+            if (exactMatch) {
+              results.push(exactMatch);
+              found = true;
+            }
+          } catch (error) {
+            // 继续
+          }
+        }
+        
+        // 如果还是找不到，创建一个警告项目
+        if (!found) {
           results.push({
-            id: `not-found-${name}`,
-            name,
-            bio: `警告：无法找到名为"${name}"的艺术家或乐队，请重新搜索选择`,
+            id: `not-found-${id}`,
+            name: id,
+            bio: `警告：无法找到ID为"${id}"的艺术家或乐队，可能是旧数据或已删除的项目。请重新搜索选择。`,
             type: 'artist'
           });
         }
       } catch (error) {
-        console.warn(`Failed to convert name to item: ${name}`, error);
+        console.warn(`Failed to convert ID to item: ${id}`, error);
         // 创建一个错误项目
         results.push({
-          id: `error-${name}`,
-          name,
-          bio: `错误：搜索"${name}"时发生错误，请重新搜索选择`,
+          id: `error-${id}`,
+          name: id,
+          bio: `错误：处理"${id}"时发生错误，请重新搜索选择`,
           type: 'artist'
         });
       }
@@ -154,15 +186,15 @@ const SongManagement: React.FC = () => {
     // 使用 Set 来管理选中的曲风
     setSelectedGenresSet(new Set(song.genres));
     
-    // 转换现有的名称列表为选中项目
+    // 转换现有的ID列表为选中项目
     try {
       const [creators, performers, lyricists, composers, arrangers, instrumentalists] = await Promise.all([
-        convertNamesToSelectedItems(song.creators),
-        convertNamesToSelectedItems(song.performers),
-        convertNamesToSelectedItems(song.lyricists || []),
-        convertNamesToSelectedItems(song.composers || []),
-        convertNamesToSelectedItems(song.arrangers || []),
-        convertNamesToSelectedItems(song.instrumentalists || [])
+        convertIdsToSelectedItems(song.creators || []),
+        convertIdsToSelectedItems(song.performers || []),
+        convertIdsToSelectedItems(song.lyricists || []),
+        convertIdsToSelectedItems(song.composers || []),
+        convertIdsToSelectedItems(song.arrangers || []),
+        convertIdsToSelectedItems(song.instrumentalists || [])
       ]);
       
       setSelectedCreators(creators);
@@ -179,7 +211,7 @@ const SongManagement: React.FC = () => {
       );
       
       if (notFoundItems.length > 0) {
-        setError(`警告：有 ${notFoundItems.length} 个创作者信息无法准确匹配，请检查并重新选择相关项目。`);
+        setError(`警告：有 ${notFoundItems.length} 个创作者信息无法准确匹配，可能是旧数据或已删除的项目。请检查并重新选择相关项目。`);
       }
       
     } catch (error) {
@@ -278,7 +310,7 @@ const SongManagement: React.FC = () => {
     const songData = {
       name: formData.name,
       releaseTime: new Date(formData.releaseTime).getTime(),
-      // 修复：传递 ID 而不是名称
+      // 传递 ID 而不是名称
       creators: selectedCreators.map(item => item.id),
       performers: selectedPerformers.map(item => item.id),
       lyricists: selectedLyricists.map(item => item.id),
@@ -645,11 +677,12 @@ const SongManagement: React.FC = () => {
       }}>
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 歌曲管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
+          <p><strong>智能显示:</strong> 歌曲列表现在显示艺术家和乐队的名称，而不是ID，提供更好的用户体验。</p>
           <p><strong>智能选择:</strong> 通过搜索选择艺术家和乐队，系统会自动使用 ID 进行匹配，避免重名问题。</p>
           <p><strong>创作者与演唱者:</strong> 支持选择艺术家或乐队，系统会显示类型和简介供您参考。</p>
           <p><strong>专业角色:</strong> 作词、作曲、编曲、演奏等角色通常由个人艺术家担任，因此只能选择艺术家。</p>
-          <p><strong>编辑模式:</strong> 编辑现有歌曲时，系统会尝试匹配现有数据，如有问题项目请重新搜索选择。</p>
-          <p><strong>数据一致性:</strong> 现在系统使用 ID 而不是名称传递数据，确保与后端 API 的完美对接。</p>
+          <p><strong>编辑模式:</strong> 编辑现有歌曲时，系统会智能识别ID并转换为对应的名称显示。</p>
+          <p><strong>数据一致性:</strong> 系统使用 ID 而不是名称传递数据，确保与后端 API 的完美对接。</p>
         </div>
       </div>
     </div>
