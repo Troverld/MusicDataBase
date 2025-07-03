@@ -28,7 +28,7 @@ const SongManagement: React.FC = () => {
   const [selectedInstrumentalists, setSelectedInstrumentalists] = useState<ArtistBandItem[]>([]);
   
   const { genres } = useGenres();
-  const { getArtistBandsByIds } = useArtistBand();
+  const { getArtistBandsByIds, searchArtistBand } = useArtistBand();
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState({
@@ -63,12 +63,34 @@ const SongManagement: React.FC = () => {
       if (!name.trim()) continue;
       
       try {
-        // 先搜索这个名称
-        const searchResults = await getArtistBandsByIds([]);
-        // 这里需要实现一个通过名称搜索的功能，暂时先返回空数组
-        // 实际实现中可能需要调用搜索API然后匹配精确名称
+        // 搜索这个名称
+        const searchResults = await searchArtistBand(name, 'both');
+        
+        // 查找精确匹配的项目
+        const exactMatch = searchResults.find(item => 
+          item.name.toLowerCase() === name.trim().toLowerCase()
+        );
+        
+        if (exactMatch) {
+          results.push(exactMatch);
+        } else {
+          // 如果没有找到精确匹配，创建一个提示项目
+          results.push({
+            id: `not-found-${name}`,
+            name,
+            bio: `警告：无法找到名为"${name}"的艺术家或乐队，请重新搜索选择`,
+            type: 'artist'
+          });
+        }
       } catch (error) {
         console.warn(`Failed to convert name to item: ${name}`, error);
+        // 创建一个错误项目
+        results.push({
+          id: `error-${name}`,
+          name,
+          bio: `错误：搜索"${name}"时发生错误，请重新搜索选择`,
+          type: 'artist'
+        });
       }
     }
     
@@ -132,23 +154,46 @@ const SongManagement: React.FC = () => {
     // 使用 Set 来管理选中的曲风
     setSelectedGenresSet(new Set(song.genres));
     
-    // 转换现有的名称列表为选中项目（这里需要实现名称到项目的转换）
-    // 由于当前API设计的限制，我们暂时使用名称创建虚拟项目
-    const createVirtualItems = (names: string[], type: 'artist' | 'band' = 'artist'): ArtistBandItem[] => {
-      return names.map((name, index) => ({
-        id: `virtual-${type}-${index}-${name}`,
-        name,
-        bio: '从现有歌曲加载的数据，请重新搜索选择具体项目',
-        type
-      }));
-    };
-    
-    setSelectedCreators(createVirtualItems(song.creators));
-    setSelectedPerformers(createVirtualItems(song.performers));
-    setSelectedLyricists(createVirtualItems(song.lyricists || []));
-    setSelectedComposers(createVirtualItems(song.composers || []));
-    setSelectedArrangers(createVirtualItems(song.arrangers || []));
-    setSelectedInstrumentalists(createVirtualItems(song.instrumentalists || []));
+    // 转换现有的名称列表为选中项目
+    try {
+      const [creators, performers, lyricists, composers, arrangers, instrumentalists] = await Promise.all([
+        convertNamesToSelectedItems(song.creators),
+        convertNamesToSelectedItems(song.performers),
+        convertNamesToSelectedItems(song.lyricists || []),
+        convertNamesToSelectedItems(song.composers || []),
+        convertNamesToSelectedItems(song.arrangers || []),
+        convertNamesToSelectedItems(song.instrumentalists || [])
+      ]);
+      
+      setSelectedCreators(creators);
+      setSelectedPerformers(performers);
+      setSelectedLyricists(lyricists);
+      setSelectedComposers(composers);
+      setSelectedArrangers(arrangers);
+      setSelectedInstrumentalists(instrumentalists);
+      
+      // 检查是否有无法找到的项目
+      const allItems = [...creators, ...performers, ...lyricists, ...composers, ...arrangers, ...instrumentalists];
+      const notFoundItems = allItems.filter(item => 
+        item.id.startsWith('not-found-') || item.id.startsWith('error-')
+      );
+      
+      if (notFoundItems.length > 0) {
+        setError(`警告：有 ${notFoundItems.length} 个创作者信息无法准确匹配，请检查并重新选择相关项目。`);
+      }
+      
+    } catch (error) {
+      console.error('Failed to convert song data for editing:', error);
+      setError('加载歌曲编辑数据时发生错误，请重新选择所有创作者信息。');
+      
+      // 如果转换失败，清空所有选择
+      setSelectedCreators([]);
+      setSelectedPerformers([]);
+      setSelectedLyricists([]);
+      setSelectedComposers([]);
+      setSelectedArrangers([]);
+      setSelectedInstrumentalists([]);
+    }
     
     setShowModal(true);
   };
@@ -198,21 +243,49 @@ const SongManagement: React.FC = () => {
     });
   };
 
+  // 验证选中的项目是否有问题
+  const validateSelectedItems = () => {
+    const allItems = [
+      ...selectedCreators,
+      ...selectedPerformers, 
+      ...selectedLyricists,
+      ...selectedComposers,
+      ...selectedArrangers,
+      ...selectedInstrumentalists
+    ];
+    
+    const problemItems = allItems.filter(item => 
+      item.id.startsWith('not-found-') || 
+      item.id.startsWith('error-') ||
+      item.id.startsWith('virtual-')
+    );
+    
+    return problemItems;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
+    // 验证是否有问题的选中项目
+    const problemItems = validateSelectedItems();
+    if (problemItems.length > 0) {
+      setError(`请重新选择以下有问题的创作者信息：${problemItems.map(item => item.name).join(', ')}`);
+      return;
+    }
+
     const songData = {
       name: formData.name,
       releaseTime: new Date(formData.releaseTime).getTime(),
-      creators: selectedCreators.map(item => item.name),
-      performers: selectedPerformers.map(item => item.name),
-      lyricists: selectedLyricists.map(item => item.name),
-      composers: selectedComposers.map(item => item.name),
-      arrangers: selectedArrangers.map(item => item.name),
-      instrumentalists: selectedInstrumentalists.map(item => item.name),
-      genres: Array.from(selectedGenresSet) // 将 Set 转换为数组
+      // 修复：传递 ID 而不是名称
+      creators: selectedCreators.map(item => item.id),
+      performers: selectedPerformers.map(item => item.id),
+      lyricists: selectedLyricists.map(item => item.id),
+      composers: selectedComposers.map(item => item.id),
+      arrangers: selectedArrangers.map(item => item.id),
+      instrumentalists: selectedInstrumentalists.map(item => item.id),
+      genres: Array.from(selectedGenresSet) // 曲风已经是ID列表
     };
 
     try {
@@ -572,11 +645,11 @@ const SongManagement: React.FC = () => {
       }}>
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 歌曲管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
-          <p><strong>智能选择:</strong> 现在可以通过搜索选择艺术家和乐队，避免重名问题。输入关键词即可看到详细信息。</p>
+          <p><strong>智能选择:</strong> 通过搜索选择艺术家和乐队，系统会自动使用 ID 进行匹配，避免重名问题。</p>
           <p><strong>创作者与演唱者:</strong> 支持选择艺术家或乐队，系统会显示类型和简介供您参考。</p>
           <p><strong>专业角色:</strong> 作词、作曲、编曲、演奏等角色通常由个人艺术家担任，因此只能选择艺术家。</p>
-          <p><strong>批量管理:</strong> 可以选择多个艺术家/乐队，并随时添加或移除。</p>
-          <p><strong>编辑模式:</strong> 编辑现有歌曲时，会显示现有数据，建议重新搜索选择以获得准确信息。</p>
+          <p><strong>编辑模式:</strong> 编辑现有歌曲时，系统会尝试匹配现有数据，如有问题项目请重新搜索选择。</p>
+          <p><strong>数据一致性:</strong> 现在系统使用 ID 而不是名称传递数据，确保与后端 API 的完美对接。</p>
         </div>
       </div>
     </div>
