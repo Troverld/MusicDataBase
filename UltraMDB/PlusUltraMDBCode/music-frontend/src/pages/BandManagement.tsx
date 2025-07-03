@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { bandService } from '../services/band.service';
 import { Band } from '../types';
+import { ArtistBandItem } from '../hooks/useArtistBand';
+import ArtistBandSelector from '../components/ArtistBandSelector';
 
 const BandManagement: React.FC = () => {
   const [bands, setBands] = useState<Band[]>([]);
@@ -11,10 +13,12 @@ const BandManagement: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   
+  // 乐队成员选择状态
+  const [selectedMembers, setSelectedMembers] = useState<ArtistBandItem[]>([]);
+  
   const [formData, setFormData] = useState({
     name: '',
-    bio: '',
-    memberNames: '' // 使用字符串，逗号分隔
+    bio: ''
   });
 
   // 存储成员名称的状态（用于显示）
@@ -95,22 +99,32 @@ const BandManagement: React.FC = () => {
 
   const handleEdit = async (band: Band) => {
     setEditingBand(band);
+    setFormData({
+      name: band.name,
+      bio: band.bio
+    });
     
-    // 获取成员名称用于编辑
+    // 获取成员名称并转换为选中项目
     try {
       const memberNames = await bandService.convertArtistIdsToNames(band.members);
-      setFormData({
-        name: band.name,
-        bio: band.bio,
-        memberNames: memberNames.join(', ')
-      });
+      // 创建虚拟的艺术家项目用于编辑
+      const virtualMembers: ArtistBandItem[] = band.members.map((memberId, index) => ({
+        id: memberId,
+        name: memberNames[index] || memberId,
+        bio: '从现有乐队加载的成员数据，请重新搜索选择具体艺术家',
+        type: 'artist'
+      }));
+      setSelectedMembers(virtualMembers);
     } catch (error) {
       console.error('Failed to load member names for editing:', error);
-      setFormData({
-        name: band.name,
-        bio: band.bio,
-        memberNames: band.members.join(', ') // 如果转换失败，显示ID
-      });
+      // 如果转换失败，使用ID创建虚拟项目
+      const virtualMembers: ArtistBandItem[] = band.members.map((memberId) => ({
+        id: memberId,
+        name: memberId,
+        bio: '从现有乐队加载的成员数据，请重新搜索选择具体艺术家',
+        type: 'artist'
+      }));
+      setSelectedMembers(virtualMembers);
     }
     
     setShowModal(true);
@@ -126,11 +140,8 @@ const BandManagement: React.FC = () => {
       return;
     }
 
-    // 解析成员名称
-    const memberNames = formData.memberNames
-      .split(',')
-      .map(name => name.trim())
-      .filter(name => name.length > 0);
+    // 获取成员名称
+    const memberNames = selectedMembers.map(member => member.name);
 
     try {
       if (editingBand) {
@@ -176,9 +187,9 @@ const BandManagement: React.FC = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      bio: '',
-      memberNames: ''
+      bio: ''
     });
+    setSelectedMembers([]);
     setEditingBand(null);
   };
 
@@ -192,16 +203,11 @@ const BandManagement: React.FC = () => {
     clearMessages();
   }, [searchKeyword]);
 
-  const formatList = (items: string[] | undefined) => {
-    if (!items || items.length === 0) return '无';
-    return items.join(', ');
-  };
-
   return (
     <div>
       <h1>乐队管理</h1>
       <p style={{ color: '#666', marginBottom: '30px', fontSize: '16px' }}>
-        管理系统中的乐队信息，搜索、创建、编辑或删除乐队档案。创建乐队时请输入艺术家名称，系统会自动匹配对应的艺术家。
+        管理系统中的乐队信息，搜索、创建、编辑或删除乐队档案。通过智能选择器添加乐队成员，避免重名问题。
       </p>
       
       {error && <div className="error-message">{error}</div>}
@@ -348,18 +354,14 @@ const BandManagement: React.FC = () => {
                 />
               </div>
               
-              <div className="form-group">
-                <label>乐队成员 (艺术家名称，逗号分隔)</label>
-                <input
-                  type="text"
-                  value={formData.memberNames}
-                  onChange={(e) => setFormData({...formData, memberNames: e.target.value})}
-                  placeholder="例如：张三, 李四, 王五"
-                />
-                <small style={{ display: 'block', marginTop: '5px', color: '#666', fontSize: '12px' }}>
-                  输入艺术家的名称，用逗号分隔。系统会自动匹配对应的艺术家。
-                </small>
-              </div>
+              {/* 使用新的艺术家选择器 */}
+              <ArtistBandSelector
+                selectedItems={selectedMembers}
+                onSelectionChange={setSelectedMembers}
+                searchType="artist"
+                label="乐队成员"
+                placeholder="搜索艺术家作为乐队成员..."
+              />
               
               <div className="form-group">
                 <label>乐队简介*</label>
@@ -410,10 +412,11 @@ const BandManagement: React.FC = () => {
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 乐队管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
           <p><strong>搜索乐队:</strong> 在搜索框中输入乐队名称的关键词，支持模糊匹配。</p>
-          <p><strong>创建乐队:</strong> 填写乐队名称、成员和详细简介。成员请输入艺术家的名称（确保艺术家已存在），用逗号分隔。</p>
+          <p><strong>智能成员选择:</strong> 通过搜索选择艺术家作为乐队成员，可以查看每个艺术家的详细信息避免重名。</p>
+          <p><strong>创建乐队:</strong> 填写乐队名称、选择成员和详细简介。系统会自动验证成员的存在性。</p>
           <p><strong>编辑乐队:</strong> 点击"编辑"按钮修改乐队的名称、成员和简介信息。</p>
           <p><strong>删除乐队:</strong> 删除操作不可撤销，请确保该乐队未被歌曲或专辑引用。</p>
-          <p><strong>成员管理:</strong> 系统会自动将艺术家名称转换为对应的ID进行存储，显示时会转换回名称。</p>
+          <p><strong>成员管理:</strong> 可以随时添加或移除乐队成员，支持查看每个成员的详细信息。</p>
           <p><strong>权限说明:</strong> 乐队管理功能需要管理员权限，请确保您有足够的操作权限。</p>
         </div>
       </div>

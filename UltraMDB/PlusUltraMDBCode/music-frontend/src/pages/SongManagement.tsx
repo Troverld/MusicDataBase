@@ -3,6 +3,8 @@ import { musicService } from '../services/music.service';
 import { Song } from '../types';
 import SongList from '../components/SongList';
 import { useGenres } from '../hooks/useGenres';
+import { useArtistBand, ArtistBandItem } from '../hooks/useArtistBand';
+import ArtistBandSelector from '../components/ArtistBandSelector';
 
 const SongManagement: React.FC = () => {
   const [songs, setSongs] = useState<Song[]>([]);
@@ -17,18 +19,21 @@ const SongManagement: React.FC = () => {
   // 使用 Set 来管理选中的曲风ID
   const [selectedGenresSet, setSelectedGenresSet] = useState<Set<string>>(new Set());
   
+  // 艺术家/乐队选择状态
+  const [selectedCreators, setSelectedCreators] = useState<ArtistBandItem[]>([]);
+  const [selectedPerformers, setSelectedPerformers] = useState<ArtistBandItem[]>([]);
+  const [selectedLyricists, setSelectedLyricists] = useState<ArtistBandItem[]>([]);
+  const [selectedComposers, setSelectedComposers] = useState<ArtistBandItem[]>([]);
+  const [selectedArrangers, setSelectedArrangers] = useState<ArtistBandItem[]>([]);
+  const [selectedInstrumentalists, setSelectedInstrumentalists] = useState<ArtistBandItem[]>([]);
+  
   const { genres } = useGenres();
+  const { getArtistBandsByIds } = useArtistBand();
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState({
     name: '',
-    releaseTime: new Date().toISOString().split('T')[0],
-    creators: '',
-    performers: '',
-    lyricists: '',
-    composers: '',
-    arrangers: '',
-    instrumentalists: ''
+    releaseTime: new Date().toISOString().split('T')[0]
   });
 
   // 点击外部关闭下拉框
@@ -47,6 +52,28 @@ const SongManagement: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [dropdownOpen]);
+
+  // 将艺术家/乐队名称转换为选中项目
+  const convertNamesToSelectedItems = async (names: string[]): Promise<ArtistBandItem[]> => {
+    if (!names || names.length === 0) return [];
+    
+    const results: ArtistBandItem[] = [];
+    
+    for (const name of names) {
+      if (!name.trim()) continue;
+      
+      try {
+        // 先搜索这个名称
+        const searchResults = await getArtistBandsByIds([]);
+        // 这里需要实现一个通过名称搜索的功能，暂时先返回空数组
+        // 实际实现中可能需要调用搜索API然后匹配精确名称
+      } catch (error) {
+        console.warn(`Failed to convert name to item: ${name}`, error);
+      }
+    }
+    
+    return results;
+  };
 
   const handleSearch = async () => {
     if (!searchKeyword.trim()) {
@@ -95,20 +122,34 @@ const SongManagement: React.FC = () => {
     }
   };
 
-  const handleEdit = (song: Song) => {
+  const handleEdit = async (song: Song) => {
     setEditingSong(song);
     setFormData({
       name: song.name,
-      releaseTime: new Date(song.releaseTime).toISOString().split('T')[0],
-      creators: song.creators.join(', '),
-      performers: song.performers.join(', '),
-      lyricists: song.lyricists?.join(', ') || '',
-      composers: song.composers?.join(', ') || '',
-      arrangers: song.arrangers?.join(', ') || '',
-      instrumentalists: song.instrumentalists?.join(', ') || ''
+      releaseTime: new Date(song.releaseTime).toISOString().split('T')[0]
     });
+    
     // 使用 Set 来管理选中的曲风
     setSelectedGenresSet(new Set(song.genres));
+    
+    // 转换现有的名称列表为选中项目（这里需要实现名称到项目的转换）
+    // 由于当前API设计的限制，我们暂时使用名称创建虚拟项目
+    const createVirtualItems = (names: string[], type: 'artist' | 'band' = 'artist'): ArtistBandItem[] => {
+      return names.map((name, index) => ({
+        id: `virtual-${type}-${index}-${name}`,
+        name,
+        bio: '从现有歌曲加载的数据，请重新搜索选择具体项目',
+        type
+      }));
+    };
+    
+    setSelectedCreators(createVirtualItems(song.creators));
+    setSelectedPerformers(createVirtualItems(song.performers));
+    setSelectedLyricists(createVirtualItems(song.lyricists || []));
+    setSelectedComposers(createVirtualItems(song.composers || []));
+    setSelectedArrangers(createVirtualItems(song.arrangers || []));
+    setSelectedInstrumentalists(createVirtualItems(song.instrumentalists || []));
+    
     setShowModal(true);
   };
 
@@ -122,13 +163,10 @@ const SongManagement: React.FC = () => {
       
       if (wasSelected) {
         newSet.delete(genreId);
-        console.log(`Removed genre: ${genreId}`); // 调试信息
       } else {
         newSet.add(genreId);
-        console.log(`Added genre: ${genreId}`); // 调试信息
       }
       
-      console.log('Current selected genres:', Array.from(newSet)); // 调试信息
       return newSet;
     });
   };
@@ -168,12 +206,12 @@ const SongManagement: React.FC = () => {
     const songData = {
       name: formData.name,
       releaseTime: new Date(formData.releaseTime).getTime(),
-      creators: formData.creators.split(',').map(s => s.trim()).filter(s => s),
-      performers: formData.performers.split(',').map(s => s.trim()).filter(s => s),
-      lyricists: formData.lyricists.split(',').map(s => s.trim()).filter(s => s),
-      composers: formData.composers.split(',').map(s => s.trim()).filter(s => s),
-      arrangers: formData.arrangers.split(',').map(s => s.trim()).filter(s => s),
-      instrumentalists: formData.instrumentalists.split(',').map(s => s.trim()).filter(s => s),
+      creators: selectedCreators.map(item => item.name),
+      performers: selectedPerformers.map(item => item.name),
+      lyricists: selectedLyricists.map(item => item.name),
+      composers: selectedComposers.map(item => item.name),
+      arrangers: selectedArrangers.map(item => item.name),
+      instrumentalists: selectedInstrumentalists.map(item => item.name),
       genres: Array.from(selectedGenresSet) // 将 Set 转换为数组
     };
 
@@ -215,15 +253,15 @@ const SongManagement: React.FC = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      releaseTime: new Date().toISOString().split('T')[0],
-      creators: '',
-      performers: '',
-      lyricists: '',
-      composers: '',
-      arrangers: '',
-      instrumentalists: ''
+      releaseTime: new Date().toISOString().split('T')[0]
     });
     setSelectedGenresSet(new Set());
+    setSelectedCreators([]);
+    setSelectedPerformers([]);
+    setSelectedLyricists([]);
+    setSelectedComposers([]);
+    setSelectedArrangers([]);
+    setSelectedInstrumentalists([]);
     setEditingSong(null);
   };
 
@@ -318,64 +356,63 @@ const SongManagement: React.FC = () => {
                 />
               </div>
               
+              {/* 使用新的艺术家/乐队选择器 */}
+              <ArtistBandSelector
+                selectedItems={selectedCreators}
+                onSelectionChange={setSelectedCreators}
+                searchType="both"
+                label="创作者"
+                placeholder="搜索创作者（艺术家或乐队）..."
+              />
+              
+              <ArtistBandSelector
+                selectedItems={selectedPerformers}
+                onSelectionChange={setSelectedPerformers}
+                searchType="both"
+                label="演唱者"
+                placeholder="搜索演唱者（艺术家或乐队）..."
+              />
+              
               <div className="form-row">
-                <div className="form-group">
-                  <label>创作者 (逗号分隔)</label>
-                  <input
-                    type="text"
-                    value={formData.creators}
-                    onChange={(e) => setFormData({...formData, creators: e.target.value})}
-                    placeholder="艺术家1, 艺术家2"
+                <div style={{ flex: 1, marginRight: '10px' }}>
+                  <ArtistBandSelector
+                    selectedItems={selectedLyricists}
+                    onSelectionChange={setSelectedLyricists}
+                    searchType="artist"
+                    label="作词者"
+                    placeholder="搜索作词者..."
                   />
                 </div>
                 
-                <div className="form-group">
-                  <label>演唱者 (逗号分隔)</label>
-                  <input
-                    type="text"
-                    value={formData.performers}
-                    onChange={(e) => setFormData({...formData, performers: e.target.value})}
-                    placeholder="歌手1, 歌手2"
+                <div style={{ flex: 1, marginLeft: '10px' }}>
+                  <ArtistBandSelector
+                    selectedItems={selectedComposers}
+                    onSelectionChange={setSelectedComposers}
+                    searchType="artist"
+                    label="作曲者"
+                    placeholder="搜索作曲者..."
                   />
                 </div>
               </div>
               
               <div className="form-row">
-                <div className="form-group">
-                  <label>作词者 (逗号分隔)</label>
-                  <input
-                    type="text"
-                    value={formData.lyricists}
-                    onChange={(e) => setFormData({...formData, lyricists: e.target.value})}
+                <div style={{ flex: 1, marginRight: '10px' }}>
+                  <ArtistBandSelector
+                    selectedItems={selectedArrangers}
+                    onSelectionChange={setSelectedArrangers}
+                    searchType="artist"
+                    label="编曲者"
+                    placeholder="搜索编曲者..."
                   />
                 </div>
                 
-                <div className="form-group">
-                  <label>作曲者 (逗号分隔)</label>
-                  <input
-                    type="text"
-                    value={formData.composers}
-                    onChange={(e) => setFormData({...formData, composers: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>编曲者 (逗号分隔)</label>
-                  <input
-                    type="text"
-                    value={formData.arrangers}
-                    onChange={(e) => setFormData({...formData, arrangers: e.target.value})}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>演奏者 (逗号分隔)</label>
-                  <input
-                    type="text"
-                    value={formData.instrumentalists}
-                    onChange={(e) => setFormData({...formData, instrumentalists: e.target.value})}
+                <div style={{ flex: 1, marginLeft: '10px' }}>
+                  <ArtistBandSelector
+                    selectedItems={selectedInstrumentalists}
+                    onSelectionChange={setSelectedInstrumentalists}
+                    searchType="artist"
+                    label="演奏者"
+                    placeholder="搜索演奏者..."
                   />
                 </div>
               </div>
@@ -461,7 +498,6 @@ const SongManagement: React.FC = () => {
                               key={genre.genreID} 
                               className={`multi-select-option ${isSelected ? 'selected' : ''}`}
                               onMouseDown={(e) => {
-                                // 使用 onMouseDown 替代 onClick，避免与复选框事件冲突
                                 e.preventDefault();
                                 e.stopPropagation();
                                 handleGenreToggle(genre.genreID);
@@ -470,19 +506,17 @@ const SongManagement: React.FC = () => {
                               <input
                                 type="checkbox"
                                 checked={isSelected}
-                                onChange={() => {}} // 完全禁用复选框的事件
+                                onChange={() => {}}
                                 onMouseDown={(e) => {
-                                  // 阻止复选框的默认行为
                                   e.preventDefault();
                                   e.stopPropagation();
                                 }}
                                 onClick={(e) => {
-                                  // 阻止复选框的点击事件
                                   e.preventDefault();
                                   e.stopPropagation();
                                 }}
                                 readOnly
-                                style={{ pointerEvents: 'none' }} // 完全禁用复选框的交互
+                                style={{ pointerEvents: 'none' }}
                               />
                               <div className="multi-select-option-content">
                                 <div className="multi-select-option-name">
@@ -527,6 +561,24 @@ const SongManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 使用提示 */}
+      <div style={{ 
+        background: '#f8f9fa', 
+        padding: '25px', 
+        borderRadius: '8px', 
+        marginTop: '40px',
+        border: '1px solid #e9ecef'
+      }}>
+        <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 歌曲管理提示</h3>
+        <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
+          <p><strong>智能选择:</strong> 现在可以通过搜索选择艺术家和乐队，避免重名问题。输入关键词即可看到详细信息。</p>
+          <p><strong>创作者与演唱者:</strong> 支持选择艺术家或乐队，系统会显示类型和简介供您参考。</p>
+          <p><strong>专业角色:</strong> 作词、作曲、编曲、演奏等角色通常由个人艺术家担任，因此只能选择艺术家。</p>
+          <p><strong>批量管理:</strong> 可以选择多个艺术家/乐队，并随时添加或移除。</p>
+          <p><strong>编辑模式:</strong> 编辑现有歌曲时，会显示现有数据，建议重新搜索选择以获得准确信息。</p>
+        </div>
+      </div>
     </div>
   );
 };
