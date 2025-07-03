@@ -1,39 +1,40 @@
 package Impl
 
 
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
 import Objects.CreatorService.{Artist, Band}
 import Objects.MusicService.Genre
 import APIs.MusicService.ValidateSongOwnership
 import Objects.CreatorService.Artist
 import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import io.circe.Json
 import org.joda.time.DateTime
 import cats.effect.IO
 import org.slf4j.LoggerFactory
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
-import cats.implicits._
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.auto.*
+import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 import org.joda.time.DateTime
 import cats.implicits.*
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.API.{PlanContext, Planner}
 import cats.effect.IO
 import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import Common.ServiceUtils.schemaName
 import Objects.CreatorService.Band
 import APIs.OrganizeService.validateUserMapping
 import cats.implicits.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
 case class UpdateSongMetadataPlanner(
     userID: String,
@@ -148,23 +149,15 @@ case class UpdateSongMetadataPlanner(
   }
 
   private def validateIDsExist(ids: List[String])(using PlanContext): IO[Unit] = {
-    ids.map { id =>
-      val artistCheck = readDBJsonOptional(
-        s"SELECT 1 FROM ${schemaName}.artist WHERE artist_id = ?;",
-        List(SqlParameter("String", id))
-      )
-      val bandCheck = readDBJsonOptional(
-        s"SELECT 1 FROM ${schemaName}.band WHERE band_id = ?;",
-        List(SqlParameter("String", id))
-      )
+    ids.traverse_ { id =>
       for {
-        artistExists <- artistCheck
-        bandExists <- bandCheck
-        _ <- if (artistExists.isEmpty && bandExists.isEmpty)
-          IO.raiseError(new Exception(s"ID ${id} not found in Artist or Band"))
+        (artistOpt, msg1) <- GetArtistByID(userID, userToken, id).send
+        (bandOpt, msg2)   <- GetBandByID(userID, userToken, id).send
+        _ <- if (artistOpt.isEmpty && bandOpt.isEmpty)
+          IO.raiseError(new IllegalArgumentException(s"Invalid ID: $id not found in Artist or Band."))
         else IO.unit
       } yield ()
-    }.sequence_.void
+    }
   }
 
   private def validateGenresExist(genres: List[String])(using PlanContext): IO[Unit] = {

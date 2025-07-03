@@ -1,0 +1,207 @@
+当然。为了实现你提出的五个高级功能，现有 API 提供了很好的基础数据查询能力，但缺少了执行分析、记录用户行为和返回复杂分析结果的专用接口。
+
+以下是需要新增的 API 定义，它们可以被归类到一个新的服务中，例如 `AnalyticsService`，或者根据功能分散到现有的服务里。为了清晰起见，我们假设它们属于一个新的 `AnalyticsServiceCode`。
+
+---
+
+### 新增 API 定义
+
+#### **类别一：用户行为与画像 API**
+
+这些 API 用于记录用户行为和返回个性化分析结果。
+
+**1. LogUserListenActivity**
+
+*   **功能描述 (desc):** 记录用户的听歌行为。这是所有个性化推荐和热度计算的基础。前端应在歌曲开始播放、播放超过特定时长（如30秒）或用户标记喜欢时调用此接口。
+*   **参数 (param):**
+    *   `userID: String`: 行为主体的用户ID。
+    *   `userToken: String`: 用户认证令牌。
+    *   `songID: String`: 被播放的歌曲ID。
+    *   `activityType: String`: 行为类型，如 "PLAY"（播放）、"FINISH"（完整播放）、"FAVORITE"（收藏）、"SKIP"（跳过）。
+    *   `playDuration: Option[Int]`: 播放时长（秒），`activityType` 为 "PLAY" 或 "FINISH" 时建议提供。
+*   **输出 (return):** `(Boolean, String)`: (操作是否成功记录, 信息)
+
+```scala
+case class LogUserListenActivity(
+  userID: String,
+  userToken: String,
+  songID: String,
+  activityType: String, // e.g., "PLAY", "FAVORITE", "FINISH", "SKIP"
+  playDuration: Option[Int] = None
+) extends API[(Boolean, String)](AnalyticsServiceCode)
+```
+
+**2. GetUserSongRecommendations**
+
+*   **功能描述 (desc):** 获取为指定用户生成的个性化歌曲推荐列表。后台基于用户的听歌历史和喜好画像计算得出。
+*   **参数 (param):**
+    *   `userID: String`: 需要获取推荐的用户ID。
+    *   `userToken: String`: 用户认证令牌。
+    *   `limit: Int`: 希望获取的推荐数量，默认为10。
+*   **输出 (return):** `(Option[List[SongRecommendation]], String)`: (推荐列表, 信息)
+    *   `SongRecommendation` 是一个包含歌曲ID和推荐理由的辅助类型。
+
+```scala
+// 辅助类型
+case class SongRecommendation(songID: String, reason: String) // reason e.g., "因为你喜欢摇滚", "类似于你常听的'歌曲X'"
+
+case class GetUserSongRecommendations(
+  userID: String,
+  userToken: String,
+  limit: Int = 10
+) extends API[(Option[List[SongRecommendation]], String)](AnalyticsServiceCode)
+```
+
+**3. GetUserGenreProfile**
+
+*   **功能描述 (desc):** 获取用户的曲风偏好画像。可用于前端展示用户的“音乐DNA”。
+*   **参数 (param):**
+    *   `userID: String`: 目标用户ID。
+    *   `userToken: String`: 用户认证令牌。
+*   **输出 (return):** `(Option[List[(String, Double)]], String)`: (曲风及其偏好分数的列表, 信息)，例如 `(Some(List(("Rock", 0.85), ("Pop", 0.6))), "查询成功")`。
+
+```scala
+case class GetUserGenreProfile(
+  userID: String,
+  userToken: String
+) extends API[(Option[List[(String, Double)]], String)](AnalyticsServiceCode)
+```
+
+---
+
+#### **类别二：数据分析与洞察 API**
+
+这些 API 用于返回关于歌手、歌曲和曲风的宏观分析结果。
+
+**4. GetArtistStrengthProfile**
+
+*   **功能描述 (desc):** 获取指定艺术家在不同曲风下的“实力分析”结果。
+*   **参数 (param):**
+    *   `userID: String`: 发起请求的用户ID。
+    *   `userToken: String`: 用户认证令牌。
+    *   `artistID: String`: 要分析的艺术家ID。
+*   **输出 (return):** `(Option[List[ArtistStrength]], String)`: (艺术家的曲风实力列表, 信息)
+    *   `ArtistStrength` 是一个包含曲风ID、名称和实力分数的辅助类型。
+
+```scala
+// 辅助类型
+case class ArtistStrength(genreID: String, genreName: String, strengthScore: Double)
+
+case class GetArtistStrengthProfile(
+  userID: String,
+  userToken: String,
+  artistID: String
+) extends API[(Option[List[ArtistStrength]], String)](AnalyticsServiceCode)
+```
+
+**5. GetTrendingGenres**
+
+*   **功能描述 (desc):** 获取全网当前最热门的曲风列表，按热度指数（GHI）降序排列。用于激励机制和发现页。
+*   **参数 (param):**
+    *   `userID: String`: 发起请求的用户ID。
+    *   `userToken: String`: 用户认证令牌。
+    *   `limit: Int`: 返回的曲风数量，默认为10。
+*   **输出 (return):** `(Option[List[GenreTrend]], String)`: (热门曲风列表, 信息)
+    *   `GenreTrend` 是一个包含曲风信息和热度指数的辅助类型。
+
+```scala
+// 辅助类型
+case class GenreTrend(genreID: String, genreName: String, hotnessIndex: Double)
+
+case class GetTrendingGenres(
+  userID: String,
+  userToken: String,
+  limit: Int = 10
+) extends API[(Option[List[GenreTrend]], String)](AnalyticsServiceCode)
+```
+
+**6. GetTopArtistsByGenre**
+
+*   **功能描述 (desc):** 获取在指定曲风中实力最强的艺术家排名。可用于激励机制的展示和“曲风代表人物”功能。
+*   **参数 (param):**
+    *   `userID: String`: 发起请求的用户ID。
+    *   `userToken: String`: 用户认证令牌。
+    *   `genreID: String`: 要查询的曲风ID。
+    *   `limit: Int`: 返回的艺术家数量，默认为10。
+*   **输出 (return):** `(Option[List[(String, String, Double)]], String)`: (艺术家ID、艺术家名、实力分数的列表, 信息)
+
+```scala
+case class GetTopArtistsByGenre(
+  userID: String,
+  userToken: String,
+  genreID: String,
+  limit: Int = 10
+) extends API[(Option[List[(String, String, Double)]], String)](AnalyticsServiceCode)
+```
+
+---
+
+#### **类别三：创作者协作建议 API**
+
+这些 API 基于数据分析为创作者提供组队和发展的建议。
+
+**7. SuggestBandFormation**
+
+*   **功能描述 (desc):** 为组建新乐队提供成员建议。可以基于一个核心艺术家或一个核心曲风进行推荐。
+*   **参数 (param):**
+    *   `userID: String`: 发起请求的用户ID。
+    *   `userToken: String`: 用户认证令牌。
+    *   `seedArtistID: Option[String]`: 核心/种子艺术家的ID（可选）。
+    *   `targetGenreID: Option[String]`: 目标曲风的ID（可选）。
+    *   `memberCount: Int`: 期望的乐队成员数量（例如3人）。
+*   **输出 (return):** `(Option[List[String]], String)`: (推荐的艺术家ID列表, 信息)
+
+```scala
+case class SuggestBandFormation(
+  userID: String,
+  userToken: String,
+  seedArtistID: Option[String] = None,
+  targetGenreID: Option[String] = None,
+  memberCount: Int = 3
+) extends API[(Option[List[String]], String)](AnalyticsServiceCode)
+```
+
+**8. GetBandOptimizationSuggestion**
+
+*   **功能描述 (desc):** 分析现有乐队，并提供一个“潜在最优”的成员替换建议，以提升乐队的受欢迎程度潜力。
+*   **参数 (param):**
+    *   `userID: String`: 发起请求的用户ID。
+    *   `userToken: String`: 用户认证令牌。
+    *   `bandID: String`: 需要分析的乐队ID。
+*   **输出 (return):** `(Option[BandSwapSuggestion], String)`: (成员替换建议, 信息)
+    *   `BandSwapSuggestion` 是一个描述替换方案和预期效果的辅助类型。
+
+```scala
+// 辅助类型
+case class BandSwapSuggestion(
+  memberToRemoveID: String,
+  suggestedReplacementID: String,
+  currentPotentialScore: Double,
+  newPotentialScore: Double
+)
+
+case class GetBandOptimizationSuggestion(
+  userID: String,
+  userToken: String,
+  bandID: String
+) extends API[(Option[BandSwapSuggestion], String)](AnalyticsServiceCode)
+```
+
+**9. FindMentorsForArtist**
+
+*   **功能描述 (desc):** 为指定的艺术家（学员）查找并推荐在特定领域内的导师。
+*   **参数 (param):**
+    *   `userID: String`: 艺术家本人的ID，用于发起请求。
+    *   `userToken: String`: 用户的认证令牌。
+    *   `menteeArtistID: String`: 需要寻找导师的艺术家ID。
+    *   `focusGenreID: Option[String]`: 指定希望精进的曲风ID（可选，不提供则系统自动判断）。
+*   **输出 (return):** `(Option[List[String]], String)`: (推荐的导师艺术家ID列表, 信息)
+
+```scala
+case class FindMentorsForArtist(
+  userID: String,
+  userToken: String,
+  menteeArtistID: String,
+  focusGenreID: Option[String] = None
+) extends API[(Option[List[String]], String)](AnalyticsServiceCode)
+```

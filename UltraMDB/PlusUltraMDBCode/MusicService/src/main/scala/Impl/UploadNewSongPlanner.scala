@@ -1,34 +1,35 @@
 package Impl
 
 
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
 import Objects.CreatorService.Band
 import Objects.CreatorService.Artist
 import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import cats.effect.IO
 import org.slf4j.LoggerFactory
 import org.joda.time.DateTime
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 import org.joda.time.DateTime
 import cats.implicits.*
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.API.{PlanContext, Planner}
 import cats.effect.IO
 import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
 case class UploadNewSongPlanner(
                                  userID: String,
@@ -57,21 +58,19 @@ case class UploadNewSongPlanner(
         _ <- IO(logger.info(s"验证歌曲名称是否为空：name=${name}"))
         _ <- if (name.isEmpty) IO.raiseError(new IllegalArgumentException("Song name cannot be empty.")) else IO.unit
 
-        // Step 3: Validate creators and performers exist in Artist or Band
         _ <- IO(logger.info("验证creators和performers字段中的每个ID是否存在于Artist或Band"))
         _ <- validateArtistsOrBands("creator", creators)
         _ <- validateArtistsOrBands("performer", performers)
 
-        // Step 4: Validate genres exist in GenreTable
-        _ <- IO(logger.info("验证genres字段中的每个曲风ID是否存在"))
-        _ <- validateGenres(genres)
-
-        // Step 5: Validate optional fields
-        _ <- IO(logger.info("验证所有可选字段的格式和存在性"))
+        _ <- IO(logger.info("验证所有字段的格式和存在性"))
         _ <- validateArtistsOrBands("lyricist", lyricists)
         _ <- validateArtistsOrBands("composer", composers)
         _ <- validateArtistsOrBands("arranger", arrangers)
         _ <- validateArtistsOrBands("instrumentalist", instrumentalists)
+
+
+        _ <- IO(logger.info("验证genres字段中的每个曲风ID是否存在"))
+        _ <- validateGenres(genres)
 
         // Step 6: Generate unique songID
         _ <- IO(logger.info("生成唯一的songID标识符"))
@@ -97,15 +96,9 @@ case class UploadNewSongPlanner(
   private def validateArtistsOrBands(fieldName: String, ids: List[String])(using PlanContext): IO[Unit] = {
     ids.traverse_ { id =>
       for {
-        bandExists <- readDBJsonOptional(
-          s"SELECT * FROM ${schemaName}.band WHERE band_id = ?",
-          List(SqlParameter("String", id))
-        ).map(_.isDefined)
-        artistExists <- readDBJsonOptional(
-          s"SELECT * FROM ${schemaName}.artist WHERE artist_id = ?",
-          List(SqlParameter("String", id))
-        ).map(_.isDefined)
-        _ <- if (!bandExists && !artistExists)
+        (artistOpt, msg1) <- GetArtistByID(userID, userToken, id).send
+        (bandOpt, msg2)   <- GetBandByID(userID, userToken, id).send
+        _ <- if (artistOpt.isEmpty && bandOpt.isEmpty)
           IO.raiseError(new IllegalArgumentException(s"Invalid $fieldName ID: $id not found in Artist or Band."))
         else IO.unit
       } yield ()
