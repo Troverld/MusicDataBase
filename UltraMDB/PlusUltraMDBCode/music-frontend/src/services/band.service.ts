@@ -4,7 +4,7 @@ import { getUser } from '../utils/storage';
 import { artistService } from './artist.service';
 
 export const bandService = {
-  // 创建新乐队
+  // 创建新乐队（使用名称，保持向后兼容）
   async createBand(bandData: { name: string; bio: string; memberNames: string[] }): Promise<[string | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -25,7 +25,25 @@ export const bandService = {
     return callAPI<[string | null, string]>('CreateBandMessage', data);
   },
 
-  // 更新乐队信息
+  // 创建新乐队（直接使用ID）
+  async createBandWithIds(bandData: { name: string; bio: string; memberIDs: string[] }): Promise<[string | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('Admin not authenticated');
+    }
+
+    const data = {
+      adminID: user.userID,
+      adminToken: user.userToken,
+      name: bandData.name,
+      members: bandData.memberIDs,
+      bio: bandData.bio
+    };
+
+    return callAPI<[string | null, string]>('CreateBandMessage', data);
+  },
+
+  // 更新乐队信息（使用名称，保持向后兼容）
   async updateBand(bandID: string, bandData: { name?: string; bio?: string; memberNames?: string[] }): Promise<[boolean, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -45,6 +63,25 @@ export const bandService = {
       name: bandData.name,
       bio: bandData.bio,
       members: memberIDs
+    };
+
+    return callAPI<[boolean, string]>('UpdateBandMessage', data);
+  },
+
+  // 更新乐队信息（直接使用ID）
+  async updateBandWithIds(bandID: string, bandData: { name?: string; bio?: string; members?: string[] }): Promise<[boolean, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      bandID,
+      name: bandData.name,
+      bio: bandData.bio,
+      members: bandData.members
     };
 
     return callAPI<[boolean, string]>('UpdateBandMessage', data);
@@ -155,7 +192,7 @@ export const bandService = {
     return callAPI<[boolean, string]>('validBandOwnership', data);
   },
 
-  // 将艺术家名称转换为ID的辅助方法
+  // 将艺术家名称转换为ID的辅助方法（保持向后兼容）
   async convertArtistNamesToIds(artistNames: string[]): Promise<string[]> {
     if (!artistNames || artistNames.length === 0) {
       return [];

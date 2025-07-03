@@ -107,27 +107,43 @@ const BandManagement: React.FC = () => {
     // 获取成员名称并转换为选中项目
     try {
       const memberNames = await bandService.convertArtistIdsToNames(band.members);
-      // 创建虚拟的艺术家项目用于编辑
+      // 创建虚拟的艺术家项目用于编辑，但提示用户重新选择
       const virtualMembers: ArtistBandItem[] = band.members.map((memberId, index) => ({
-        id: memberId,
+        id: `edit-${memberId}`, // 使用真实ID但加前缀，这样用户可以知道这是编辑模式
         name: memberNames[index] || memberId,
-        bio: '从现有乐队加载的成员数据，请重新搜索选择具体艺术家',
+        bio: `编辑模式：当前成员 "${memberNames[index] || memberId}"。建议重新搜索选择以确保数据准确性。`,
         type: 'artist'
       }));
       setSelectedMembers(virtualMembers);
+      
+      // 提示用户重新选择成员
+      setError('编辑模式：建议重新搜索并选择乐队成员以确保数据准确性。');
     } catch (error) {
       console.error('Failed to load member names for editing:', error);
       // 如果转换失败，使用ID创建虚拟项目
       const virtualMembers: ArtistBandItem[] = band.members.map((memberId) => ({
-        id: memberId,
+        id: `edit-${memberId}`,
         name: memberId,
-        bio: '从现有乐队加载的成员数据，请重新搜索选择具体艺术家',
+        bio: '编辑模式：无法获取成员名称，请重新搜索选择乐队成员。',
         type: 'artist'
       }));
       setSelectedMembers(virtualMembers);
+      setError('编辑模式：无法获取成员详情，请重新搜索选择所有乐队成员。');
     }
     
     setShowModal(true);
+  };
+
+  // 验证选中的成员是否有问题
+  const validateSelectedMembers = () => {
+    const problemMembers = selectedMembers.filter(member => 
+      member.id.startsWith('edit-') || 
+      member.id.startsWith('not-found-') || 
+      member.id.startsWith('error-') ||
+      member.id.startsWith('virtual-')
+    );
+    
+    return problemMembers;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,16 +156,27 @@ const BandManagement: React.FC = () => {
       return;
     }
 
-    // 获取成员名称
-    const memberNames = selectedMembers.map(member => member.name);
+    // 验证是否有问题的选中成员
+    const problemMembers = validateSelectedMembers();
+    if (problemMembers.length > 0) {
+      setError(`请重新选择以下有问题的乐队成员：${problemMembers.map(member => member.name).join(', ')}`);
+      return;
+    }
+
+    // 修复：传递成员 ID 而不是名称
+    const memberIDs = selectedMembers.map(member => member.id);
 
     try {
       if (editingBand) {
-        const [success, message] = await bandService.updateBand(editingBand.bandID, {
+        // 直接调用后端 API，传递 ID 列表
+        const updateData = {
           name: formData.name,
           bio: formData.bio,
-          memberNames: memberNames
-        });
+          members: memberIDs // 直接传递 ID 列表给后端
+        };
+        
+        // 需要修改 bandService.updateBand 来直接接受 ID 列表
+        const [success, message] = await bandService.updateBandWithIds(editingBand.bandID, updateData);
         if (success) {
           setSuccess('乐队信息更新成功');
           setShowModal(false);
@@ -161,11 +188,14 @@ const BandManagement: React.FC = () => {
           setError(message);
         }
       } else {
-        const [bandID, message] = await bandService.createBand({
+        // 创建新乐队，直接传递 ID 列表
+        const createData = {
           name: formData.name,
           bio: formData.bio,
-          memberNames: memberNames
-        });
+          memberIDs: memberIDs // 直接传递 ID 列表
+        };
+        
+        const [bandID, message] = await bandService.createBandWithIds(createData);
         if (bandID) {
           setSuccess(`乐队创建成功！乐队ID: ${bandID}`);
           setShowModal(false);
@@ -207,7 +237,7 @@ const BandManagement: React.FC = () => {
     <div>
       <h1>乐队管理</h1>
       <p style={{ color: '#666', marginBottom: '30px', fontSize: '16px' }}>
-        管理系统中的乐队信息，搜索、创建、编辑或删除乐队档案。通过智能选择器添加乐队成员，避免重名问题。
+        管理系统中的乐队信息，搜索、创建、编辑或删除乐队档案。通过智能选择器添加乐队成员，现在使用 ID 匹配避免数据不一致问题。
       </p>
       
       {error && <div className="error-message">{error}</div>}
@@ -412,11 +442,11 @@ const BandManagement: React.FC = () => {
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 乐队管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
           <p><strong>搜索乐队:</strong> 在搜索框中输入乐队名称的关键词，支持模糊匹配。</p>
-          <p><strong>智能成员选择:</strong> 通过搜索选择艺术家作为乐队成员，可以查看每个艺术家的详细信息避免重名。</p>
+          <p><strong>智能成员选择:</strong> 通过搜索选择艺术家作为乐队成员，系统现在使用 ID 进行精确匹配。</p>
           <p><strong>创建乐队:</strong> 填写乐队名称、选择成员和详细简介。系统会自动验证成员的存在性。</p>
-          <p><strong>编辑乐队:</strong> 点击"编辑"按钮修改乐队的名称、成员和简介信息。</p>
+          <p><strong>编辑乐队:</strong> 编辑模式下建议重新搜索选择所有成员，以确保数据的准确性和一致性。</p>
           <p><strong>删除乐队:</strong> 删除操作不可撤销，请确保该乐队未被歌曲或专辑引用。</p>
-          <p><strong>成员管理:</strong> 可以随时添加或移除乐队成员，支持查看每个成员的详细信息。</p>
+          <p><strong>数据一致性:</strong> 现在系统使用艺术家 ID 而不是名称管理乐队成员，确保数据准确性。</p>
           <p><strong>权限说明:</strong> 乐队管理功能需要管理员权限，请确保您有足够的操作权限。</p>
         </div>
       </div>
