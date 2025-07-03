@@ -89,11 +89,14 @@ case class SearchBandByNamePlanner(
     val searchParam = s"%$BandName%"
 
     readDBRows(query, List(SqlParameter("String", searchParam))).flatMap { rows =>
-      // Safely traverse the list of JSON results and decode the 'band_id' from each.
+      // Safely traverse the list of JSON results and decode the 'bandID' from each.
+      // The field name is changed from "band_id" to "bandID" to match the actual JSON response
+      // from the database service, which performs snake_case to camelCase conversion.
       rows.traverse { row =>
-        IO.fromEither(row.hcursor.get[String]("band_id"))
+        IO.fromEither(row.hcursor.get[String]("bandID")) // <--- 修改在这里
       }.handleErrorWith { err =>
-        IO.raiseError(new Exception(s"解码 band_id 失败: ${err.getMessage}"))
+        // The error message is also updated for clarity.
+        IO.raiseError(new Exception(s"解码 bandID 失败: ${err.getMessage}")) // <--- 相应的错误信息也更新一下
       }
     }
   }
