@@ -16,7 +16,7 @@ import org.http4s.dsl.io.*
 
 import scala.collection.concurrent.TrieMap
 import Common.Serialize.CustomColumnTypes.*
-import Impl.{CreateNewGenrePlanner, DeleteGenrePlanner, DeleteSongPlanner, FilterSongsByEntityPlanner, GetGenreList, GetSongByID, SearchSongsByNamePlanner, UpdateSongMetadataPlanner, UploadNewSongPlanner, ValidateSongOwnershipPlanner}
+import Impl.{CreateNewGenrePlanner, DeleteGenrePlanner, DeleteSongPlanner, FilterSongsByEntityPlanner, GetGenreList, GetSongByID, GetSongProfile, SearchSongsByNamePlanner, UpdateSongMetadataPlanner, UploadNewSongPlanner, ValidateSongOwnershipPlanner}
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -46,6 +46,13 @@ object Routes:
       case "GetSongByID" =>
         IO(
           decode[GetSongByID](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSongsByID[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
+      case "GetSongProfile" =>
+        IO(
+          decode[GetSongProfile](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSongsByID[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten

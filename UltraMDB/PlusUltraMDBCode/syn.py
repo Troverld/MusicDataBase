@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 # 基础路径配置
-BASE_DIR = Path(r"D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode")
+BASE_DIR = Path(r"C:\lec\tmsp\mdb\MusicDataBase\UltraMDB\PlusUltraMDBCode")
 SERVICES = {
     "1": "CreatorService",
     "2": "MusicService",
