@@ -1,4 +1,3 @@
-
 package Process
 
 import Common.API.{API, PlanContext, TraceID}
@@ -22,76 +21,162 @@ object Init {
       _ <- API.init(config.maximumClientConnection)
       _ <- Common.DBAPI.SwitchDataSourceMessage(projectName = Global.ServiceCenter.projectName).send
       _ <- initSchema(schemaName)
-            /** 歌单表，存储歌单的基本信息和内容
-       * collection_id: 歌单的唯一ID
-       * name: 歌单名称
-       * owner_id: 所有者用户ID
-       * description: 歌单简介
-       * contents: 包含歌曲ID列表 (JSON存储格式)
-       * maintainers: 维护者用户ID列表 (JSON存储格式)
-       * upload_time: 歌单创建或上传时间
+      
+      /** 播放记录表，记录用户的歌曲播放行为
+       * log_id: 播放记录的唯一ID
+       * user_id: 播放用户的ID
+       * song_id: 播放歌曲的ID
+       * play_time: 播放时间戳
        */
       _ <- writeDB(
         s"""
-        CREATE TABLE IF NOT EXISTS "${schemaName}"."collection_table" (
-            collection_id VARCHAR NOT NULL PRIMARY KEY,
-            name TEXT NOT NULL,
-            owner_id TEXT NOT NULL,
-            description TEXT,
-            contents TEXT,
-            maintainers TEXT,
-            upload_time TIMESTAMP NOT NULL
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."playback_log" (
+            log_id VARCHAR NOT NULL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            song_id TEXT NOT NULL,
+            play_time TIMESTAMP NOT NULL
         );
-         
         """,
         List()
       )
-      /** 存储专辑的基础信息，包括名称、创作者、协作者及内容等。
-       * album_id: 专辑的唯一ID，主键
-       * name: 专辑名称
-       * creators: 创作者ID列表，使用JSON存储格式
-       * collaborators: 协作者ID列表，使用JSON存储格式
-       * release_time: 专辑发布时间
-       * description: 专辑简介
-       * contents: 专辑包含的歌曲ID列表，使用JSON存储格式
+      
+      /** 歌曲评分表，记录用户对歌曲的评分
+       * user_id: 评分用户的ID
+       * song_id: 被评分歌曲的ID
+       * rating: 评分值(1-5)
+       * rated_at: 评分时间
        */
       _ <- writeDB(
         s"""
-        CREATE TABLE IF NOT EXISTS "${schemaName}"."album_table" (
-            album_id VARCHAR NOT NULL PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."song_rating" (
+            user_id TEXT NOT NULL,
+            song_id TEXT NOT NULL,
+            rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+            rated_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (user_id, song_id)
+        );
+        """,
+        List()
+      )
+      
+      /** 用户画像缓存表，存储计算好的用户偏好数据
+       * user_id: 用户ID
+       * genre_id: 曲风ID
+       * preference_score: 偏好度分数
+       * updated_at: 更新时间
+       */
+      _ <- writeDB(
+        s"""
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."user_portrait_cache" (
+            user_id TEXT NOT NULL,
+            genre_id TEXT NOT NULL,
+            preference_score DOUBLE PRECISION NOT NULL,
+            updated_at TIMESTAMP NOT NULL,
+            PRIMARY KEY (user_id, genre_id)
+        );
+        """,
+        List()
+      )
+      
+      /** 歌曲热度缓存表，存储计算好的歌曲热度值
+       * song_id: 歌曲ID
+       * popularity_score: 热度分数
+       * play_count: 播放次数
+       * avg_rating: 平均评分
+       * rating_count: 评分人数
+       * updated_at: 更新时间
+       */
+      _ <- writeDB(
+        s"""
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."song_popularity_cache" (
+            song_id TEXT NOT NULL PRIMARY KEY,
+            popularity_score DOUBLE PRECISION NOT NULL,
+            play_count INT DEFAULT 0,
+            avg_rating DOUBLE PRECISION DEFAULT 0.0,
+            rating_count INT DEFAULT 0,
+            updated_at TIMESTAMP NOT NULL
+        );
+        """,
+        List()
+      )
+      
+      /** 歌曲-曲风映射表，存储歌曲与曲风的多对多关系
+       * song_id: 歌曲ID
+       * genre_id: 曲风ID
+       */
+      _ <- writeDB(
+        s"""
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."song_genre_mapping" (
+            song_id TEXT NOT NULL,
+            genre_id TEXT NOT NULL,
+            PRIMARY KEY (song_id, genre_id)
+        );
+        """,
+        List()
+      )
+      
+      /** 歌曲表的基本结构（如果不存在的话）
+       * 注意：这个表应该由 MusicService 创建，这里只是为了确保存在
+       */
+      _ <- writeDB(
+        s"""
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."song_table" (
+            song_id VARCHAR NOT NULL PRIMARY KEY,
             name TEXT NOT NULL,
-            creators TEXT NOT NULL,
-            collaborators TEXT,
             release_time TIMESTAMP NOT NULL,
-            description TEXT,
-            contents TEXT
+            creators TEXT,
+            performers TEXT,
+            lyricists TEXT,
+            arrangers TEXT,
+            instrumentalists TEXT,
+            composers TEXT,
+            uploader_id TEXT NOT NULL
         );
-         
         """,
         List()
       )
-      /** 播放列表表，存储播放集相关信息
-       * playlist_id: 播放列表的唯一ID
-       * owner_id: 用户ID
-       * contents: 播放集歌曲ID列表（JSON存储格式）
-       * current_song_id: 当前正在播放的歌曲ID
-       * current_position: 当前播放歌曲的位置
-       * play_mode: 播放方式（如随机播放、单曲循环等）
+
+      /** 曲风表的基本结构（如果不存在的话）
+       * 注意：这个表应该由 MusicService 创建，这里只是为了确保存在
        */
       _ <- writeDB(
         s"""
-        CREATE TABLE IF NOT EXISTS "${schemaName}"."playlist_table" (
-            playlist_id VARCHAR NOT NULL PRIMARY KEY,
-            owner_id TEXT NOT NULL,
-            contents TEXT,
-            current_song_id TEXT,
-            current_position INT DEFAULT 0,
-            play_mode TEXT DEFAULT 'Next'
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."genre_table" (
+            genre_id VARCHAR NOT NULL PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT
         );
-         
         """,
         List()
       )
+
+      /** 用户表的基本结构（如果不存在的话）
+       * 注意：这个表应该由 OrganizeService 创建，这里只是为了确保存在
+       */
+      _ <- writeDB(
+        s"""
+        CREATE TABLE IF NOT EXISTS "${schemaName}"."user_table" (
+            user_id VARCHAR NOT NULL PRIMARY KEY,
+            account TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL
+        );
+        """,
+        List()
+      )
+
+      // 创建索引以提高查询性能
+      _ <- writeDB(
+        s"""
+        CREATE INDEX IF NOT EXISTS idx_playback_log_user_id ON "${schemaName}"."playback_log" (user_id);
+        CREATE INDEX IF NOT EXISTS idx_playback_log_song_id ON "${schemaName}"."playback_log" (song_id);
+        CREATE INDEX IF NOT EXISTS idx_playback_log_play_time ON "${schemaName}"."playback_log" (play_time);
+        CREATE INDEX IF NOT EXISTS idx_song_rating_song_id ON "${schemaName}"."song_rating" (song_id);
+        CREATE INDEX IF NOT EXISTS idx_user_portrait_cache_user_id ON "${schemaName}"."user_portrait_cache" (user_id);
+        CREATE INDEX IF NOT EXISTS idx_creator_stats_cache_creator ON "${schemaName}"."creator_stats_cache" (creator_id, creator_type);
+        """,
+        List()
+      )
+      
     } yield ()
 
     program.handleErrorWith(err => IO {
@@ -100,4 +185,3 @@ object Init {
     })
   }
 }
-    

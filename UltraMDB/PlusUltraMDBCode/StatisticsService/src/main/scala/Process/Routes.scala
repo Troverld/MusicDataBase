@@ -1,4 +1,3 @@
-
 package Process
 
 import Common.API.PlanContext
@@ -15,15 +14,7 @@ import org.http4s.client.Client
 import org.http4s.dsl.io.*
 import scala.collection.concurrent.TrieMap
 import Common.Serialize.CustomColumnTypes.*
-import Impl.validateCollectionOwnershipPlanner
-import Impl.validateAlbumOwnershipPlanner
-import Impl.CreateCollectionPlanner
-import Impl.InviteMaintainerToCollectionPlanner
-import Impl.DeleteCollectionPlanner
-import Impl.AddToPlaylistPlanner
-import Impl.DeleteAlbumPlanner
-import Impl.UpdateCollectionPlanner
-import Impl.UpdateAlbumPlanner
+import Impl.*
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -35,76 +26,94 @@ object Routes:
 
   private def executePlan(messageType: String, str: String): IO[String] =
     messageType match {
-      case "validateCollectionOwnership" =>
+      // 播放记录相关
+      case "LogPlayback" =>
         IO(
-          decode[validateCollectionOwnershipPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateCollectionOwnership[${err.getMessage}]")
+          decode[LogPlaybackPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for LogPlayback[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "validateAlbumOwnership" =>
+      // 歌曲评分相关
+      case "RateSong" =>
         IO(
-          decode[validateAlbumOwnershipPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for validateAlbumOwnership[${err.getMessage}]")
+          decode[RateSongPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for RateSong[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "CreateCollection" =>
+      // 用户画像相关
+      case "GetUserPortrait" =>
         IO(
-          decode[CreateCollectionPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateCollection[${err.getMessage}]")
+          decode[GetUserPortraitPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetUserPortrait[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "InviteMaintainerToCollection" =>
+      // 歌曲热度相关
+      case "GetSongPopularity" =>
         IO(
-          decode[InviteMaintainerToCollectionPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for InviteMaintainerToCollection[${err.getMessage}]")
+          decode[GetSongPopularityPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSongPopularity[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "DeleteCollection" =>
+      // 创作者创作倾向
+      case "GetCreatorCreationTendency" =>
         IO(
-          decode[DeleteCollectionPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for DeleteCollection[${err.getMessage}]")
+          decode[GetCreatorCreationTendencyPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetCreatorCreationTendency[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "AddToPlaylist" =>
+      // 创作者曲风实力
+      case "GetCreatorGenreStrength" =>
         IO(
-          decode[AddToPlaylistPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for AddToPlaylist[${err.getMessage}]")
+          decode[GetCreatorGenreStrengthPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetCreatorGenreStrength[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "DeleteAlbum" =>
+      // 用户歌曲推荐
+      case "GetUserSongRecommendations" =>
         IO(
-          decode[DeleteAlbumPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for DeleteAlbum[${err.getMessage}]")
+          decode[GetUserSongRecommendationsPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetUserSongRecommendations[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "UpdateCollection" =>
+      // 下一首歌推荐
+      case "GetNextSongRecommendation" =>
         IO(
-          decode[UpdateCollectionPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for UpdateCollection[${err.getMessage}]")
+          decode[GetNextSongRecommendationPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetNextSongRecommendation[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
-      case "UpdateAlbum" =>
+      // 相似歌曲推荐
+      case "GetSimilarSongs" =>
         IO(
-          decode[UpdateAlbumPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for UpdateAlbum[${err.getMessage}]")
+          decode[GetSimilarSongsPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSimilarSongs[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
+      // 相似创作者推荐
+      case "GetSimilarCreators" =>
+        IO(
+          decode[GetSimilarCreatorsPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSimilarCreators[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
 
+      // 测试接口
       case "test" =>
         for {
-          output  <- Utils.Test.test(str)(using  PlanContext(TraceID(""), 0))
+          output <- Utils.Test.test(str)(using PlanContext(TraceID(""), 0))
         } yield output
+        
       case _ =>
-        IO.raiseError(new Exception(s"Unknown type: $messageType"))
+        IO.raiseError(new Exception(s"Unknown message type: $messageType"))
     }
 
   def handlePostRequest(req: Request[IO]): IO[String] = {
@@ -117,9 +126,10 @@ object Routes:
       }
     }
   }
+  
   val service: HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "health" =>
-      Ok("OK")
+      Ok("StatisticsService is running")
       
     case GET -> Root / "stream" / projectName =>
       projects.get(projectName) match {
@@ -138,6 +148,7 @@ object Routes:
             }
           }
       }
+      
     case req@POST -> Root / "api" / name =>
       handlePostRequest(req).flatMap {
         executePlan(name, _)
@@ -150,7 +161,7 @@ object Routes:
 
         case e: Throwable =>
           println(s"General error: $e")
+          e.printStackTrace()
           BadRequest(e.getMessage.asJson.toString)
       }
   }
-  
