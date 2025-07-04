@@ -2,6 +2,7 @@ package APIs.StatisticsService
 
 import Common.API.API
 import Global.ServiceCenter.StatisticsServiceCode
+import Objects.StatisticsService.Profile
 
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -25,14 +26,14 @@ import java.util.UUID
  * @param userToken: String (用户的认证令牌。)
  * @param creatorID: String (要分析的创作者（艺术家或乐队）的ID。)
  * @param creatorType: String (创作者的类型。其值为 "Artist" 或 "Band"，用于区分 `creatorID` 指代的是艺术家还是乐队。)
- * @return (Option[List[(String, Double)]], String): (创作者的曲风实力向量, 错误信息)
+ * @return (Option[Profile], String): (创作者的曲风实力向量, 错误信息)
  */
 case class GetCreatorGenreStrength(
   userID: String,
   userToken: String,
   creatorID: String,
   creatorType: String
-) extends API[(Option[List[(String, Double)]], String)](StatisticsServiceCode)
+) extends API[(Option[Profile], String)](StatisticsServiceCode)
 
 
 

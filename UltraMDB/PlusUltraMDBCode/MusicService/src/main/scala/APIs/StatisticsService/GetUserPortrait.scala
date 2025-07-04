@@ -2,6 +2,7 @@ package APIs.StatisticsService
 
 import Common.API.API
 import Global.ServiceCenter.StatisticsServiceCode
+import Objects.StatisticsService.Profile
 
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -23,12 +24,12 @@ import java.util.UUID
  * desc: 获取指定用户的用户画像。用户画像由一组(曲风ID, 偏好度)的元组构成，偏好度是一个(0,1)范围内的浮点数，且整个偏好度向量经过归一化处理。
  * @param userID: String (需要获取画像的目标用户的ID。)
  * @param userToken: String (用于验证请求者身份的认证令牌。)
- * @return (Option[List[(String,Double)]], String): (用户画像列表, 错误信息)
+ * @return (Option[Profile], String): (用户画像列表, 错误信息)
  */
 case class GetUserPortrait(
   userID: String,
   userToken: String
-) extends API[(Option[List[(String,Double)]], String)](StatisticsServiceCode)
+) extends API[(Option[Profile], String)](StatisticsServiceCode)
 
 
 
