@@ -5,21 +5,15 @@ import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import APIs.MusicService.GetSongByID
+import APIs.MusicService.{GetSongByID, GetSongProfile, FilterSongsByEntity}
+import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity, GetUserSongRecommendations}
+import Objects.StatisticsService.Profile
 import Utils.StatisticsUtils
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
 
-/**
- * Planner for GetNextSongRecommendation: 基于当前播放歌曲推荐下一首歌
- *
- * @param userID        用户ID
- * @param userToken     用户认证令牌
- * @param currentSongID 当前正在播放的歌曲ID
- * @param planContext   执行上下文
- */
 case class GetNextSongRecommendationPlanner(
                                              userID: String,
                                              userToken: String,
@@ -29,303 +23,160 @@ case class GetNextSongRecommendationPlanner(
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
+  // 超参数常量
+  private val RECENT_SONGS_LIMIT = 10
+  private val CANDIDATE_SONGS_LIMIT = 5
+  private val TOP_N_SONGS_FOR_SAMPLING = 5
+  private val FALLBACK_PAGE_SIZE = 20
+  private val PREFERENCE_THRESHOLD = 0.05
+  private val SOFTMAX_PREFERENCE_THRESHOLD = 0.2
+  
+  private type RecommendationStrategy = Set[String] => IO[Option[String]]
+
   override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
     val logic: IO[String] = for {
       _ <- logInfo(s"开始为用户 ${userID} 基于当前歌曲 ${currentSongID} 推荐下一首歌")
-
-      // 步骤1: 验证用户身份
       _ <- validateUser()
+      _ <- validateCurrentSong()
 
-      // 步骤2: 验证当前歌曲存在性
-      currentSong <- validateAndGetCurrentSong()
+      recommendationData <- (getUserPortrait(), getSongGenres(currentSongID), getRecentPlayedSongs()).parTupled
+      (userPortrait, currentSongGenres, recentPlayedSongs) = recommendationData
+      _ <- logInfo(s"获取到用户画像，当前歌曲曲风: [${currentSongGenres.mkString(", ")}], 最近播放: ${recentPlayedSongs.size}首")
 
-      // 步骤3: 获取用户画像
-      userPortrait <- getUserPortrait()
+      strategies = List(
+        recommendSameGenre(currentSongGenres, userPortrait),
+        recommendByUserTopGenre(userPortrait),
+        fallbackRecommendation()
+      )
+      
+      nextSongId <- tryStrategies(strategies, recentPlayedSongs + currentSongID)
+    } yield nextSongId
 
-      // 步骤4: 获取当前歌曲的曲风信息
-      currentSongGenres <- getCurrentSongGenres()
-
-      // 步骤5: 基于上下文推荐下一首歌
-      nextSong <- recommendNextSong(currentSongGenres, userPortrait.vector)
-
-    } yield nextSong
-
-    logic.map { nextSongId =>
-      (Some(nextSongId), "下一首歌推荐成功")
+    logic.map { songId =>
+      (Some(songId), "下一首歌推荐成功")
     }.handleErrorWith { error =>
-      logError(s"为用户 ${userID} 推荐下一首歌失败", error) >>
-        IO.pure((None, error.getMessage))
+      logError(s"为用户 ${userID} 推荐下一首歌失败", error) >> IO.pure((None, error.getMessage))
     }
   }
 
-  /**
-   * 步骤1: 验证用户身份
-   */
   private def validateUser()(using PlanContext): IO[Unit] = {
-    logInfo("正在验证用户身份") >> {
-      validateUserMapping(userID, userToken).send.flatMap { case (isValid, message) =>
-        if (isValid) {
-          logInfo("用户身份验证通过")
-        } else {
-          IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
-        }
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
       }
-    }
   }
 
-  /**
-   * 步骤2: 验证当前歌曲存在性并获取歌曲信息
-   */
-  private def validateAndGetCurrentSong()(using PlanContext): IO[Objects.MusicService.Song] = {
-    logInfo(s"正在验证当前歌曲 ${currentSongID} 是否存在") >> {
-      GetSongByID(userID, userToken, currentSongID).send.flatMap { case (songOpt, message) =>
-        songOpt match {
-          case Some(song) =>
-            logInfo("当前歌曲存在性验证通过") >> IO.pure(song)
-          case None =>
-            IO.raiseError(new IllegalArgumentException(s"当前歌曲不存在: $message"))
-        }
+  private def validateCurrentSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证当前歌曲 ${currentSongID} 是否存在") >>
+      GetSongByID(userID, userToken, currentSongID).send.flatMap {
+        case (Some(_), _) => logInfo("当前歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalStateException(s"当前歌曲不存在: $message"))
       }
-    }
   }
 
-  /**
-   * 步骤3: 获取用户画像
-   */
-  private def getUserPortrait()(using PlanContext): IO[Objects.StatisticsService.Profile] = {
-    for {
-      _ <- logInfo("获取用户画像")
-      cachedPortrait <- StatisticsUtils.getUserPortraitFromCache(userID)
-      portrait <- cachedPortrait match {
-        case Some(portrait) =>
-          logInfo("从缓存获取用户画像") >> IO.pure(portrait)
-        case None =>
-          logInfo("缓存中无用户画像，实时计算") >>
-          StatisticsUtils.calculateUserPortrait(userID).map { vector =>
-            Objects.StatisticsService.Profile(vector, norm = true)
-          }
+  private def getUserPortrait()(using PlanContext): IO[Profile] = {
+    logInfo("正在通过API获取用户画像") >>
+      GetUserPortrait(userID, userToken).send.flatMap {
+        case (Some(portrait), _) => IO.pure(portrait)
+        case (None, msg) => 
+          logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >>
+          IO.pure(Profile(List.empty, norm = true))
       }
-    } yield portrait
   }
 
-  /**
-   * 步骤4: 获取当前歌曲的曲风信息
-   */
-  private def getCurrentSongGenres()(using PlanContext): IO[List[String]] = {
-    val sql = s"SELECT genre_id FROM ${schemaName}.song_genre_mapping WHERE song_id = ?"
-    readDBRows(sql, List(SqlParameter("String", currentSongID))).map { rows =>
-      val genres = rows.map(row => decodeField[String](row, "genre_id"))
-      logInfo(s"当前歌曲曲风: ${genres.mkString(", ")}")
-      genres
-    }
+  private def getSongGenres(songId: String)(using PlanContext): IO[List[String]] = {
+    logInfo(s"正在通过API获取歌曲 ${songId} 的曲风") >>
+      GetSongProfile(userID, userToken, songId).send.map {
+        case (Some(profile), _) => profile.vector.map(_._1)
+        case (None, msg) => 
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg. 将视为空曲风列表。")
+          List.empty[String]
+      }
   }
 
-  /**
-   * 步骤5: 基于上下文推荐下一首歌
-   */
-  private def recommendNextSong(
-    currentGenres: List[String],
-    userPreferences: List[(String, Double)]
-  )(using PlanContext): IO[String] = {
-    for {
-      // 获取用户最近播放的歌曲，避免重复
-      recentSongs <- getRecentPlayedSongs()
-      _ <- logInfo(s"用户最近播放歌曲 ${recentSongs.length} 首，将避免重复推荐")
-
-      // 尝试不同的推荐策略
-      recommendation <- tryRecommendationStrategies(currentGenres, userPreferences, recentSongs)
-      
-    } yield recommendation
-  }
-
-  /**
-   * 获取用户最近播放的歌曲（最近50首）
-   */
   private def getRecentPlayedSongs()(using PlanContext): IO[Set[String]] = {
-    val sql = s"""
-      SELECT song_id FROM ${schemaName}.playback_log 
-      WHERE user_id = ? 
-      ORDER BY play_time DESC 
-      LIMIT 50
-    """
-    readDBRows(sql, List(SqlParameter("String", userID))).map { rows =>
-      rows.map(row => decodeField[String](row, "song_id")).toSet
+    logInfo(s"正在查询用户最近播放的 ${RECENT_SONGS_LIMIT} 首歌曲")
+    val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ? ORDER BY play_time DESC LIMIT ?"
+    readDBRows(sql, List(SqlParameter("String", userID), SqlParameter("Int", RECENT_SONGS_LIMIT.toString)))
+      .map(_.map(decodeField[String](_, "song_id")).toSet)
+  }
+  
+  private def tryStrategies(strategies: List[RecommendationStrategy], excludeSongs: Set[String])(using PlanContext): IO[String] = {
+    strategies.foldLeft(IO.pure(None: Option[String])) { (acc, strategy) =>
+      acc.flatMap {
+        case Some(songId) => IO.pure(Some(songId))
+        case None         => strategy(excludeSongs)
+      }
+    }.flatMap {
+      case Some(songId) => IO.pure(songId)
+      case None => IO.raiseError(new RuntimeException("所有推荐策略均失败，无法找到合适的歌曲"))
     }
   }
 
-  /**
-   * 尝试多种推荐策略
-   */
-  private def tryRecommendationStrategies(
-    currentGenres: List[String],
-    userPreferences: List[(String, Double)],
-    excludeSongs: Set[String]
-  )(using PlanContext): IO[String] = {
-    for {
-      // 策略1: 相同曲风 + 用户偏好
-      strategy1Result <- recommendSameGenreWithPreference(currentGenres, userPreferences, excludeSongs)
-      
-      result <- strategy1Result match {
-        case Some(songId) =>
-          logInfo("策略1成功: 相同曲风 + 用户偏好") >> IO.pure(songId)
-        case None =>
-          // 策略2: 相同曲风 + 热度
-          for {
-            strategy2Result <- recommendSameGenreByPopularity(currentGenres, excludeSongs)
-            result <- strategy2Result match {
-              case Some(songId) =>
-                logInfo("策略2成功: 相同曲风 + 热度") >> IO.pure(songId)
-              case None =>
-                // 策略3: 用户偏好曲风
-                for {
-                  strategy3Result <- recommendByUserPreference(userPreferences, excludeSongs)
-                  result <- strategy3Result match {
-                    case Some(songId) =>
-                      logInfo("策略3成功: 用户偏好曲风") >> IO.pure(songId)
-                    case None =>
-                      // 策略4: 随机热门歌曲
-                      logInfo("所有策略失败，使用随机热门歌曲") >>
-                      getRandomPopularSong(excludeSongs)
-                  }
-                } yield result
-            }
-          } yield result
-      }
-    } yield result
-  }
-
-  /**
-   * 策略1: 相同曲风 + 用户偏好
-   */
-  private def recommendSameGenreWithPreference(
-    currentGenres: List[String],
-    userPreferences: List[(String, Double)],
-    excludeSongs: Set[String]
-  )(using PlanContext): IO[Option[String]] = {
-    if (currentGenres.isEmpty || userPreferences.isEmpty) {
-      IO.pure(None)
+  private def recommendSameGenre(currentGenres: List[String], userPortrait: Profile): RecommendationStrategy = excludeSongs => {
+    val genresWithPreference = currentGenres.flatMap(g => userPortrait.vector.find(_._1 == g))
+    if (genresWithPreference.isEmpty) {
+      logInfo("策略1: 用户对当前曲风无偏好记录，跳过") >> IO.pure(None)
     } else {
-      // 计算当前歌曲曲风的用户偏好度
-      val genrePreferences = currentGenres.flatMap { genre =>
-        userPreferences.find(_._1 == genre).map(_._2)
-      }
-      
-      if (genrePreferences.nonEmpty) {
-        val avgPreference = genrePreferences.sum / genrePreferences.length
-        // 如果用户对这些曲风偏好度较高，推荐相同曲风的歌曲
-        if (avgPreference > 0.1) { // 阈值可调整
-          getSameGenreSong(currentGenres, excludeSongs)
-        } else {
-          IO.pure(None)
+      val avgPreference = genresWithPreference.map(_._2).sum / genresWithPreference.length
+      logInfo(s"策略1: 用户对当前曲风的平均偏好度为: $avgPreference")
+
+      if (avgPreference >= PREFERENCE_THRESHOLD) {
+        logInfo(s"偏好度高于阈值 $PREFERENCE_THRESHOLD, 准备从当前曲风中采样")
+        val genreProfileToSample = Profile(vector = genresWithPreference, norm = false)
+        StatisticsUtils.softmaxSample(genreProfileToSample) match {
+          case Some(sampledGenre) =>
+            logInfo(s"从当前歌曲曲风中采样选中: '$sampledGenre'")
+            findSongInGenreByPopularity(sampledGenre, excludeSongs)
+          case None => IO.pure(None)
         }
       } else {
-        IO.pure(None)
+        logInfo(s"偏好度低于阈值 $PREFERENCE_THRESHOLD, 跳过") >> IO.pure(None)
       }
     }
   }
 
-  /**
-   * 策略2: 相同曲风 + 热度排序
-   */
-  private def recommendSameGenreByPopularity(
-    currentGenres: List[String],
-    excludeSongs: Set[String]
-  )(using PlanContext): IO[Option[String]] = {
-    if (currentGenres.isEmpty) {
-      IO.pure(None)
+  private def recommendByUserTopGenre(userPortrait: Profile): RecommendationStrategy = excludeSongs => {
+    val highlyLikedGenres = userPortrait.vector.filter(_._2 > SOFTMAX_PREFERENCE_THRESHOLD)
+    if (highlyLikedGenres.isEmpty) {
+      logInfo(s"策略2: 用户没有偏好度高于 ${SOFTMAX_PREFERENCE_THRESHOLD} 的曲风，跳过") >> IO.pure(None)
     } else {
-      getSameGenreSong(currentGenres, excludeSongs)
-    }
-  }
-
-  /**
-   * 获取相同曲风的歌曲
-   */
-  private def getSameGenreSong(
-    genres: List[String],
-    excludeSongs: Set[String]
-  )(using PlanContext): IO[Option[String]] = {
-    val genreParams = genres.map(SqlParameter("String", _))
-    val placeholders = genres.map(_ => "?").mkString(",")
-    
-    val sql = s"""
-      SELECT s.song_id, COALESCE(spc.popularity_score, 0) as popularity
-      FROM ${schemaName}.song_genre_mapping sgm
-      JOIN ${schemaName}.song_table s ON sgm.song_id = s.song_id
-      LEFT JOIN ${schemaName}.song_popularity_cache spc ON s.song_id = spc.song_id
-      WHERE sgm.genre_id IN ($placeholders)
-      AND s.song_id != ?
-      ORDER BY popularity DESC, s.song_id
-      LIMIT 20
-    """
-    
-    val params = genreParams :+ SqlParameter("String", currentSongID)
-    readDBRows(sql, params).map { rows =>
-      rows.map(row => decodeField[String](row, "song_id"))
-        .filterNot(excludeSongs.contains)
-        .headOption
-    }
-  }
-
-  /**
-   * 策略3: 基于用户偏好推荐
-   */
-  private def recommendByUserPreference(
-    userPreferences: List[(String, Double)],
-    excludeSongs: Set[String]
-  )(using PlanContext): IO[Option[String]] = {
-    if (userPreferences.isEmpty) {
-      IO.pure(None)
-    } else {
-      // 选择用户偏好度最高的曲风
-      val topGenre = userPreferences.maxBy(_._2)._1
-      
-      val sql = s"""
-        SELECT s.song_id
-        FROM ${schemaName}.song_genre_mapping sgm
-        JOIN ${schemaName}.song_table s ON sgm.song_id = s.song_id
-        LEFT JOIN ${schemaName}.song_popularity_cache spc ON s.song_id = spc.song_id
-        WHERE sgm.genre_id = ?
-        ORDER BY COALESCE(spc.popularity_score, 0) DESC, s.song_id
-        LIMIT 10
-      """
-      
-      readDBRows(sql, List(SqlParameter("String", topGenre))).map { rows =>
-        rows.map(row => decodeField[String](row, "song_id"))
-          .filterNot(excludeSongs.contains)
-          .headOption
+      val likedGenresProfile = Profile(vector = highlyLikedGenres, norm = false)
+      StatisticsUtils.softmaxSample(likedGenresProfile) match {
+        case Some(sampledGenre) =>
+          logInfo(s"策略2: 从 ${highlyLikedGenres.length} 个高偏好曲风中采样选中: '$sampledGenre'")
+          findSongInGenreByPopularity(sampledGenre, excludeSongs)
+        case None => IO.pure(None)
       }
     }
   }
 
-  /**
-   * 策略4: 随机热门歌曲
-   */
-  private def getRandomPopularSong(excludeSongs: Set[String])(using PlanContext): IO[String] = {
-    val sql = s"""
-      SELECT s.song_id
-      FROM ${schemaName}.song_table s
-      LEFT JOIN ${schemaName}.song_popularity_cache spc ON s.song_id = spc.song_id
-      ORDER BY COALESCE(spc.popularity_score, 0) DESC, s.song_id
-      LIMIT 50
-    """
-    
-    readDBRows(sql, List()).flatMap { rows =>
-      val candidates = rows.map(row => decodeField[String](row, "song_id"))
-        .filterNot(excludeSongs.contains)
-        .filterNot(_ == currentSongID)
-      
-      candidates.headOption match {
-        case Some(songId) => IO.pure(songId)
-        case None => 
-          IO.raiseError(new RuntimeException("无法找到合适的推荐歌曲"))
-      }
+  private def fallbackRecommendation(): RecommendationStrategy = excludeSongs => {
+    logInfo("策略3: 启动后备推荐策略")
+    GetUserSongRecommendations(userID, userToken, pageSize = FALLBACK_PAGE_SIZE).send.map {
+      case (Some(recommendedIds), _) =>
+        recommendedIds.find(id => !excludeSongs.contains(id))
+      case (None, msg) =>
+        logInfo(s"后备推荐API调用失败: $msg")
+        None
     }
   }
 
-  private def logInfo(message: String): IO[Unit] = 
-    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
-    
-  private def logError(message: String, cause: Throwable): IO[Unit] = 
-    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+  private def findSongInGenreByPopularity(genre: String, excludeSongs: Set[String])(using PlanContext): IO[Option[String]] = {
+    for {
+      candidateSongsOpt <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send
+      candidates = candidateSongsOpt._1.getOrElse(List.empty)
+        .filterNot(excludeSongs.contains)
+        .take(CANDIDATE_SONGS_LIMIT)
+      
+      songsWithPopularity <- candidates.parTraverse { songId =>
+        GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0)))
+      }
+      
+      topSongs = songsWithPopularity.sortBy(-_._2).take(TOP_N_SONGS_FOR_SAMPLING)
+      sampledSong = StatisticsUtils.softmaxSample(topSongs)
+      
+    } yield sampledSong
+  }
 }

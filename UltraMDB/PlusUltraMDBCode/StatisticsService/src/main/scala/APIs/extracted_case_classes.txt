@@ -1,61 +1,9 @@
-// 提取时间: 2025-07-02 15:53:58
-// 源目录: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs
+// 提取时间: 2025-07-04 16:46:32
+// 源目录: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\AddArtistManager.scala
-// ============================================
-
-
-
-// 类名: AddArtistManager
-
-
-/**
- * AddArtistManager
-desc:
-@param adminID: String (发出操作的管理员ID)
-@param adminToken: String (发出操作的管理员令牌)
-@param userID: String (要加入管理者列表的用户)
-@param artistID: String (要新增管理者的艺术家)
- */
-
-case class AddArtistManager(
-  adminID: String,
-  adminToken: String,
-  userID: String,
-  artistID: String
-) extends API[(Boolean, String)](CreatorServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\AddBandManager.scala
-// ============================================
-
-
-
-// 类名: AddBandManager
-
-
-/**
- * AddBandManager
-desc:
-@param adminID: String (发出操作的管理员ID)
-@param adminToken: String (发出操作的管理员令牌)
-@param userID: String (要加入管理者列表的用户)
-@param bandID: String (要新增管理者的乐队)
- */
-
-case class AddBandManager(
-  adminID: String,
-  adminToken: String,
-  userID: String,
-  bandID: String
-) extends API[(Boolean, String)](CreatorServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\CreateArtistMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\CreateArtistMessage.scala
 // ============================================
 
 
@@ -82,7 +30,7 @@ case class CreateArtistMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\CreateBandMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\CreateBandMessage.scala
 // ============================================
 
 
@@ -111,7 +59,7 @@ case class CreateBandMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\DeleteArtistMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\DeleteArtistMessage.scala
 // ============================================
 
 
@@ -136,7 +84,7 @@ case class DeleteArtistMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\DeleteBandMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\DeleteBandMessage.scala
 // ============================================
 
 
@@ -161,7 +109,7 @@ case class DeleteBandMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\GetArtistByID.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\GetArtistByID.scala
 // ============================================
 
 
@@ -186,7 +134,7 @@ case class GetArtistByID(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\GetBandByID.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\GetBandByID.scala
 // ============================================
 
 
@@ -211,7 +159,38 @@ case class GetBandByID(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\SearchArtistByName.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\SearchAllBelongingBands.scala
+// ============================================
+
+
+
+// 类名: SearchAllBelongingBands
+
+
+/**
+ * SearchAllBelongingBands
+desc: 根据提供的艺术家ID，查询该艺术家所属的所有乐队的ID列表。
+这对于检查艺术家是否是任何乐队的成员等场景非常有用。
+
+@param userID    发起请求的用户ID，用于认证和授权。
+@param userToken 用户的认证令牌。
+@param artistID  要查询的艺术家的唯一ID。
+
+@return (Option[List[String]], String): (成功时包含乐队ID列表，如果艺术家不属于任何乐队则列表为空；失败时为None；附带操作信息)。
+- 成功，找到乐队: (Some(List("band_id_1", "band_id_2")), "查询成功")
+- 成功，未找到乐队: (Some(List()), "该艺术家不属于任何乐队")
+- 失败 (如艺术家不存在): (None, "指定的艺术家ID不存在")
+ */
+
+case class SearchAllBelongingBands(
+  userID: String,
+  userToken: String,
+  artistID: String
+) extends API[(Option[List[String]], String)](CreatorServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\SearchArtistByName.scala
 // ============================================
 
 
@@ -236,7 +215,7 @@ case class SearchArtistByName(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\SearchBandByName.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\SearchBandByName.scala
 // ============================================
 
 
@@ -261,7 +240,7 @@ case class SearchBandByName(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\UpdateArtistMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\UpdateArtistMessage.scala
 // ============================================
 
 
@@ -290,7 +269,7 @@ case class UpdateArtistMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\UpdateBandMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\UpdateBandMessage.scala
 // ============================================
 
 
@@ -321,57 +300,7 @@ case class UpdateBandMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\ValidArtistOwnership.scala
-// ============================================
-
-
-
-// 类名: ValidArtistOwnership
-
-
-/**
- * ValidArtistOwnership
-desc: 验证某用户是否拥有对指定艺术家的管理权限
-@param userID: String (用户ID)
-@param userToken: String (用户Token)
-@param artistID: String (艺术家ID)
-@return (Boolean, String): (用户是否拥有权限, 错误信息)
- */
-
-case class ValidArtistOwnership(
-  userID: String,
-  userToken: String,
-  artistID: String
-) extends API[(Boolean, String)](CreatorServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\CreatorService\ValidBandOwnership.scala
-// ============================================
-
-
-
-// 类名: ValidBandOwnership
-
-
-/**
- * ValidBandOwnership
-desc: 验证某用户是否拥有对指定乐队的管理权限
-@param userID: String (用户ID)
-@param userToken: String (用户令牌，用于验证用户身份有效性)
-@param bandID: String (乐队ID)
-@return (Boolean, String): (用户是否拥有权限, 错误信息)
- */
-
-case class ValidBandOwnership(
-  userID: String,
-  userToken: String,
-  bandID: String
-) extends API[(Boolean, String)](CreatorServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\CreateNewGenre.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\CreateNewGenre.scala
 // ============================================
 
 
@@ -398,7 +327,7 @@ case class CreateNewGenre(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\DeleteGenre.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\DeleteGenre.scala
 // ============================================
 
 
@@ -423,7 +352,7 @@ case class DeleteGenre(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\DeleteSong.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\DeleteSong.scala
 // ============================================
 
 
@@ -448,7 +377,7 @@ case class DeleteSong(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\FilterSongsByEntity.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\FilterSongsByEntity.scala
 // ============================================
 
 
@@ -477,7 +406,7 @@ case class FilterSongsByEntity(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\GetSongByID.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\GetSongByID.scala
 // ============================================
 
 
@@ -502,7 +431,7 @@ case class GetSongByID(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\SearchSongsByName.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\SearchSongsByName.scala
 // ============================================
 
 
@@ -527,7 +456,7 @@ case class SearchSongsByName(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\UpdateSongMetadata.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\UpdateSongMetadata.scala
 // ============================================
 
 
@@ -570,7 +499,7 @@ case class UpdateSongMetadata(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\UploadNewSong.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\UploadNewSong.scala
 // ============================================
 
 
@@ -611,7 +540,7 @@ case class UploadNewSong(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\MusicService\ValidateSongOwnership.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\ValidateSongOwnership.scala
 // ============================================
 
 
@@ -636,116 +565,7 @@ case class ValidateSongOwnership(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\ApproveAuthRequestMessage.scala
-// ============================================
-
-
-
-// 类名: ApproveAuthRequestMessage
-
-
-/**
- * ApproveAuthRequestMessage
-desc: 管理员审核绑定创作者的请求
-@param adminID: String (管理员ID)
-@param adminToken: String (管理员认证令牌)
-@param requestID: String (绑定请求的唯一标识)
-@param approve: Boolean (是否批准该绑定申请)
-@return (Boolean, String): (审核是否成功, 错误信息)
- */
-
-case class ApproveAuthRequestMessage(
-  adminID: String,
-  adminToken: String,
-  requestID: String,
-  approve: Boolean
-) extends API[(Boolean, String)](OrganizeServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\GetAuthRequestListMessage.scala
-// ============================================
-
-
-
-// 类名: GetAuthRequestListMessage
-
-
-/**
- * GetAuthRequestListMessage
-desc: 获取认证申请记录列表，支持分页和按状态筛选。仅限管理员调用。
-
-@param adminID 管理员的唯一标识。
-@param adminToken 管理员的认证令牌。
-@param statusFilter 可选，按类型安全的 RequestStatus 进行筛选。如果为None，则返回所有状态的记录。
-@param pageNumber 页码，从1开始。默认为1。
-@param pageSize 每页记录数。默认为20。
-@return (Option[List[AuthRequest]], String): (成功时包含当前页的申请对象列表，失败时为None；附带操作信息)。
- */
-
-case class GetAuthRequestListMessage(
-  adminID: String,
-  adminToken: String,
-  statusFilter: Option[RequestStatus] = None, // The key change: now type-safe
-  pageNumber: Int = 1,
-  pageSize: Int = 20
-) extends API[(Option[List[AuthRequest]], String)](OrganizeServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\GetRequestByID.scala
-// ============================================
-
-
-
-// 类名: GetRequestByID
-
-
-/**
- * GetRequestByID
-desc: 根据提供的申请ID，获取完整的统一认证申请记录。仅限管理员调用。
-@param adminID 管理员的唯一标识。
-@param adminToken 管理员的认证令牌。
-@param requestID 待查询的申请的唯一ID。
-@return (Option[AuthRequest], String): (成功时包含申请对象，失败时为None；附带操作信息)。
- */
-
-case class GetRequestByID(
-  adminID: String,
-  adminToken: String,
-  requestID: String
-) extends API[(Option[AuthRequest], String)](OrganizeServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\SubmitAuthRequestMessage.scala
-// ============================================
-
-
-
-// 类名: SubmitAuthRequestMessage
-
-
-/**
- * SubmitAuthRequestMessage
-desc: 用户提交艺术家绑定申请
-@param userID: String (用户的唯一标识)
-@param userToken: String (用户的令牌，用于身份验证)
-@param targetID: CreatorID_Type (创作者的唯一标识)
-@param certification: String (认证证据，用于验证绑定申请的合法性)
-@return (Option[String], String): (生成的绑定申请记录的唯一标识, 错误信息)
- */
-
-case class SubmitAuthRequestMessage(
-  userID: String,
-  userToken: String,
-  targetID: CreatorID_Type, // 使用 CreatorID_Type 来区分是艺术家还是乐队
-  certification: String
-) extends API[(Option[String], String)](OrganizeServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\UserLogoutMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\OrganizeService\UserLogoutMessage.scala
 // ============================================
 
 
@@ -768,7 +588,7 @@ case class UserLogoutMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\UserRegisterMessage.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\OrganizeService\UserRegisterMessage.scala
 // ============================================
 
 
@@ -791,7 +611,7 @@ case class UserRegisterMessage(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\validateAdminMapping.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\OrganizeService\validateAdminMapping.scala
 // ============================================
 
 
@@ -814,7 +634,7 @@ case class validateAdminMapping(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\OrganizeService\validateUserMapping.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\OrganizeService\validateUserMapping.scala
 // ============================================
 
 
@@ -837,295 +657,271 @@ case class validateUserMapping(
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\AddToPlaylist.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetCreatorCreationTendency.scala
 // ============================================
 
 
 
-// 类名: AddToPlaylist
+// 类名: GetCreatorCreationTendency
 
 
 /**
- * AddToPlaylist
-desc: 通过 playlistID 和 songIDs 向播放集添加歌曲，用于在用户的播放集中追加歌曲。
-@param userID: String (执行操作的用户的唯一标识符)
-@param userToken: String (用户的身份验证令牌，用于验证用户合法性)
-@param playlistID: String (播放列表的唯一标识符，用于指定目标播放列表)
-@param songIDs: List[String] (需要添加到播放列表的歌曲ID列表)
+ * GetCreatorCreationTendency
+desc: 获取指定创作者（艺术家或乐队）的创作倾向。通过 `creatorType` 参数区分目标是艺术家（"Artist"）还是乐队（"Band"）。该倾向表现为一个关于音乐曲风的归一化向量，其中每一项是 (GenreID, 倾向度) 的二元组，所有倾向度相加为1.0。
+@param userID: String (发起请求的用户的ID，用于身份验证。)
+@param userToken: String (用户的认证令牌。)
+@param creatorID: String (要分析的创作者（艺术家或乐队）的ID。)
+@param creatorType: String (创作者的类型。其值为 "Artist" 或 "Band"，用于区分 `creatorID` 指代的是艺术家还是乐队。)
+@return (Option[Profile], String): (创作者的创作倾向向量, 错误信息)
+ */
+
+case class GetCreatorCreationTendency(
+  userID: String,
+  userToken: String,
+  creatorID: String,
+  creatorType: String
+) extends API[(Option[Profile], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetCreatorGenreStrength.scala
+// ============================================
+
+
+
+// 类名: GetCreatorGenreStrength
+
+
+/**
+ * GetCreatorGenreStrength
+desc: 获取指定创作者（艺术家或乐队）在各个曲风下的创作实力。实力值是一个非归一化的正实数，由该创作者在该曲风下所有歌曲的热度综合计算得出。
+@param userID: String (发起请求的用户的ID，用于身份验证。)
+@param userToken: String (用户的认证令牌。)
+@param creatorID: String (要分析的创作者（艺术家或乐队）的ID。)
+@param creatorType: String (创作者的类型。其值为 "Artist" 或 "Band"，用于区分 `creatorID` 指代的是艺术家还是乐队。)
+@return (Option[Profile], String): (创作者的曲风实力向量, 错误信息)
+ */
+
+case class GetCreatorGenreStrength(
+  userID: String,
+  userToken: String,
+  creatorID: String,
+  creatorType: String
+) extends API[(Option[Profile], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetNextSongRecommendation.scala
+// ============================================
+
+
+
+// 类名: GetNextSongRecommendation
+
+
+/**
+ * GetNextSongRecommendation
+desc: 结合用户长期收听画像和当前正在播放的歌曲上下文，为用户推荐下一首歌曲。
+@param userID: String (需要获取推荐的用户的ID。)
+@param userToken: String (用户的认证令牌，用于验证身份。)
+@param currentSongID: String (用户当前正在播放的歌曲的ID，作为推荐的即时上下文。)
+@return (Option[String], String): (推荐的下一首歌曲的ID; 如果没有合适的推荐则为None, 错误信息)
+ */
+
+case class GetNextSongRecommendation(
+  userID: String,
+  userToken: String,
+  currentSongID: String
+) extends API[(Option[String], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetSimilarCreators.scala
+// ============================================
+
+
+
+// 类名: GetSimilarCreators
+
+
+/**
+ * GetSimilarCreators
+desc: 获取与指定创作者（艺术家或乐队）曲风相近的其他创作者ID列表。相似度由后端基于创作倾向等统计数据进行计算。
+@param userID: String (发起请求的用户的ID，用于身份验证。)
+@param userToken: String (用户的认证令牌。)
+@param creatorID: String (作为查询基准的目标创作者（艺术家或乐队）的ID。)
+@param creatorType: String (目标创作者的类型。其值为 "Artist" 或 "Band"。)
+@param limit: Int (希望返回的相似创作者的最大数量。)
+@return (Option[List[(String,String)]], String): (相似创作者的(ID,类型)列表; 如果找不到源创作者或无相似者则为None, 错误信息)
+ */
+
+case class GetSimilarCreators(
+  userID: String,
+  userToken: String,
+  creatorID: String,
+  creatorType: String,
+  limit: Int
+) extends API[(Option[List[(String,String)]], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetSimilarSongs.scala
+// ============================================
+
+
+
+// 类名: GetSimilarSongs
+
+
+/**
+ * GetSimilarSongs
+desc: 获取与指定歌曲相似的歌曲ID列表。相似度由后端根据曲风、艺术家等多种因素综合计算。
+@param userID: String (发起请求的用户的ID，用于身份验证。)
+@param userToken: String (用户的认证令牌。)
+@param songID: String (作为查询基准的目标歌曲的ID。)
+@param limit: Int (希望返回的相似歌曲的最大数量。)
+@return (Option[List[String]], String): (相似歌曲的ID列表; 如果找不到源歌曲或无相似歌曲则为None, 错误信息)
+ */
+
+case class GetSimilarSongs(
+  userID: String,
+  userToken: String,
+  songID: String,
+  limit: Int
+) extends API[(Option[List[String]], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetSongPopularity.scala
+// ============================================
+
+
+
+// 类名: GetSongPopularity
+
+
+/**
+ * GetSongPopularity
+desc: 获取指定歌曲的热度分数。热度是一个正实数，由多种因素（如播放量、评分、分享次数等）在后端综合计算得出。
+@param userID: String (发起请求的用户的ID，用于身份验证。)
+@param userToken: String (用户的认证令牌。)
+@param songID: String (要查询热度的歌曲的ID。)
+@return (Option[Double], String): (歌曲的热度值, 错误信息)
+ */
+
+case class GetSongPopularity(
+  userID: String,
+  userToken: String,
+  songID: String
+) extends API[(Option[Double], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetUserPortrait.scala
+// ============================================
+
+
+
+// 类名: GetUserPortrait
+
+
+/**
+ * GetUserPortrait
+desc: 获取指定用户的用户画像。用户画像由一组(曲风ID, 偏好度)的元组构成，偏好度是一个(0,1)范围内的浮点数，且整个偏好度向量经过归一化处理。
+@param userID: String (需要获取画像的目标用户的ID。)
+@param userToken: String (用于验证请求者身份的认证令牌。)
+@return (Option[Profile], String): (用户画像列表, 错误信息)
+ */
+
+case class GetUserPortrait(
+  userID: String,
+  userToken: String
+) extends API[(Option[Profile], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetUserSongRecommendations.scala
+// ============================================
+
+
+
+// 类名: GetUserSongRecommendations
+
+
+/**
+ * GetUserSongRecommendations
+desc: 根据指定用户的用户画像，为其推荐一个歌曲ID列表。使用分页参数来控制返回结果。
+@param userID: String (需要获取歌曲推荐的用户的ID。)
+@param userToken: String (用户的认证令牌，用于验证身份。)
+@param pageNumber: Int (页码，从1开始。默认为1。)
+@param pageSize: Int (每页返回的歌曲数量。默认为20。)
+@return (Option[List[String]], String): (推荐的歌曲ID列表, 错误信息)
+ */
+
+case class GetUserSongRecommendations(
+  userID: String,
+  userToken: String,
+  pageNumber: Int = 1,
+  pageSize: Int = 20
+) extends API[(Option[List[String]], String)](StatisticsServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\LogPlayback.scala
+// ============================================
+
+
+
+// 类名: LogPlayback
+
+
+/**
+ * LogPlayback
+desc: 记录一次用户播放歌曲的行为。此记录将用于后续的统计分析（如用户画像生成）。播放时间戳由服务器在接收请求时生成，以确保数据的安全性和一致性。
+@param userID: String (发起播放行为的用户的ID。)
+@param userToken: String (用户的认证令牌，用于验证权限。)
+@param songID: String (被播放的歌曲的ID。)
 @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
-case class AddToPlaylist(
+case class LogPlayback(
   userID: String,
   userToken: String,
-  playlistID: String,
-  songIDs: List[String]
-) extends API[(Boolean, String)](TrackServiceCode)
+  songID: String
+) extends API[(Boolean, String)](StatisticsServiceCode)
 
 
 // ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\CreateAlbum.scala
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\RateSong.scala
 // ============================================
 
 
 
-// 类名: CreateAlbum
+// 类名: RateSong
 
 
 /**
- * CreateAlbum
-desc: 创建新的专辑，用于管理员创建专辑
-@param adminID: String (管理员ID，用于验证管理员身份)
-@param adminToken: String (管理员令牌，用于验证管理员权限)
-@param name: String (专辑名称)
-@param description: String (专辑简介)
-@param releaseTime: DateTime (专辑发布的时间)
-@param creators: List[String] (创作者ID列表，必须包含至少一个有效的Artist或Band ID)
-@param collaborators: List[String] (协作者ID列表，包含协助创作的Artist或Band ID)
-@param contents: List[String] (歌曲ID列表，表示专辑中包含的歌曲)
-@return (Option[String], String): (生成的专辑ID, 错误信息)
- */
-
-case class CreateAlbum(
-  adminID: String,
-  adminToken: String,
-  name: String,
-  description: String,
-  releaseTime: DateTime,
-  creators: List[String],
-  collaborators: List[String],
-  contents: List[String]
-) extends API[(Option[String], String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\CreateCollection.scala
-// ============================================
-
-
-
-// 类名: CreateCollection
-
-
-/**
- * CreateCollection
-desc: 创建新的歌单，用于用户自定义歌单的创建
-@param userID: String (当前操作的用户ID，确保调用者身份)
-@param userToken: String (用户令牌，用于验证用户的合法性)
-@param name: String (歌单的名称，不能为空)
-@param description: String (歌单的简介，用于描述歌单的内容和信息)
-@param contents: List[String] (歌单包含的歌曲ID列表)
-@return (Option[String], String): (新生成的歌单ID, 错误信息)
- */
-
-case class CreateCollection(
-  userID: String,
-  userToken: String,
-  name: String,
-  description: String,
-  contents: List[String]
-) extends API[(Option[String], String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\DeleteAlbum.scala
-// ============================================
-
-
-
-// 类名: DeleteAlbum
-
-
-/**
- * DeleteAlbum
-desc: 删除专辑，仅管理员能够删除专辑。
-@param adminID: String (管理员用户的唯一标识符)
-@param adminToken: String (管理员身份验证令牌，用以确认操作合法性)
-@param albumID: String (需要删除的专辑的唯一标识符)
+ * RateSong
+desc: 记录用户对特定歌曲的评分。服务层将验证评分是否在1-5的有效范围内。如果用户对同一首歌曲重复评分，此操作应覆盖之前的评分。
+@param userID: String (评分用户的ID。)
+@param userToken: String (用户的认证令牌，用于验证身份。)
+@param songID: String (被评分的歌曲的ID。)
+@param rating: Int (用户给出的评分。后端服务会验证其值必须在1至5的闭区间内。)
 @return (Boolean, String): (操作是否成功, 错误信息)
  */
 
-case class DeleteAlbum(
-  adminID: String,
-  adminToken: String,
-  albumID: String
-) extends API[(Boolean, String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\DeleteCollection.scala
-// ============================================
-
-
-
-// 类名: DeleteCollection
-
-
-/**
- * DeleteCollection
-desc: 删除某个歌单，仅管理员可删除歌单
-@param adminID: String (管理员ID，用于身份验证)
-@param adminToken: String (管理员令牌，验证权限有效性)
-@param collectionID: String (需要删除的歌单的唯一ID)
-@return (Boolean, String): (操作是否成功, 错误信息)
- */
-
-case class DeleteCollection(
-  adminID: String,
-  adminToken: String,
-  collectionID: String
-) extends API[(Boolean, String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\InviteMaintainerToCollection.scala
-// ============================================
-
-
-
-// 类名: InviteMaintainerToCollection
-
-
-/**
- * InviteMaintainerToCollection
-desc: 邀请某用户成为歌单的维护者，用于扩展歌单管理权限。
-@param userID: String (当前发起邀请操作的用户ID，需要拥有歌单的管理权限。)
-@param userToken: String (当前用户的API访问令牌，用于验证操作合法性。)
-@param collectionID: String (歌单对应的唯一标识符。)
-@param invitedUserID: String (被邀请的用户ID，新的歌单维护者。)
-@return (Boolean, String): (操作是否成功, 错误信息)
- */
-
-case class InviteMaintainerToCollection(
+case class RateSong(
   userID: String,
   userToken: String,
-  collectionID: String,
-  invitedUserID: String
-) extends API[(Boolean, String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\UpdateAlbum.scala
-// ============================================
-
-
-
-// 类名: UpdateAlbum
-
-
-/**
- * UpdateAlbum
-desc: 更新专辑信息，用于更新专辑的内容与元数据
-@param userID: String (发起动作的用户ID)
-@param userToken: String (用户令牌，用于身份验证)
-@param albumID: String (专辑唯一标识符)
-@param name: Option[String] (专辑名称，可选字段)
-@param description: Option[String] (专辑简介，可选字段)
-@param creators: List[String]
-@param collaborators: List[String] (协作者ID列表，可选字段)
-@param contents: List[String] (专辑包含的歌曲ID列表)
-@return (Boolean, String): (操作是否成功, 错误信息)
- */
-
-case class UpdateAlbum(
-  userID: String,
-  userToken: String,
-  albumID: String,
-  name: Option[String] = None,
-  description: Option[String] = None,
-  creators: Option[List[String]] = None,
-  collaborators: Option[List[String]] = None,
-  contents: Option[List[String]] = None
-) extends API[(Boolean, String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\UpdateCollection.scala
-// ============================================
-
-
-
-// 类名: UpdateCollection
-
-
-/**
- * UpdateCollection
-desc: 通过 collectionID 修改歌单信息，如歌单名称、简介、内容、维护者，用于对用户创建的歌单进行更新操作。
-@param userID: String (当前操作用户的ID。)
-@param userToken: String (当前操作用户的身份令牌，用于身份校验。)
-@param collectionID: String (歌单ID，用于标识待更新的歌单。)
-@param name: Option[String] (新的歌单名称，可选字段。)
-@param description: Option[String] (新的歌单简介，可选字段。)
-@param contents: List[String] (新的歌单内容，即包含的歌曲ID列表，可选字段。)
-@param maintainers: List[String] (新的维护者ID列表，可选字段。)
-@return (Boolean, String): (操作是否成功, 错误信息)
- */
-
-case class UpdateCollection(
-  userID: String,
-  userToken: String,
-  collectionID: String,
-  name: Option[String] = None,
-  description: Option[String] = None,
-  contents: Option[List[String]] = None,
-  maintainers: Option[List[String]] = None
-) extends API[(Boolean, String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\validateAlbumOwnership.scala
-// ============================================
-
-
-
-// 类名: validateAlbumOwnership
-
-
-/**
- * validateAlbumOwnership
-desc: 验证用户是否对专辑具有管理权限，用于 UpdateAlbum 和相关操作的权限验证
-@param userID: String (用户ID，用于表示请求的用户。)
-@param userToken: String (用户令牌，用于验证用户身份有效性)
-@param albumID: String (专辑ID，对应需要验证权限的专辑。)
-@return (Boolean, String): (用户是否具有对该专辑的管理权限, 错误信息)
- */
-
-case class validateAlbumOwnership(
-  userID: String,
-  userToken: String,
-  albumID: String
-) extends API[(Boolean, String)](TrackServiceCode)
-
-
-// ============================================
-// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\CreatorService\src\main\scala\APIs\TrackService\validateCollectionOwnership.scala
-// ============================================
-
-
-
-// 类名: validateCollectionOwnership
-
-
-/**
- * validateCollectionOwnership
-desc: 验证用户是否为某歌单的所有者或维护者
-@param userID: String (用户的唯一标识符，用于验证用户权限)
-@param userToken: String (用户令牌，用于验证用户身份有效性)
-@param collectionID: String (歌单的唯一标识符，用于指定某个歌单)
-@return (Boolean, String): (用户是否为歌单的所有者或维护者, 错误信息)
- */
-
-case class validateCollectionOwnership(
-  userID: String,
-  userToken: String,
-  collectionID: String
-) extends API[(Boolean, String)](TrackServiceCode)
+  songID: String,
+  rating: Int
+) extends API[(Boolean, String)](StatisticsServiceCode)
 
 
 // ============================================
 // 提取完成!
-// 共扫描 41 个Scala文件
-// 找到 41 个匹配的case class定义
+// 共扫描 34 个Scala文件
+// 找到 34 个匹配的case class定义
 // ============================================
 
 

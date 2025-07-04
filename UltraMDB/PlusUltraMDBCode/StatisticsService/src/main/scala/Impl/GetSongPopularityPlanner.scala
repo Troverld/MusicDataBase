@@ -6,12 +6,11 @@ import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
 import APIs.MusicService.GetSongByID
-import Utils.StatisticsUtils
+import APIs.StatisticsService.GetAverageRating // 1. 导入新的API
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
-import org.joda.time.DateTime
 
 /**
  * Planner for GetSongPopularity: 获取歌曲的热度分数
@@ -31,6 +30,7 @@ case class GetSongPopularityPlanner(
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
   override def plan(using planContext: PlanContext): IO[(Option[Double], String)] = {
+    // 2. 简化核心逻辑，移除缓存判断
     val logic: IO[Double] = for {
       _ <- logInfo(s"开始获取歌曲 ${songID} 的热度分数")
 
@@ -40,17 +40,8 @@ case class GetSongPopularityPlanner(
       // 步骤2: 验证歌曲存在性
       _ <- validateSong()
 
-      // 步骤3: 尝试从缓存获取热度
-      cachedPopularity <- tryGetFromCache()
-
-      // 步骤4: 如果缓存不存在或过期，实时计算热度
-      popularity <- cachedPopularity match {
-        case Some(popularity) =>
-          logInfo(s"从缓存获取歌曲热度: ${popularity}") >> IO.pure(popularity)
-        case None =>
-          logInfo("缓存不存在或已过期，开始实时计算热度") >>
-          calculateAndCachePopularity()
-      }
+      // 步骤3: 实时计算热度
+      popularity <- calculatePopularity()
 
     } yield popularity
 
@@ -87,57 +78,16 @@ case class GetSongPopularityPlanner(
           case Some(_) =>
             logInfo("歌曲存在性验证通过")
           case None =>
-            IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
+            IO.raiseError(new IllegalStateException(s"歌曲不存在: $message"))
         }
       }
     }
   }
 
   /**
-   * 步骤3: 尝试从缓存获取热度
+   * 步骤3: 实时计算热度
    */
-  private def tryGetFromCache()(using PlanContext): IO[Option[Double]] = {
-    for {
-      _ <- logInfo("检查歌曲热度缓存")
-      isExpired <- isPopularityCacheExpired()
-      popularity <- if (isExpired) {
-        logInfo("缓存已过期或不存在")
-        IO.pure(None)
-      } else {
-        logInfo("缓存有效，尝试获取")
-        getPopularityFromCache()
-      }
-    } yield popularity
-  }
-
-  /**
-   * 检查热度缓存是否过期（超过30分钟）
-   */
-  private def isPopularityCacheExpired()(using PlanContext): IO[Boolean] = {
-    val sql = s"SELECT updated_at FROM ${schemaName}.song_popularity_cache WHERE song_id = ?"
-    readDBRows(sql, List(SqlParameter("String", songID))).map { rows =>
-      rows.headOption.map { row =>
-        val lastUpdated = decodeField[Long](row, "updated_at")
-        val now = new DateTime().getMillis
-        (now - lastUpdated) > 1800000 // 30分钟 = 1800000毫秒
-      }.getOrElse(true) // 如果没有缓存，认为已过期
-    }
-  }
-
-  /**
-   * 从缓存获取热度分数
-   */
-  private def getPopularityFromCache()(using PlanContext): IO[Option[Double]] = {
-    val sql = s"SELECT popularity_score FROM ${schemaName}.song_popularity_cache WHERE song_id = ?"
-    readDBRows(sql, List(SqlParameter("String", songID))).map { rows =>
-      rows.headOption.map(row => decodeField[Double](row, "popularity_score"))
-    }
-  }
-
-  /**
-   * 步骤4: 实时计算热度并更新缓存
-   */
-  private def calculateAndCachePopularity()(using PlanContext): IO[Double] = {
+  private def calculatePopularity()(using PlanContext): IO[Double] = {
     for {
       _ <- logInfo("开始实时计算歌曲热度")
       
@@ -145,17 +95,16 @@ case class GetSongPopularityPlanner(
       playCount <- getPlayCount()
       _ <- logInfo(s"歌曲播放次数: ${playCount}")
       
-      // 获取评分统计
-      (avgRating, ratingCount) <- getRatingStats()
-      _ <- logInfo(s"歌曲平均评分: ${avgRating}，评分人数: ${ratingCount}")
+      // 3. 通过API获取评分统计，替换原有的DB查询
+      _ <- logInfo(s"正在调用API获取歌曲 ${songID} 的平均评分")
+      ratingResult <- GetAverageRating(userID, userToken, songID).send
+      (avgRating, ratingCount) = ratingResult._1 // API返回 ((Double, Int), String)
+      apiMessage = ratingResult._2
+      _ <- logInfo(s"API调用完成, 消息: '$apiMessage'. 平均评分: ${avgRating}, 评分人数: ${ratingCount}")
       
       // 计算热度: 播放次数 * 0.7 + 平均评分 * 评分人数 * 0.3
       popularity = playCount * 0.7 + avgRating * ratingCount * 0.3
       _ <- logInfo(s"计算得出热度分数: ${popularity}")
-      
-      // 更新缓存
-      _ <- updatePopularityCache(popularity, playCount, avgRating, ratingCount)
-      _ <- logInfo("热度缓存已更新")
       
     } yield popularity
   }
@@ -166,69 +115,6 @@ case class GetSongPopularityPlanner(
   private def getPlayCount()(using PlanContext): IO[Int] = {
     val sql = s"SELECT COUNT(*) FROM ${schemaName}.playback_log WHERE song_id = ?"
     readDBInt(sql, List(SqlParameter("String", songID)))
-  }
-
-  /**
-   * 获取歌曲评分统计
-   */
-  private def getRatingStats()(using PlanContext): IO[(Double, Int)] = {
-    val sql = s"SELECT AVG(rating), COUNT(*) FROM ${schemaName}.song_rating WHERE song_id = ?"
-    readDBRows(sql, List(SqlParameter("String", songID))).map { rows =>
-      rows.headOption.map { row =>
-        val avgRating = Option(decodeField[Double](row, "avg")).getOrElse(0.0)
-        val count = decodeField[Int](row, "count")
-        (avgRating, count)
-      }.getOrElse((0.0, 0))
-    }
-  }
-
-  /**
-   * 更新热度缓存
-   */
-  private def updatePopularityCache(
-    popularity: Double,
-    playCount: Int,
-    avgRating: Double,
-    ratingCount: Int
-  )(using PlanContext): IO[Unit] = {
-    val now = new DateTime()
-    
-    // 先尝试更新
-    val updateSql = s"""
-      UPDATE ${schemaName}.song_popularity_cache 
-      SET popularity_score = ?, play_count = ?, avg_rating = ?, rating_count = ?, updated_at = ?
-      WHERE song_id = ?
-    """
-    
-    for {
-      updateResult <- writeDB(updateSql, List(
-        SqlParameter("String", popularity.toString),
-        SqlParameter("String", playCount.toString),
-        SqlParameter("String", avgRating.toString),
-        SqlParameter("String", ratingCount.toString),
-        SqlParameter("DateTime", now.getMillis.toString),
-        SqlParameter("String", songID)
-      ))
-      
-      // 如果更新失败（记录不存在），则插入新记录
-      _ <- if (updateResult.contains("0")) {
-        val insertSql = s"""
-          INSERT INTO ${schemaName}.song_popularity_cache 
-          (song_id, popularity_score, play_count, avg_rating, rating_count, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-        """
-        writeDB(insertSql, List(
-          SqlParameter("String", songID),
-          SqlParameter("String", popularity.toString),
-          SqlParameter("String", playCount.toString),
-          SqlParameter("String", avgRating.toString),
-          SqlParameter("String", ratingCount.toString),
-          SqlParameter("DateTime", now.getMillis.toString)
-        ))
-      } else {
-        IO.unit
-      }
-    } yield ()
   }
 
   private def logInfo(message: String): IO[Unit] = 

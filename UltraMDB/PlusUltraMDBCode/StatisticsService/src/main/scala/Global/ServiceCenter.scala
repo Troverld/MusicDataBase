@@ -17,7 +17,7 @@ object ServiceCenter {
     MusicServiceCode -> "MusicService（MusicService)",
     OrganizeServiceCode -> "OrganizeService（OrganizeService)",
     CreatorServiceCode -> "CreatorService（CreatorService)",
-    StatisticsServiceCode -> "TrackService（TrackService)"
+    StatisticsServiceCode -> "StatisticsService（StatisticsService)"
   )
 
   def serviceName(serviceCode: String): String = {

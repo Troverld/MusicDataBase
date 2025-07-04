@@ -5,59 +5,57 @@ import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import APIs.MusicService.GetSongByID
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
+import APIs.MusicService.{FilterSongsByEntity, GetSongProfile} // 1. 导入新的API
+import Objects.StatisticsService.Profile
 import Utils.StatisticsUtils
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
-import org.joda.time.DateTime
 
 /**
- * Planner for GetSongPopularity: 获取歌曲的热度分数
+ * Planner for GetCreatorCreationTendency: 获取创作者的创作倾向
  *
  * @param userID      请求用户的ID
  * @param userToken   用户认证令牌
- * @param songID      要查询热度的歌曲ID
+ * @param creatorID   创作者ID
+ * @param creatorType 创作者类型 ("Artist" 或 "Band")
  * @param planContext 执行上下文
  */
-case class GetSongPopularityPlanner(
-                                     userID: String,
-                                     userToken: String,
-                                     songID: String,
-                                     override val planContext: PlanContext
-                                   ) extends Planner[(Option[Double], String)] {
+case class GetCreatorCreationTendencyPlanner(
+                                              userID: String,
+                                              userToken: String,
+                                              creatorID: String,
+                                              creatorType: String,
+                                              override val planContext: PlanContext
+                                            ) extends Planner[(Option[Profile], String)] {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  override def plan(using planContext: PlanContext): IO[(Option[Double], String)] = {
-    val logic: IO[Double] = for {
-      _ <- logInfo(s"开始获取歌曲 ${songID} 的热度分数")
+  override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
+    // 2. 简化核心逻辑，移除缓存相关步骤
+    val logic: IO[Profile] = for {
+      _ <- logInfo(s"开始获取创作者 ${creatorID} (${creatorType}) 的创作倾向")
 
       // 步骤1: 验证用户身份
       _ <- validateUser()
 
-      // 步骤2: 验证歌曲存在性
-      _ <- validateSong()
+      // 步骤2: 验证创作者类型
+      _ <- validateCreatorType()
 
-      // 步骤3: 尝试从缓存获取热度
-      cachedPopularity <- tryGetFromCache()
+      // 步骤3: 验证创作者存在性
+      _ <- validateCreator()
 
-      // 步骤4: 如果缓存不存在或过期，实时计算热度
-      popularity <- cachedPopularity match {
-        case Some(popularity) =>
-          logInfo(s"从缓存获取歌曲热度: ${popularity}") >> IO.pure(popularity)
-        case None =>
-          logInfo("缓存不存在或已过期，开始实时计算热度") >>
-          calculateAndCachePopularity()
-      }
+      // 步骤4: 实时计算创作倾向
+      tendency <- calculateTendency()
 
-    } yield popularity
+    } yield tendency
 
-    logic.map { popularity =>
-      (Some(popularity), "获取歌曲热度成功")
+    logic.map { tendency =>
+      (Some(tendency), "获取创作倾向成功")
     }.handleErrorWith { error =>
-      logError(s"获取歌曲 ${songID} 热度失败", error) >>
+      logError(s"获取创作者 ${creatorID} 创作倾向失败", error) >>
         IO.pure((None, error.getMessage))
     }
   }
@@ -78,157 +76,110 @@ case class GetSongPopularityPlanner(
   }
 
   /**
-   * 步骤2: 验证歌曲存在性
+   * 步骤2: 验证创作者类型
    */
-  private def validateSong()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在验证歌曲 ${songID} 是否存在") >> {
-      GetSongByID(userID, userToken, songID).send.flatMap { case (songOpt, message) =>
-        songOpt match {
-          case Some(_) =>
-            logInfo("歌曲存在性验证通过")
-          case None =>
-            IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
-        }
-      }
-    }
-  }
-
-  /**
-   * 步骤3: 尝试从缓存获取热度
-   */
-  private def tryGetFromCache()(using PlanContext): IO[Option[Double]] = {
-    for {
-      _ <- logInfo("检查歌曲热度缓存")
-      isExpired <- isPopularityCacheExpired()
-      popularity <- if (isExpired) {
-        logInfo("缓存已过期或不存在")
-        IO.pure(None)
+  private def validateCreatorType()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证创作者类型: ${creatorType}") >> {
+      if (creatorType == "Artist" || creatorType == "Band") {
+        logInfo("创作者类型验证通过")
       } else {
-        logInfo("缓存有效，尝试获取")
-        getPopularityFromCache()
+        IO.raiseError(new IllegalArgumentException(s"无效的创作者类型: ${creatorType}，只支持 'Artist' 或 'Band'"))
       }
-    } yield popularity
-  }
-
-  /**
-   * 检查热度缓存是否过期（超过30分钟）
-   */
-  private def isPopularityCacheExpired()(using PlanContext): IO[Boolean] = {
-    val sql = s"SELECT updated_at FROM ${schemaName}.song_popularity_cache WHERE song_id = ?"
-    readDBRows(sql, List(SqlParameter("String", songID))).map { rows =>
-      rows.headOption.map { row =>
-        val lastUpdated = decodeField[Long](row, "updated_at")
-        val now = new DateTime().getMillis
-        (now - lastUpdated) > 1800000 // 30分钟 = 1800000毫秒
-      }.getOrElse(true) // 如果没有缓存，认为已过期
     }
   }
 
   /**
-   * 从缓存获取热度分数
+   * 步骤3: 验证创作者存在性
    */
-  private def getPopularityFromCache()(using PlanContext): IO[Option[Double]] = {
-    val sql = s"SELECT popularity_score FROM ${schemaName}.song_popularity_cache WHERE song_id = ?"
-    readDBRows(sql, List(SqlParameter("String", songID))).map { rows =>
-      rows.headOption.map(row => decodeField[Double](row, "popularity_score"))
+  private def validateCreator()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证创作者 ${creatorID} 是否存在") >> {
+      creatorType match {
+        case "Artist" =>
+          GetArtistByID(userID, userToken, creatorID).send.flatMap {
+            case (Some(_), _) => logInfo("艺术家存在性验证通过")
+            case (None, message) => IO.raiseError(new IllegalStateException(s"艺术家不存在: $message"))
+          }
+        case "Band" =>
+          GetBandByID(userID, userToken, creatorID).send.flatMap {
+            case (Some(_), _) => logInfo("乐队存在性验证通过")
+            case (None, message) => IO.raiseError(new IllegalStateException(s"乐队不存在: $message"))
+          }
+      }
     }
   }
 
   /**
-   * 步骤4: 实时计算热度并更新缓存
+   * 步骤4: 实时计算创作倾向
    */
-  private def calculateAndCachePopularity()(using PlanContext): IO[Double] = {
+  private def calculateTendency()(using PlanContext): IO[Profile] = {
     for {
-      _ <- logInfo("开始实时计算歌曲热度")
+      _ <- logInfo("开始实时计算创作倾向")
       
-      // 获取播放统计
-      playCount <- getPlayCount()
-      _ <- logInfo(s"歌曲播放次数: ${playCount}")
+      // 获取创作者的所有作品
+      songs <- getCreatorSongs()
+      _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
       
-      // 获取评分统计
-      (avgRating, ratingCount) <- getRatingStats()
-      _ <- logInfo(s"歌曲平均评分: ${avgRating}，评分人数: ${ratingCount}")
-      
-      // 计算热度: 播放次数 * 0.7 + 平均评分 * 评分人数 * 0.3
-      popularity = playCount * 0.7 + avgRating * ratingCount * 0.3
-      _ <- logInfo(s"计算得出热度分数: ${popularity}")
-      
-      // 更新缓存
-      _ <- updatePopularityCache(popularity, playCount, avgRating, ratingCount)
-      _ <- logInfo("热度缓存已更新")
-      
-    } yield popularity
-  }
-
-  /**
-   * 获取歌曲播放次数
-   */
-  private def getPlayCount()(using PlanContext): IO[Int] = {
-    val sql = s"SELECT COUNT(*) FROM ${schemaName}.playback_log WHERE song_id = ?"
-    readDBInt(sql, List(SqlParameter("String", songID)))
-  }
-
-  /**
-   * 获取歌曲评分统计
-   */
-  private def getRatingStats()(using PlanContext): IO[(Double, Int)] = {
-    val sql = s"SELECT AVG(rating), COUNT(*) FROM ${schemaName}.song_rating WHERE song_id = ?"
-    readDBRows(sql, List(SqlParameter("String", songID))).map { rows =>
-      rows.headOption.map { row =>
-        val avgRating = Option(decodeField[Double](row, "avg")).getOrElse(0.0)
-        val count = decodeField[Int](row, "count")
-        (avgRating, count)
-      }.getOrElse((0.0, 0))
-    }
-  }
-
-  /**
-   * 更新热度缓存
-   */
-  private def updatePopularityCache(
-    popularity: Double,
-    playCount: Int,
-    avgRating: Double,
-    ratingCount: Int
-  )(using PlanContext): IO[Unit] = {
-    val now = new DateTime()
-    
-    // 先尝试更新
-    val updateSql = s"""
-      UPDATE ${schemaName}.song_popularity_cache 
-      SET popularity_score = ?, play_count = ?, avg_rating = ?, rating_count = ?, updated_at = ?
-      WHERE song_id = ?
-    """
-    
-    for {
-      updateResult <- writeDB(updateSql, List(
-        SqlParameter("String", popularity.toString),
-        SqlParameter("String", playCount.toString),
-        SqlParameter("String", avgRating.toString),
-        SqlParameter("String", ratingCount.toString),
-        SqlParameter("DateTime", now.getMillis.toString),
-        SqlParameter("String", songID)
-      ))
-      
-      // 如果更新失败（记录不存在），则插入新记录
-      _ <- if (updateResult.contains("0")) {
-        val insertSql = s"""
-          INSERT INTO ${schemaName}.song_popularity_cache 
-          (song_id, popularity_score, play_count, avg_rating, rating_count, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-        """
-        writeDB(insertSql, List(
-          SqlParameter("String", songID),
-          SqlParameter("String", popularity.toString),
-          SqlParameter("String", playCount.toString),
-          SqlParameter("String", avgRating.toString),
-          SqlParameter("String", ratingCount.toString),
-          SqlParameter("DateTime", now.getMillis.toString)
-        ))
+      // 如果没有作品，返回空倾向
+      tendency <- if (songs.isEmpty) {
+        logInfo("创作者暂无作品，返回空倾向")
+        IO.pure(Profile(List.empty, norm = true))
       } else {
-        IO.unit
+        // 统计各曲风的作品分布
+        for {
+          genreDistribution <- calculateGenreDistribution(songs)
+          _ <- logInfo(s"计算出曲风分布: ${genreDistribution}")
+          
+          // 归一化处理
+          normalizedDistribution = StatisticsUtils.normalizeVector(genreDistribution)
+          profile = Profile(normalizedDistribution, norm = true)
+        } yield profile
       }
-    } yield ()
+      
+    } yield tendency
+  }
+
+  /**
+   * 获取创作者的所有作品
+   */
+  private def getCreatorSongs()(using PlanContext): IO[List[String]] = {
+    FilterSongsByEntity(
+      userID = userID,
+      userToken = userToken,
+      entityID = Some(creatorID),
+      entityType = Some(creatorType.toLowerCase)
+    ).send.flatMap {
+      case (Some(songs), _) => IO.pure(songs)
+      case (None, message) => 
+        logInfo(s"获取创作者作品失败: $message. 将视为空列表处理。") >> IO.pure(List.empty)
+    }
+  }
+
+  /**
+   * 使用 GetSongProfile API 计算曲风分布
+   */
+  private def calculateGenreDistribution(songs: List[String])(using PlanContext): IO[List[(String, Double)]] = {
+    // 3. 为每首歌调用 GetSongProfile API 获取其曲风 profile
+    songs.traverse { songId =>
+      GetSongProfile(userID, userToken, songId).send.map {
+        case (Some(profile), _) => profile.vector // 成功获取，返回 (GenreID, 1.0) 列表
+        case (None, message) =>
+          // 获取失败，记录警告并返回空列表，避免中断整个流程
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 ${songId} 的Profile失败: $message. 将跳过此歌曲.")
+          List.empty[(String, Double)]
+      }
+    }.map { listOfVectors =>
+      // listOfVectors 是一个 List[List[(String, Double)]]
+      // 将所有歌曲的曲风向量展平到一个列表中
+      val allGenrePairs = listOfVectors.flatten
+      
+      // 按曲风ID分组，并对分数求和（相当于统计每种曲风的歌曲数量）
+      val genreCounts = allGenrePairs
+        .groupBy(_._1) // 按 GenreID 分组
+        .view.mapValues(pairs => pairs.map(_._2).sum) // 对每个组内的分数求和
+        .toList
+      
+      genreCounts
+    }
   }
 
   private def logInfo(message: String): IO[Unit] = 

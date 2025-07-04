@@ -105,6 +105,14 @@ object Routes:
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSimilarCreators[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
+       
+      // 相似创作者推荐
+      case "GetAverageRating" =>
+        IO(
+          decode[GetAverageRatingPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetAverageRating[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
 
       // 测试接口
       case "test" =>

@@ -96,7 +96,7 @@ def find_and_extract_scala_files(root_dir: str, output_file: str):
 
 if __name__ == "__main__":
     current_dir = os.getcwd()
-    output_file = "extracted_case_classes.scala"
+    output_file = "extracted_case_classes.txt"
     
     print(f"开始从 {current_dir} 递归提取case class定义...")
     print(f"结果将保存到: {output_file}")
