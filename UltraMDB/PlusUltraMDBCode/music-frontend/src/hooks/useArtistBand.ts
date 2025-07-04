@@ -139,12 +139,113 @@ export const useArtistBand = () => {
     return results;
   }, [getArtistById, getBandById]);
 
+  // 智能转换ID到艺术家/乐队项目（自动识别类型）
+  const convertIdsToArtistBandItems = useCallback(async (ids: string[]): Promise<ArtistBandItem[]> => {
+    if (!ids || ids.length === 0) return [];
+    
+    const results: ArtistBandItem[] = [];
+    
+    for (const id of ids) {
+      if (!id || !id.trim()) continue;
+      
+      let found = false;
+      
+      // 首先尝试作为艺术家ID
+      try {
+        const artist = await getArtistById(id);
+        if (artist) {
+          results.push({
+            id: artist.artistID,
+            name: artist.name,
+            bio: artist.bio,
+            type: 'artist'
+          });
+          found = true;
+        }
+      } catch (err) {
+        // 继续尝试乐队
+      }
+      
+      // 如果不是艺术家，尝试作为乐队ID
+      if (!found) {
+        try {
+          const band = await getBandById(id);
+          if (band) {
+            results.push({
+              id: band.bandID,
+              name: band.name,
+              bio: band.bio,
+              type: 'band',
+              members: band.members
+            });
+            found = true;
+          }
+        } catch (err) {
+          // 继续
+        }
+      }
+      
+      // 如果都找不到，可能是名称而不是ID，尝试搜索
+      if (!found) {
+        try {
+          const searchResults = await searchArtistBand(id.trim(), 'both');
+          const exactMatch = searchResults.find(item => 
+            item.name.toLowerCase() === id.trim().toLowerCase()
+          );
+          
+          if (exactMatch) {
+            results.push(exactMatch);
+            found = true;
+          }
+        } catch (err) {
+          // 搜索失败
+        }
+      }
+      
+      // 如果还是找不到，记录未找到的项目
+      if (!found) {
+        console.warn(`Unable to resolve ID: ${id}`);
+        // 可以选择是否添加占位符项目
+        results.push({
+          id: `unresolved-${id}`,
+          name: id, // 使用原始值作为名称
+          bio: `无法解析的项目：${id}`,
+          type: 'artist'
+        });
+      }
+    }
+    
+    return results;
+  }, [getArtistById, getBandById, searchArtistBand]);
+
+  // 将艺术家/乐队项目转换为ID列表
+  const convertArtistBandItemsToIds = useCallback((items: ArtistBandItem[]): string[] => {
+    return items.map(item => item.id).filter(id => id && !id.startsWith('unresolved-'));
+  }, []);
+
+  // 将艺术家/乐队项目转换为名称列表
+  const convertArtistBandItemsToNames = useCallback((items: ArtistBandItem[]): string[] => {
+    return items.map(item => item.name).filter(name => name);
+  }, []);
+
+  // 批量转换ID为名称
+  const convertIdsToNames = useCallback(async (ids: string[]): Promise<string[]> => {
+    if (!ids || ids.length === 0) return [];
+    
+    const items = await convertIdsToArtistBandItems(ids);
+    return convertArtistBandItemsToNames(items);
+  }, [convertIdsToArtistBandItems, convertArtistBandItemsToNames]);
+
   return {
     loading,
     error,
     searchArtistBand,
     getArtistById,
     getBandById,
-    getArtistBandsByIds
+    getArtistBandsByIds,
+    convertIdsToArtistBandItems,
+    convertArtistBandItemsToIds,
+    convertArtistBandItemsToNames,
+    convertIdsToNames
   };
 };
