@@ -9,7 +9,7 @@ object ServiceCenter {
   val MusicServiceCode = "A000010"
   val OrganizeServiceCode = "A000011"
   val CreatorServiceCode = "A000012"
-  val TrackServiceCode = "A000013"
+  val StatisticsServiceCode = "A000013"
 
   val fullNameMap: Map[String, String] = Map(
     tongWenDBServiceCode -> "DB-Manager（DB-Manager）",
@@ -17,7 +17,7 @@ object ServiceCenter {
     MusicServiceCode -> "MusicService（MusicService)",
     OrganizeServiceCode -> "OrganizeService（OrganizeService)",
     CreatorServiceCode -> "CreatorService（CreatorService)",
-    TrackServiceCode -> "TrackService（TrackService)"
+    StatisticsServiceCode -> "StatisticsService（StatisticsService)"
   )
 
   def serviceName(serviceCode: String): String = {

@@ -8,7 +8,7 @@ SERVICES = {
     "1": "CreatorService",
     "2": "MusicService",
     "3": "OrganizeService",
-    "4": "TrackService"
+    "4": "StatisticsService"
 }
 
 def get_service_path(service_name):
