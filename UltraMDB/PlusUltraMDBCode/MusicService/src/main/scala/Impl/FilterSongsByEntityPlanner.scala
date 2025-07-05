@@ -1,44 +1,43 @@
 package Impl
 
 
-import Objects.CreatorService.Band
-import Objects.CreatorService.Artist
+import Objects.CreatorService.{Artist, Band, CreatorID_Type, CreatorType}
 import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import cats.effect.IO
 import org.slf4j.LoggerFactory
 import io.circe.Json
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 import org.joda.time.DateTime
 import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 import org.joda.time.DateTime
 import cats.implicits.*
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.API.{PlanContext, Planner}
 import cats.effect.IO
 import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
 case class FilterSongsByEntityPlanner(
                                        userID: String,
                                        userToken: String,
-                                       entityID: Option[String],
-                                       entityType: Option[String],
+                                       creator: Option[CreatorID_Type],
                                        genres: Option[String],
                                        override val planContext: PlanContext
                                      ) extends Planner[(Option[List[String]], String)] {
+
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
   override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
@@ -46,59 +45,46 @@ case class FilterSongsByEntityPlanner(
       for {
         // Step 1: Validate userToken and userID mapping
         _ <- IO(logger.info("Validating userToken and userID mapping"))
-        (isValid,msg) <- validateUserMapping(userID, userToken).send
+        (isValid, _) <- validateUserMapping(userID, userToken).send
         _ <- if (!isValid)
           IO.raiseError(new IllegalArgumentException("Invalid userToken or userID mapping"))
         else IO.unit
 
-        // Step 2: Validate entityID if applicable
-        _ <- IO(logger.info(s"Validating entityID for entityType: ${entityType}, entityID: ${entityID}"))
-        _ <- validateEntityID
+        // Step 2: Validate creator ID if provided
+        _ <- creator match {
+          case Some(CreatorID_Type(CreatorType.Artist, id)) => validateArtistID(id)
+          case Some(CreatorID_Type(CreatorType.Band, id))   => validateBandID(id)
+          case None => IO.unit
+        }
 
-        // Step 3: Build filtering criteria for songs
-        _ <- IO(logger.info("Building filter criteria for songs"))
-        queryResult <- filterSongs
+        // Step 3: Query songs
+        songIDs <- filterSongs
+        _ <- IO(logger.info(s"Filtered songs: ${songIDs}"))
 
-        _ <- IO(logger.info(s"过滤结果: ${queryResult}"))
-
-      } yield (Some(queryResult), "") // 成功返回列表
+      } yield (Some(songIDs), "")
       ).handleErrorWith { e =>
-      IO(logger.error(s"歌曲过滤操作失败: ${e.getMessage}")) *>
-        IO.pure((None, e.getMessage)) // 失败返回 None 和错误信息
-    }
-  }
-
-
-  private def validateEntityID(using PlanContext): IO[Unit] = {
-    entityType match {
-      case Some("artist") =>
-        entityID match {
-          case Some(id) => validateArtistID(id)
-          case None => IO.unit // No entityID provided for validation
-        }
-      case Some("band") =>
-        entityID match {
-          case Some(id) => validateBandID(id)
-          case None => IO.unit // No entityID provided for validation
-        }
-      case None => IO.unit // No entityType provided, skip validation
-      case Some(_) => IO.raiseError(new IllegalArgumentException("Invalid entityType"))
+      IO(logger.error(s"FilterSongsByEntity failed: ${e.getMessage}")) *>
+        IO.pure((None, e.getMessage))
     }
   }
 
   private def validateArtistID(artistID: String)(using PlanContext): IO[Unit] = {
-    val sql = s"SELECT 1 FROM ${schemaName}.artist WHERE artist_id = ? LIMIT 1"
-    readDBJsonOptional(sql, List(SqlParameter("String", artistID))).flatMap {
+    readDBJsonOptional(
+      s"SELECT 1 FROM ${schemaName}.artist WHERE artist_id = ? LIMIT 1",
+      List(SqlParameter("String", artistID))
+    ).flatMap {
       case Some(_) => IO.unit
-      case None => IO.raiseError(new IllegalArgumentException(s"Invalid artistID: ${artistID}"))
+      case None    => IO.raiseError(new IllegalArgumentException(s"Invalid artistID: $artistID"))
     }
   }
 
   private def validateBandID(bandID: String)(using PlanContext): IO[Unit] = {
-    val sql = s"SELECT 1 FROM ${schemaName}.band WHERE band_id = ? LIMIT 1"
-    readDBJsonOptional(sql, List(SqlParameter("String", bandID))).flatMap {
+    readDBJsonOptional(
+      s"SELECT 1 FROM ${schemaName}.band WHERE band_id = ? LIMIT 1",
+      List(SqlParameter("String", bandID))
+    ).flatMap {
       case Some(_) => IO.unit
-      case None => IO.raiseError(new IllegalArgumentException(s"Invalid bandID: ${bandID}"))
+      case None    => IO.raiseError(new IllegalArgumentException(s"Invalid bandID: $bandID"))
     }
   }
 
@@ -106,36 +92,24 @@ case class FilterSongsByEntityPlanner(
     val sqlBuilder = new StringBuilder(s"SELECT song_id FROM ${schemaName}.song_table WHERE 1=1")
     val parameters = scala.collection.mutable.ListBuffer.empty[SqlParameter]
 
-    // Add filter for entityType and entityID
-    entityType match {
-      case Some("artist") =>
-        entityID.foreach { id =>
-          sqlBuilder.append(" AND (creators @> ?::jsonb OR performers @> ?::jsonb)")
-          parameters += SqlParameter("String", s"""["${id}"]""")
-          parameters += SqlParameter("String", s"""["${id}"]""")
-        }
-      case Some("band") =>
-        entityID.foreach { id =>
-          sqlBuilder.append(" AND (creators @> ?::jsonb OR performers @> ?::jsonb)")
-          parameters += SqlParameter("String", s"""["${id}"]""")
-          parameters += SqlParameter("String", s"""["${id}"]""")
-        }
-      case _ => // Do nothing if entityType is None or invalid
+    // Filter by creator (creators or performers contain the full encoded CreatorID_Type)
+    creator.foreach { creatorID =>
+      val jsonStr = List(creatorID).asJson.noSpaces
+      sqlBuilder.append(" AND (creators @> ?::jsonb OR performers @> ?::jsonb)")
+      parameters += SqlParameter("String", jsonStr)
+      parameters += SqlParameter("String", jsonStr)
     }
 
-    // Add filter for genres
-    genres match{
-      case Some(genre) =>
-        sqlBuilder.append(" AND genres && ?::jsonb")
-        parameters += SqlParameter("String", genres.asJson.noSpaces)
-      case None =>
+    // Filter by genres
+    genres.foreach { genreID =>
+      val genreJsonStr = List(genreID).asJson.noSpaces
+      sqlBuilder.append(" AND genres @> ?::jsonb")
+      parameters += SqlParameter("String", genreJsonStr)
     }
 
     val sql = sqlBuilder.toString()
-    logger.info(s"Executing SQL query: ${sql} with parameters: ${parameters.mkString(", ")}")
+    logger.info(s"Executing SQL: $sql with parameters: ${parameters.mkString(", ")}")
 
-    readDBRows(sql, parameters.toList).map { rows =>
-      rows.map(json => decodeField[String](json, "song_id"))
-    }
+    readDBRows(sql, parameters.toList).map(_.map(decodeField[String](_, "song_id")))
   }
 }

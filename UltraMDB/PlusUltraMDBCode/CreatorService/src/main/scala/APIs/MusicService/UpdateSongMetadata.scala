@@ -2,19 +2,18 @@ package APIs.MusicService
 
 import Common.API.API
 import Global.ServiceCenter.MusicServiceCode
-
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.syntax.*
 import io.circe.parser.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import com.fasterxml.jackson.core.`type`.TypeReference
 import Common.Serialize.JacksonSerializeUtils
+import Objects.CreatorService.CreatorID_Type
 
 import scala.util.Try
-
 import org.joda.time.DateTime
+
 import java.util.UUID
 
 
@@ -26,7 +25,7 @@ import java.util.UUID
  * @param songID: String (需要更新的歌曲ID)
  * @param name: Option[String] (需要更新的歌曲名称)
  * @param releaseTime: Option[DateTime] (需要更新的歌曲发布时间)
- * @param creators: List[String] (需要更新的创作者列表)
+ * @param creators: List[CreatorID_Type] (需要更新的创作者列表)
  * @param performers: List[String] (需要更新的演唱者列表)
  * @param lyricists: List[String] (需要更新的作词者列表)
  * @param composers: List[String] (需要更新的作曲者列表)
@@ -37,18 +36,18 @@ import java.util.UUID
  */
 
 case class UpdateSongMetadata(
-  userID: String,
-  userToken: String,
-  songID: String,
-  name: Option[String] = None,
-  releaseTime: Option[DateTime] = None,
-  creators: Option[List[String]] = None,
-  performers: Option[List[String]] = None,
-  lyricists: Option[List[String]] = None,
-  composers: Option[List[String]] = None,
-  arrangers: Option[List[String]] = None,
-  instrumentalists: Option[List[String]] = None,
-  genres: Option[List[String]] = None
+                               userID: String,
+                               userToken: String,
+                               songID: String,
+                               name: Option[String] = None,
+                               releaseTime: Option[DateTime] = None,
+                               creators: Option[List[CreatorID_Type]] = None,
+                               performers: Option[List[String]] = None,
+                               lyricists: Option[List[String]] = None,
+                               composers: Option[List[String]] = None,
+                               arrangers: Option[List[String]] = None,
+                               instrumentalists: Option[List[String]] = None,
+                               genres: Option[List[String]] = None
 ) extends API[(Boolean, String)](MusicServiceCode)
 
 

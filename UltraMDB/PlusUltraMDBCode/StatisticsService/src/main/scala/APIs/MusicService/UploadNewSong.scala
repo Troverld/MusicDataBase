@@ -2,19 +2,18 @@ package APIs.MusicService
 
 import Common.API.API
 import Global.ServiceCenter.MusicServiceCode
-
 import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.syntax.*
 import io.circe.parser.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import com.fasterxml.jackson.core.`type`.TypeReference
 import Common.Serialize.JacksonSerializeUtils
+import Objects.CreatorService.CreatorID_Type
 
 import scala.util.Try
-
 import org.joda.time.DateTime
+
 import java.util.UUID
 
 
@@ -25,7 +24,7 @@ import java.util.UUID
  * @param userToken: String (用户令牌，用于验证用户身份。)
  * @param name: String (歌曲名称。)
  * @param releaseTime: DateTime (歌曲的发布日期。)
- * @param creators: List[String] (创作者ID列表。)
+ * @param creators: List[CreatorID_Type] (创作者ID列表。)
  * @param performers: List[String] (演唱者ID列表。)
  * @param lyricists: List[String] (作词者ID列表。)
  * @param arrangers: List[String] (编曲者ID列表。)
@@ -40,7 +39,7 @@ case class UploadNewSong(
   userToken: String,
   name: String,
   releaseTime: DateTime,
-  creators: List[String],
+  creators: List[CreatorID_Type],
   performers: List[String],
   lyricists: List[String],
   arrangers: List[String],
