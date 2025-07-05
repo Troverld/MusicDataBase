@@ -2,12 +2,138 @@ import React, { useState, useEffect } from 'react';
 import { Song } from '../types';
 import { useGenres } from '../hooks/useGenres';
 import { useArtistBand } from '../hooks/useArtistBand';
+import { usePermissions, useSongPermission } from '../hooks/usePermissions';
 
 interface SongListProps {
   songs: Song[];
   onEdit: (song: Song) => void;
   onDelete: (songID: string) => void;
 }
+
+interface SongItemProps {
+  song: Song;
+  onEdit: (song: Song) => void;
+  onDelete: (songID: string) => void;
+  getGenreNamesByIds: (ids: string[]) => string[];
+  nameMap: { [key: string]: string };
+}
+
+const SongItem: React.FC<SongItemProps> = ({ 
+  song, 
+  onEdit, 
+  onDelete, 
+  getGenreNamesByIds, 
+  nameMap 
+}) => {
+  const { isAdmin } = usePermissions();
+  const { canEdit, loading: permissionLoading } = useSongPermission(song.songID);
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString('zh-CN');
+  };
+
+  const formatCreatorList = (creatorIds: string[]) => {
+    if (!creatorIds || creatorIds.length === 0) return '无';
+    
+    const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
+    return names.length > 0 ? names.join(', ') : '无';
+  };
+
+  const formatGenres = (genreIds: string[]): string[] => {
+    if (genreIds.length === 0) return [];
+    return getGenreNamesByIds(genreIds);
+  };
+
+  const showEditButton = !permissionLoading && (canEdit || isAdmin);
+  const showDeleteButton = !permissionLoading && isAdmin; // 只有管理员可以删除
+
+  return (
+    <div className="song-item">
+      <h3>{song.name}</h3>
+      
+      <div style={{ marginBottom: '10px' }}>
+        <p><strong>发布时间:</strong> {formatDate(song.releaseTime)}</p>
+        <p><strong>创作者:</strong> {formatCreatorList(song.creators)}</p>
+        <p><strong>演唱者:</strong> {formatCreatorList(song.performers)}</p>
+      </div>
+
+      {song.lyricists && song.lyricists.length > 0 && (
+        <p><strong>作词:</strong> {formatCreatorList(song.lyricists)}</p>
+      )}
+      
+      {song.composers && song.composers.length > 0 && (
+        <p><strong>作曲:</strong> {formatCreatorList(song.composers)}</p>
+      )}
+      
+      {song.arrangers && song.arrangers.length > 0 && (
+        <p><strong>编曲:</strong> {formatCreatorList(song.arrangers)}</p>
+      )}
+      
+      {song.instrumentalists && song.instrumentalists.length > 0 && (
+        <p><strong>演奏:</strong> {formatCreatorList(song.instrumentalists)}</p>
+      )}
+
+      <div style={{ marginTop: '10px' }}>
+        <strong>曲风:</strong>
+        <div style={{ marginTop: '5px' }}>
+          {formatGenres(song.genres).length > 0 ? (
+            formatGenres(song.genres).map((genreName: string, index: number) => (
+              <span key={index} className="chip">{genreName}</span>
+            ))
+          ) : (
+            <span className="chip" style={{ backgroundColor: '#f8f9fa', color: '#6c757d' }}>无</span>
+          )}
+        </div>
+      </div>
+
+      {song.uploadTime && (
+        <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+          上传时间: {formatDate(song.uploadTime)}
+        </p>
+      )}
+
+      {/* 权限相关的提示信息 */}
+      {permissionLoading && (
+        <div className="permission-warning">
+          <div className="loading-spinner"></div>
+          正在检查权限...
+        </div>
+      )}
+
+      {!permissionLoading && !canEdit && !isAdmin && (
+        <div className="permission-denied">
+          ⚠️ 您没有编辑此歌曲的权限
+        </div>
+      )}
+
+      <div className="song-actions">
+        {showEditButton && (
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => onEdit(song)}
+            disabled={permissionLoading}
+          >
+            编辑
+          </button>
+        )}
+        {showDeleteButton && (
+          <button 
+            className="btn btn-danger" 
+            onClick={() => onDelete(song.songID)}
+            disabled={permissionLoading}
+          >
+            删除
+          </button>
+        )}
+        {!showEditButton && !showDeleteButton && !permissionLoading && (
+          <span style={{ color: '#666', fontSize: '14px' }}>
+            仅查看模式
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
   const { getGenreNamesByIds } = useGenres();
@@ -90,80 +216,17 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
     );
   }
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('zh-CN');
-  };
-
-  // 将ID列表转换为名称列表进行显示
-  const formatCreatorList = (creatorIds: string[]) => {
-    if (!creatorIds || creatorIds.length === 0) return '无';
-    
-    const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
-    return names.length > 0 ? names.join(', ') : '无';
-  };
-
-  const formatGenres = (genreIds: string[]): string[] => {
-    if (genreIds.length === 0) return [];
-    const genreNames = getGenreNamesByIds(genreIds);
-    return genreNames;
-  };
-
   return (
     <div className="song-list">
       {songs.map((song) => (
-        <div key={song.songID} className="song-item">
-          <h3>{song.name}</h3>
-          
-          <div style={{ marginBottom: '10px' }}>
-            <p><strong>发布时间:</strong> {formatDate(song.releaseTime)}</p>
-            <p><strong>创作者:</strong> {formatCreatorList(song.creators)}</p>
-            <p><strong>演唱者:</strong> {formatCreatorList(song.performers)}</p>
-          </div>
-
-          {song.lyricists && song.lyricists.length > 0 && (
-            <p><strong>作词:</strong> {formatCreatorList(song.lyricists)}</p>
-          )}
-          
-          {song.composers && song.composers.length > 0 && (
-            <p><strong>作曲:</strong> {formatCreatorList(song.composers)}</p>
-          )}
-          
-          {song.arrangers && song.arrangers.length > 0 && (
-            <p><strong>编曲:</strong> {formatCreatorList(song.arrangers)}</p>
-          )}
-          
-          {song.instrumentalists && song.instrumentalists.length > 0 && (
-            <p><strong>演奏:</strong> {formatCreatorList(song.instrumentalists)}</p>
-          )}
-
-          <div style={{ marginTop: '10px' }}>
-            <strong>曲风:</strong>
-            <div style={{ marginTop: '5px' }}>
-              {formatGenres(song.genres).length > 0 ? (
-                formatGenres(song.genres).map((genreName: string, index: number) => (
-                  <span key={index} className="chip">{genreName}</span>
-                ))
-              ) : (
-                <span className="chip" style={{ backgroundColor: '#f8f9fa', color: '#6c757d' }}>无</span>
-              )}
-            </div>
-          </div>
-
-          {song.uploadTime && (
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-              上传时间: {formatDate(song.uploadTime)}
-            </p>
-          )}
-
-          <div className="song-actions">
-            <button className="btn btn-secondary" onClick={() => onEdit(song)}>
-              编辑
-            </button>
-            <button className="btn btn-danger" onClick={() => onDelete(song.songID)}>
-              删除
-            </button>
-          </div>
-        </div>
+        <SongItem
+          key={song.songID}
+          song={song}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          getGenreNamesByIds={getGenreNamesByIds}
+          nameMap={nameMap}
+        />
       ))}
     </div>
   );
