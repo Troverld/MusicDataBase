@@ -20,12 +20,12 @@ import scala.util.Try
  * desc: 获取所有歌曲。需要用户认证。
  * @param userID: String (发起请求的用户ID)
  * @param userToken: String (用户的认证令牌)
- * @return (Option[List[Song]], String): (成功时包含歌曲对象，失败时为None；附带操作信息)
+ * @return (Option[List[String]], String): (成功时包含歌曲ID，失败时为None；附带操作信息)
  */
 case class GetSongList(
   userID: String,
   userToken: String
-) extends API[(Option[List[Song]], String)](MusicServiceCode)
+) extends API[(Option[List[String]], String)](MusicServiceCode)
 
 case object GetSongList{
     

@@ -57,7 +57,7 @@ const SongManagement: React.FC = () => {
     };
   }, [dropdownOpen]);
 
-  // 将CreatorID_Type数组转换为选中项目
+  // 将CreatorID_Type数组转换为选中项目 - 使用正确的类型信息
   const convertCreatorsToSelectedItems = async (creators: CreatorID_Type[]): Promise<ArtistBandItem[]> => {
     if (!creators || creators.length === 0) return [];
     
@@ -65,10 +65,11 @@ const SongManagement: React.FC = () => {
     
     for (const creator of creators) {
       try {
-        // 处理 CreatorID_Type 格式
+        // 直接使用 CreatorID_Type 中的类型信息
+        const type = creator.creatorType === 'artist' ? 'artist' : 'band';
         const creatorItem = await getArtistBandsByIds([{
           id: creator.id, 
-          type: creator.creatorType as 'artist' | 'band'
+          type: type as 'artist' | 'band'
         }]);
         
         if (creatorItem.length > 0) {
@@ -98,6 +99,7 @@ const SongManagement: React.FC = () => {
   };
 
   // 将字符串ID数组转换为选中项目（用于处理传统的字符串数组字段）
+  // 注意：这些字段只能是艺术家，因为只有创作者可以是乐队
   const convertIdsToSelectedItems = async (ids: string[]): Promise<ArtistBandItem[]> => {
     if (!ids || ids.length === 0) return [];
     
@@ -107,55 +109,16 @@ const SongManagement: React.FC = () => {
       if (!id.trim()) continue;
       
       try {
-        let found = false;
-        
-        // 首先尝试作为艺术家ID获取
-        try {
-          const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
-          if (artistItems.length > 0) {
-            results.push(artistItems[0]);
-            found = true;
-          }
-        } catch (error) {
-          // 继续尝试乐队
-        }
-        
-        // 如果不是艺术家，尝试作为乐队ID获取
-        if (!found) {
-          try {
-            const bandItems = await getArtistBandsByIds([{id, type: 'band'}]);
-            if (bandItems.length > 0) {
-              results.push(bandItems[0]);
-              found = true;
-            }
-          } catch (error) {
-            // 继续
-          }
-        }
-        
-        // 如果都找不到，可能是存储的是名称，尝试搜索
-        if (!found) {
-          try {
-            const searchResults = await searchArtistBand(id, 'both');
-            const exactMatch = searchResults.find(item => 
-              item.name.toLowerCase() === id.toLowerCase()
-            );
-            
-            if (exactMatch) {
-              results.push(exactMatch);
-              found = true;
-            }
-          } catch (error) {
-            // 继续
-          }
-        }
-        
-        // 如果还是找不到，创建一个警告项目
-        if (!found) {
+        // 只尝试作为艺术家ID获取（因为只有创作者可以是乐队）
+        const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
+        if (artistItems.length > 0) {
+          results.push(artistItems[0]);
+        } else {
+          // 如果找不到艺术家，创建警告项目
           results.push({
             id: `not-found-${id}`,
             name: id,
-            bio: `警告：无法找到ID为"${id}"的艺术家或乐队，可能是已删除的项目。请重新搜索选择。`,
+            bio: `警告：无法找到ID为"${id}"的艺术家，可能是已删除的项目。请重新搜索选择。`,
             type: 'artist'
           });
         }
@@ -524,7 +487,7 @@ const SongManagement: React.FC = () => {
               <ArtistBandSelector
                 selectedItems={selectedCreators}
                 onSelectionChange={setSelectedCreators}
-                searchType="both"
+                searchType="both"  // 创作者可以是艺术家或乐队
                 label="创作者"
                 placeholder="搜索创作者（艺术家或乐队）..."
               />
@@ -532,9 +495,9 @@ const SongManagement: React.FC = () => {
               <ArtistBandSelector
                 selectedItems={selectedPerformers}
                 onSelectionChange={setSelectedPerformers}
-                searchType="both"
+                searchType="artist"  // 修改：演唱者只能是艺术家
                 label="演唱者"
-                placeholder="搜索演唱者（艺术家或乐队）..."
+                placeholder="搜索演唱者（艺术家）..."  // 修改提示文本
               />
               
               <div className="form-row">
@@ -542,7 +505,7 @@ const SongManagement: React.FC = () => {
                   <ArtistBandSelector
                     selectedItems={selectedLyricists}
                     onSelectionChange={setSelectedLyricists}
-                    searchType="artist"
+                    searchType="artist"  // 作词者只能是艺术家
                     label="作词者"
                     placeholder="搜索作词者..."
                   />
@@ -552,7 +515,7 @@ const SongManagement: React.FC = () => {
                   <ArtistBandSelector
                     selectedItems={selectedComposers}
                     onSelectionChange={setSelectedComposers}
-                    searchType="artist"
+                    searchType="artist"  // 作曲者只能是艺术家
                     label="作曲者"
                     placeholder="搜索作曲者..."
                   />
@@ -564,7 +527,7 @@ const SongManagement: React.FC = () => {
                   <ArtistBandSelector
                     selectedItems={selectedArrangers}
                     onSelectionChange={setSelectedArrangers}
-                    searchType="artist"
+                    searchType="artist"  // 编曲者只能是艺术家
                     label="编曲者"
                     placeholder="搜索编曲者..."
                   />
@@ -574,7 +537,7 @@ const SongManagement: React.FC = () => {
                   <ArtistBandSelector
                     selectedItems={selectedInstrumentalists}
                     onSelectionChange={setSelectedInstrumentalists}
-                    searchType="artist"
+                    searchType="artist"  // 演奏者只能是艺术家
                     label="演奏者"
                     placeholder="搜索演奏者..."
                   />
