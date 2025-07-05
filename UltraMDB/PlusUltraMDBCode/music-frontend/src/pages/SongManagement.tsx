@@ -99,7 +99,79 @@ const SongManagement: React.FC = () => {
 
   // 将字符串ID数组转换为选中项目（用于处理传统的字符串数组字段）
   const convertIdsToSelectedItems = async (ids: string[]): Promise<ArtistBandItem[]> => {
-    return convertCreatorsToSelectedItems(ids);
+    if (!ids || ids.length === 0) return [];
+    
+    const results: ArtistBandItem[] = [];
+    
+    for (const id of ids) {
+      if (!id.trim()) continue;
+      
+      try {
+        let found = false;
+        
+        // 首先尝试作为艺术家ID获取
+        try {
+          const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
+          if (artistItems.length > 0) {
+            results.push(artistItems[0]);
+            found = true;
+          }
+        } catch (error) {
+          // 继续尝试乐队
+        }
+        
+        // 如果不是艺术家，尝试作为乐队ID获取
+        if (!found) {
+          try {
+            const bandItems = await getArtistBandsByIds([{id, type: 'band'}]);
+            if (bandItems.length > 0) {
+              results.push(bandItems[0]);
+              found = true;
+            }
+          } catch (error) {
+            // 继续
+          }
+        }
+        
+        // 如果都找不到，可能是存储的是名称，尝试搜索
+        if (!found) {
+          try {
+            const searchResults = await searchArtistBand(id, 'both');
+            const exactMatch = searchResults.find(item => 
+              item.name.toLowerCase() === id.toLowerCase()
+            );
+            
+            if (exactMatch) {
+              results.push(exactMatch);
+              found = true;
+            }
+          } catch (error) {
+            // 继续
+          }
+        }
+        
+        // 如果还是找不到，创建一个警告项目
+        if (!found) {
+          results.push({
+            id: `not-found-${id}`,
+            name: id,
+            bio: `警告：无法找到ID为"${id}"的艺术家或乐队，可能是已删除的项目。请重新搜索选择。`,
+            type: 'artist'
+          });
+        }
+      } catch (error) {
+        console.warn(`Failed to convert ID to item: ${id}`, error);
+        // 创建一个错误项目
+        results.push({
+          id: `error-${id}`,
+          name: id,
+          bio: `错误：处理"${id}"时发生错误，请重新搜索选择`,
+          type: 'artist'
+        });
+      }
+    }
+    
+    return results;
   };
 
   const handleSearch = async () => {
