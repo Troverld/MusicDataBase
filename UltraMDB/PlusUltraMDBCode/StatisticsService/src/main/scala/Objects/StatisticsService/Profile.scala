@@ -18,12 +18,12 @@ import java.util.UUID
 /**
  * Profile
  * desc: 一个通用的统计画像/向量对象。它由一个(键, 值)对的列表组成，用于表示用户画像、创作倾向或曲风实力等统计数据。
- * @param vector: List[(String, Double)] (一个由(String, Double)元组构成的列表。String是GenreID，Double是对应的统计值（如偏好度、实力分等）。)\
+ * @param vector: List[Dim] (一个由 Dim 构成的列表。)\
  * @param norm: Boolean (可选参数，表示该向量是否已进行归一化。)
  */
 
 case class Profile(
-  vector: List[(String, Double)],
+  vector: List[Dim],
   norm: Boolean
 ){
 
