@@ -24,15 +24,13 @@ import java.util.UUID
  * desc: 获取指定创作者（艺术家或乐队）在各个曲风下的创作实力。实力值是一个非归一化的正实数，由该创作者在该曲风下所有歌曲的热度综合计算得出。
  * @param userID: String (发起请求的用户的ID，用于身份验证。)
  * @param userToken: String (用户的认证令牌。)
- * @param creatorID: String (要分析的创作者（艺术家或乐队）的ID。)
- * @param creatorType: String (创作者的类型。其值为 "Artist" 或 "Band"，用于区分 `creatorID` 指代的是艺术家还是乐队。)
+ * @param creator: CreatorID_Type (创作者的智能ID对象，封装了ID和类型。)
  * @return (Option[Profile], String): (创作者的曲风实力向量, 错误信息)
  */
 case class GetCreatorGenreStrength(
   userID: String,
   userToken: String,
-  creatorID: String,
-  creatorType: String
+  creator: CreatorID_Type // 使用新的 CreatorID_Type
 ) extends API[(Option[Profile], String)](StatisticsServiceCode)
 
 

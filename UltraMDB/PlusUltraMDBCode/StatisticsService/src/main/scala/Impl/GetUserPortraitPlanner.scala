@@ -5,8 +5,8 @@ import Common.DBAPI._
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import APIs.MusicService.GetSongProfile // 1. 导入所需的API
-import Objects.StatisticsService.Profile
+import APIs.MusicService.GetSongProfile
+import Objects.StatisticsService.{Dim, Profile} // 1. 导入 Dim
 import Utils.StatisticsUtils
 import cats.effect.IO
 import cats.implicits._
@@ -27,6 +27,7 @@ case class GetUserPortraitPlanner(
                                  ) extends Planner[(Option[Profile], String)] {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+  private val ratingWeightCoefficient = 10.0
 
   override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
     val logic: IO[Profile] = for {
@@ -72,13 +73,12 @@ case class GetUserPortraitPlanner(
         IO.pure(Profile(List.empty, norm = true))
       } else {
         val songInteractionScores = allInteractedSongIds.map { songId =>
-          val ratingBonus = ratedSongsMap.get(songId).map(_ - 3.0).getOrElse(0.0)
+          val ratingBonus = ratedSongsMap.get(songId).map((_ - 3.0)*ratingWeightCoefficient).getOrElse(0.0)
           val interactionScore = 1.0 + ratingBonus
           (songId, interactionScore)
         }.toMap
         
         for {
-          // 2. 调用重构后的函数，通过API获取曲风信息
           genresForSongsMap <- fetchGenresForSongs(allInteractedSongIds)
           
           rawGenrePreferences = songInteractionScores.toList.foldLeft(Map.empty[String, Double]) {
@@ -91,7 +91,13 @@ case class GetUserPortraitPlanner(
           
           positivePreferences = rawGenrePreferences.toList.filter(_._2 > 0)
           
-          rawProfile = Profile(vector = positivePreferences, norm = false)
+          // 2. 修正点: 将元组列表转换为 Dim 对象列表
+          preferenceDims = positivePreferences.map { case (genreId, score) =>
+            Dim(genreId, score)
+          }
+          
+          // 使用修正后的列表创建 Profile
+          rawProfile = Profile(vector = preferenceDims, norm = false)
           finalProfile = StatisticsUtils.normalizeVector(rawProfile)
           
           _ <- logInfo(s"计算出用户画像，包含 ${finalProfile.vector.length} 个曲风偏好")
@@ -120,9 +126,6 @@ case class GetUserPortraitPlanner(
     }
   }
 
-  // ==========================================================
-  // |          修正后的函数 (使用API调用)                     |
-  // ==========================================================
   /**
    * 为一批歌曲获取其所属的曲风列表，通过并行调用GetSongProfile API实现。
    */
@@ -134,7 +137,8 @@ case class GetUserPortraitPlanner(
     songIds.toList.parTraverse { songId =>
       GetSongProfile(userID, userToken, songId).send.map {
         case (Some(profile), _) =>
-          songId -> profile.vector.map(_._1) // 提取曲风ID列表
+          // 3. 修正点: 使用 .GenreID 提取曲风ID
+          songId -> profile.vector.map(_.GenreID)
         case (None, message) =>
           logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
           songId -> List.empty[String]

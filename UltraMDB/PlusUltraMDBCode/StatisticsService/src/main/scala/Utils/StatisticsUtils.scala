@@ -1,6 +1,6 @@
 package Utils
 
-import Objects.StatisticsService.Profile
+import Objects.StatisticsService.{Dim, Profile} // 确保 Dim 也被导入
 import scala.math.{exp, sqrt}
 import scala.util.Random
 
@@ -13,11 +13,10 @@ object StatisticsUtils {
    * @return 余弦相似度值，范围 [0, 1]
    */
   def calculateCosineSimilarity(profileA: Profile, profileB: Profile): Double = {
-    val vectorA = profileA.vector
-    val vectorB = profileB.vector
+    // 修正: List[Dim] 不能直接 toMap，需要手动转换为 Map[String, Double]
+    val mapA = profileA.vector.map(dim => (dim.GenreID, dim.value)).toMap
+    val mapB = profileB.vector.map(dim => (dim.GenreID, dim.value)).toMap
     
-    val mapA = vectorA.toMap
-    val mapB = vectorB.toMap
     val commonKeys = mapA.keySet.intersect(mapB.keySet)
     
     if (commonKeys.isEmpty) return 0.0
@@ -40,26 +39,24 @@ object StatisticsUtils {
     if (profile.norm) return profile
     
     val vector = profile.vector
-    val sum = vector.map(_._2).sum
+    // 修正: 从元组的 ._2 改为 Dim 对象的 .value
+    val sum = vector.map(_.value).sum
     
     val normalizedVector = if (sum == 0.0) {
       vector
     } else {
-      vector.map { case (key, value) => (key, value / sum) }
+      // 修正: 不再创建元组，而是创建新的 Dim 对象
+      vector.map { dim => dim.copy(value = dim.value / sum) }
     }
     
     Profile(normalizedVector, norm = true)
   }
 
   /**
-   * 对一个带有分数的项目列表进行Softmax加权随机抽样。
-   * Softmax会放大分数差异，使得分高的项有更大概率被选中，但低分项也有机会。
-   *
-   * @param itemsWithScores 一个包含(Item, Score)元组的列表。Item可以是任何类型（如String, Int）。
-   * @tparam A Item的类型。
-   * @return 抽样选中的一个Item，如果输入列表为空则返回None。
+   * 内部实现的Softmax加权随机抽样。
+   * 这个方法是私有的，只能在 StatisticsUtils 内部被调用。
    */
-  def softmaxSample[A](itemsWithScores: List[(A, Double)]): Option[A] = {
+  private def softmaxSampleInternal[A](itemsWithScores: List[(A, Double)]): Option[A] = {
     if (itemsWithScores.isEmpty) return None
     
     val validItems = itemsWithScores.filter(_._2 > 0)
@@ -83,11 +80,13 @@ object StatisticsUtils {
 
   /**
    * 对一个Profile的向量进行Softmax加权随机抽样。
-   * 这是softmaxSample[A]的便捷重载版本。
+   * 这是Softmax抽样的唯一公共接口。
    * @param profile 包含(GenreID, PreferenceScore)向量的Profile。
    * @return 抽样选中的一个GenreID，如果向量为空则返回None。
    */
   def softmaxSample(profile: Profile): Option[String] = {
-    softmaxSample(profile.vector)
+    // 修正: 将 List[Dim] 转换为 List[(String, Double)] 以调用内部实现
+    val itemsWithScores = profile.vector.map(dim => (dim.GenreID, dim.value))
+    softmaxSampleInternal(itemsWithScores)
   }
 }

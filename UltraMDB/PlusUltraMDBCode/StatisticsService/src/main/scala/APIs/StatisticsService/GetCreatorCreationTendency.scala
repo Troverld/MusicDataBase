@@ -9,6 +9,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.syntax.*
 import io.circe.parser.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Objects.CreatorService.{CreatorID_Type, CreatorType} // 1. 导入新的类型
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import Common.Serialize.JacksonSerializeUtils
@@ -24,15 +25,13 @@ import java.util.UUID
  * desc: 获取指定创作者（艺术家或乐队）的创作倾向。通过 `creatorType` 参数区分目标是艺术家（"Artist"）还是乐队（"Band"）。该倾向表现为一个关于音乐曲风的归一化向量，其中每一项是 (GenreID, 倾向度) 的二元组，所有倾向度相加为1.0。
  * @param userID: String (发起请求的用户的ID，用于身份验证。)
  * @param userToken: String (用户的认证令牌。)
- * @param creatorID: String (要分析的创作者（艺术家或乐队）的ID。)
- * @param creatorType: String (创作者的类型。其值为 "Artist" 或 "Band"，用于区分 `creatorID` 指代的是艺术家还是乐队。)
+ * @param creator: CreatorID_Type (创作者的智能ID对象，封装了ID和类型。)
  * @return (Option[Profile], String): (创作者的创作倾向向量, 错误信息)
  */
 case class GetCreatorCreationTendency(
   userID: String,
   userToken: String,
-  creatorID: String,
-  creatorType: String
+  creator: CreatorID_Type
 ) extends API[(Option[Profile], String)](StatisticsServiceCode)
 
 

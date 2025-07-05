@@ -1,4 +1,4 @@
-// 提取时间: 2025-07-04 16:46:32
+// 提取时间: 2025-07-05 13:49:15
 // 源目录: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs
 
 
@@ -392,7 +392,7 @@ desc: 按照实体（artist/band）或曲风筛选歌曲。
 @param userToken: String (用于验证用户身份的令牌。)
 @param entityID: Option[String] (实体（艺术家或乐队）的唯一ID，可选。)
 @param entityType: Option[String] (实体的类型: 'artist' 或 'band'，可选。)
-@param genres: Option[String] (曲风ID列表，可选，表示筛选曲风。)
+@param genres: Option[String] (曲风ID，可选，表示筛选曲风。)
 @return (Option[List[String]], String): (符合条件的歌曲ID列表, 错误信息)
  */
 
@@ -428,6 +428,31 @@ case class GetSongByID(
   userToken: String,
   songID: String
 ) extends API[(Option[Song], String)](MusicServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\GetSongProfile.scala
+// ============================================
+
+
+
+// 类名: GetSongProfile
+
+
+/**
+ * GetSongProfile
+desc: 根据提供的歌曲ID，获取歌曲 profile
+@param userID: String (发起请求的用户ID)
+@param userToken: String (用户的认证令牌)
+@param songID: String (要查询的歌曲的唯一ID)
+@return (Option[Profile], String): (成功时包含歌曲信息，失败时为None；附带操作信息)
+ */
+
+case class GetSongProfile(
+  userID: String,
+  userToken: String,
+  songID: String
+) extends API[(Option[Profile], String)](MusicServiceCode)
 
 
 // ============================================
@@ -654,6 +679,32 @@ case class validateUserMapping(
   userID: String,
   userToken: String
 ) extends API[(Boolean, String)](OrganizeServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetAverageRating.scala
+// ============================================
+
+
+
+// 类名: GetAverageRating
+
+
+/**
+ * GetAverageRating
+desc: 查询一首歌的平均评分。
+该操作会返回一个包含平均评分和评分数量的元组。如果没有评分记录，则返回平均评分为0，评分数量为0。
+@param userID: String (评分用户的ID。)
+@param userToken: String (用户的认证令牌，用于验证身份。)
+@param songID: String (被评分的歌曲的ID。)
+@return ((Double,Int), String): (操作是否成功, 错误信息)
+ */
+
+case class GetAverageRating(
+  userID: String,
+  userToken: String,
+  songID: String,
+) extends API[((Double,Int), String)](StatisticsServiceCode)
 
 
 // ============================================
@@ -920,8 +971,8 @@ case class RateSong(
 
 // ============================================
 // 提取完成!
-// 共扫描 34 个Scala文件
-// 找到 34 个匹配的case class定义
+// 共扫描 36 个Scala文件
+// 找到 36 个匹配的case class定义
 // ============================================
 
 
