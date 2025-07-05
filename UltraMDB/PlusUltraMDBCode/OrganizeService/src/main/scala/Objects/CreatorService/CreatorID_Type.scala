@@ -34,8 +34,29 @@ object CreatorType {
   
   // 为 CreatorType 提供 Circe 编解码器，以便 CreatorID_Type 可以自动派生
   // Circe 会自动将 case object 编码为字符串，例如 "Artist"
-  implicit val creatorTypeEncoder: Encoder[CreatorType] = deriveEncoder
-  implicit val creatorTypeDecoder: Decoder[CreatorType] = deriveDecoder
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[CreatorType] = deriveEncoder
+  private val circeDecoder: Decoder[CreatorType] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[CreatorType] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[CreatorType]() {})) }
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+
+  // Circe + Jackson 兜底的 Encoder
+  given creatorTypeEncoder: Encoder[CreatorType] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given creatorTypeDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
 }
 
 /**
