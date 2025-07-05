@@ -1,5 +1,3 @@
-// uncredited
-
 package Impl
 
 import Common.API.{PlanContext, Planner}
@@ -8,7 +6,7 @@ import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
 import APIs.MusicService.GetSongByID
-import Utils.StatisticsUtils
+// Utils.StatisticsUtils 不再需要，因为缓存更新逻辑已被移除
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
@@ -45,8 +43,7 @@ case class LogPlaybackPlanner(
       // 步骤3: 记录播放行为
       _ <- recordPlayback()
 
-      // 步骤4: 异步更新用户画像缓存（不阻塞主流程）
-      _ <- updateUserPortraitAsync()
+      // 步骤4: 异步更新用户画像的步骤已移除，因为不再有缓存机制
 
     } yield ()
 
@@ -63,12 +60,9 @@ case class LogPlaybackPlanner(
    */
   private def validateUser()(using PlanContext): IO[Unit] = {
     logInfo("正在验证用户身份") >> {
-      validateUserMapping(userID, userToken).send.flatMap { case (isValid, message) =>
-        if (isValid) {
-          logInfo("用户身份验证通过")
-        } else {
-          IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
-        }
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
       }
     }
   }
@@ -78,13 +72,9 @@ case class LogPlaybackPlanner(
    */
   private def validateSong()(using PlanContext): IO[Unit] = {
     logInfo(s"正在验证歌曲 ${songID} 是否存在") >> {
-      GetSongByID(userID, userToken, songID).send.flatMap { case (songOpt, message) =>
-        songOpt match {
-          case Some(_) =>
-            logInfo("歌曲存在性验证通过")
-          case None =>
-            IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
-        }
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
       }
     }
   }
@@ -94,8 +84,9 @@ case class LogPlaybackPlanner(
    */
   private def recordPlayback()(using PlanContext): IO[Unit] = {
     for {
+      // **润色点**: 将获取时间的操作包装在IO中，使其成为一个标准的生成器
+      now <- IO(new DateTime())
       logId <- IO(java.util.UUID.randomUUID().toString)
-      now = new DateTime()
       _ <- logInfo(s"生成播放记录ID: ${logId}")
 
       sql = s"INSERT INTO ${schemaName}.playback_log (log_id, user_id, song_id, play_time) VALUES (?, ?, ?, ?)"
@@ -113,24 +104,12 @@ case class LogPlaybackPlanner(
   }
 
   /**
-   * 步骤4: 异步更新用户画像缓存
-   * 注意：这里使用fire-and-forget方式，不影响主流程
+   * **已移除**: updateUserPortraitAsync 方法已被完全删除，因为它依赖于已不存在的缓存机制。
    */
-  private def updateUserPortraitAsync()(using PlanContext): IO[Unit] = {
-    logInfo("触发用户画像缓存更新") >> {
-      // 使用start来异步执行，不等待完成
-      StatisticsUtils.updateUserPortraitCache(userID)
-        .handleErrorWith { error =>
-          logError("用户画像缓存更新失败", error) >> IO.unit
-        }
-        .start
-        .void
-    }
-  }
 
-  private def logInfo(message: String): IO[Unit] = 
+  private def logInfo(message: String): IO[Unit] =
     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
-    
-  private def logError(message: String, cause: Throwable): IO[Unit] = 
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }

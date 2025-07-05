@@ -1,5 +1,3 @@
-// uncredited
-
 package Impl
 
 import Common.API.{PlanContext, Planner}
@@ -8,6 +6,7 @@ import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
 import APIs.MusicService.GetSongByID
+import APIs.StatisticsService.GetSongRate // 1. 导入我们新定义的API
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
@@ -36,19 +35,10 @@ case class RateSongPlanner(
   override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
     val logic: IO[Unit] = for {
       _ <- logInfo(s"开始处理用户 ${userID} 对歌曲 ${songID} 的评分: ${rating}")
-
-      // 步骤1: 验证评分范围
       _ <- validateRating()
-
-      // 步骤2: 验证用户身份
       _ <- validateUser()
-
-      // 步骤3: 验证歌曲存在性
       _ <- validateSong()
-
-      // 步骤4: 保存或更新评分记录
       _ <- saveRating()
-
     } yield ()
 
     logic.map { _ =>
@@ -59,9 +49,6 @@ case class RateSongPlanner(
     }
   }
 
-  /**
-   * 步骤1: 验证评分范围
-   */
   private def validateRating()(using PlanContext): IO[Unit] = {
     logInfo(s"正在验证评分值: ${rating}") >> {
       if (rating >= 1 && rating <= 5) {
@@ -72,72 +59,60 @@ case class RateSongPlanner(
     }
   }
 
-  /**
-   * 步骤2: 验证用户身份
-   */
   private def validateUser()(using PlanContext): IO[Unit] = {
     logInfo("正在验证用户身份") >> {
-      validateUserMapping(userID, userToken).send.flatMap { case (isValid, message) =>
-        if (isValid) {
-          logInfo("用户身份验证通过")
-        } else {
-          IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
-        }
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
       }
     }
   }
 
-  /**
-   * 步骤3: 验证歌曲存在性
-   */
   private def validateSong()(using PlanContext): IO[Unit] = {
     logInfo(s"正在验证歌曲 ${songID} 是否存在") >> {
-      GetSongByID(userID, userToken, songID).send.flatMap { case (songOpt, message) =>
-        songOpt match {
-          case Some(_) =>
-            logInfo("歌曲存在性验证通过")
-          case None =>
-            IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
-        }
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
       }
     }
   }
 
   /**
    * 步骤4: 保存或更新评分记录
-   * 使用 UPSERT 操作，如果用户已经对该歌曲评分则更新，否则插入新记录
    */
   private def saveRating()(using PlanContext): IO[Unit] = {
     for {
-      now = new DateTime()
-      _ <- logInfo("准备保存评分记录")
+      now <- IO(new DateTime())
+      _ <- logInfo("正在检查用户是否已对该歌曲评过分")
+      existingRatingOpt <- checkExistingRating()
 
-      // 检查是否已存在评分记录
-      existingRating <- checkExistingRating()
-      
-      _ <- existingRating match {
+      _ <- existingRatingOpt match {
         case Some(oldRating) =>
           logInfo(s"更新现有评分记录，原评分: ${oldRating}，新评分: ${rating}") >>
-          updateRating(now)
+            updateRating(now)
         case None =>
           logInfo("插入新的评分记录") >>
-          insertRating(now)
+            insertRating(now)
       }
-      
+
       _ <- logInfo("评分记录已保存")
     } yield ()
   }
 
   /**
-   * 检查是否存在现有评分
+   * **修正点 1: 使用 GetSongRate API 替代直接数据库访问**
+   * 检查是否存在现有评分，封装性更好
    */
   private def checkExistingRating()(using PlanContext): IO[Option[Int]] = {
-    val sql = s"SELECT rating FROM ${schemaName}.song_rating WHERE user_id = ? AND song_id = ?"
-    readDBRows(sql, List(
-      SqlParameter("String", userID),
-      SqlParameter("String", songID)
-    )).map { rows =>
-      rows.headOption.map(row => decodeField[Int](row, "rating"))
+    GetSongRate(
+      userID = this.userID,
+      userToken = this.userToken,
+      targetUserID = this.userID,
+      songID = this.songID
+    ).send.flatMap {
+      case (ratingValue, _) if ratingValue > 0 => IO.pure(Some(ratingValue))
+      case (0, _) => IO.pure(None) // 0 表示未找到评分
+      case (errorValue, message) => IO.raiseError(new Exception(s"检查评分时出错 ($errorValue): $message"))
     }
   }
 
@@ -147,7 +122,8 @@ case class RateSongPlanner(
   private def updateRating(now: DateTime)(using PlanContext): IO[Unit] = {
     val sql = s"UPDATE ${schemaName}.song_rating SET rating = ?, rated_at = ? WHERE user_id = ? AND song_id = ?"
     writeDB(sql, List(
-      SqlParameter("String", rating.toString),
+      // **修正点 2: 使用正确的SQL参数类型**
+      SqlParameter("Int", rating.toString),
       SqlParameter("DateTime", now.getMillis.toString),
       SqlParameter("String", userID),
       SqlParameter("String", songID)
@@ -162,14 +138,15 @@ case class RateSongPlanner(
     writeDB(sql, List(
       SqlParameter("String", userID),
       SqlParameter("String", songID),
-      SqlParameter("String", rating.toString),
+      // **修正点 2: 使用正确的SQL参数类型**
+      SqlParameter("Int", rating.toString),
       SqlParameter("DateTime", now.getMillis.toString)
     )).void
   }
 
-  private def logInfo(message: String): IO[Unit] = 
+  private def logInfo(message: String): IO[Unit] =
     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
-    
-  private def logError(message: String, cause: Throwable): IO[Unit] = 
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }
