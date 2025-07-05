@@ -17,14 +17,14 @@ import io.circe.syntax.*
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 
-case class GetSongList(
+case class GetSongListPlanner(
     userID: String,
     userToken: String,
     override val planContext: PlanContext
-) extends Planner[(Option[List[Song]], String)]{
+) extends Planner[(Option[List[String]], String)]{
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using planContext: PlanContext): IO[(Option[List[Song]], String)] = {
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
     (
       for {
         (isValid,msg) <- validateUserMapping(userID, userToken).send
@@ -42,13 +42,13 @@ case class GetSongList(
   }
 
 
-  private def performSearch(using PlanContext): IO[List[Song]] = {
+  private def performSearch(using PlanContext): IO[List[String]] = {
     readDBRows(
       s"SELECT * FROM ${schemaName}.song_table",
       List.empty[SqlParameter]).flatMap { rows =>
       IO {
-        logger.info(s"Query result count=${rows.length}")
-        rows.map(json => decodeType[Song](json))
+        logger.info(s"[Step 3.1] Query result count=${rows.length}")
+        rows.map(json => decodeField[String](json, "song_id"))
       }
     }
   }
