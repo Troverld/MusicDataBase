@@ -4,22 +4,31 @@ import { useGenres } from '../hooks/useGenres';
 import { useArtistBand } from '../hooks/useArtistBand';
 import { usePermissions, useSongPermission } from '../hooks/usePermissions';
 
-// 标准化创作者类型 - 统一处理大小写问题
-const normalizeCreatorType = (creatorType: string): 'artist' | 'band' => {
-  const normalized = creatorType.toLowerCase();
-  return normalized === 'artist' ? 'artist' : 'band';
-};
-
-// 处理新的 creators 结构（CreatorID_Type[]） - 使用类型信息
+// 处理新的 creators 结构（CreatorID_Type[]） - 直接使用类型信息
 const formatCreatorList = (creators: CreatorID_Type[], nameMap: { [key: string]: string }) => {
   if (!creators || creators.length === 0) return '无';
   
+  console.log('formatCreatorList - creators:', creators);
+  console.log('formatCreatorList - nameMap:', nameMap);
+  
   const names = creators.map(creator => {
-    // 使用组合键：类型-ID，并标准化类型
-    const normalizedType = normalizeCreatorType(creator.creatorType);
-    const key = `${normalizedType}-${creator.id}`;
-    return nameMap[key] || nameMap[creator.id] || creator.id;
+    console.log('Processing creator:', creator, 'type:', typeof creator.creatorType, 'value:', creator.creatorType);
+    
+    // 添加数据验证
+    if (!creator || !creator.id || !creator.creatorType) {
+      console.warn('Invalid creator object:', creator);
+      return creator?.id || 'Unknown';
+    }
+    
+    // 直接使用 creatorType，它应该是 'artist' | 'band' 类型
+    const key = `${creator.creatorType}-${creator.id}`;
+    const result = nameMap[key] || nameMap[creator.id] || creator.id;
+    
+    console.log(`Creator mapping: ${key} -> ${result}`);
+    return result;
   }).filter(name => name);
+  
+  console.log('formatCreatorList result:', names);
   return names.length > 0 ? names.join(', ') : '无';
 };
 
@@ -66,6 +75,9 @@ const SongItem: React.FC<SongItemProps> = ({
 
   const showEditButton = !permissionLoading && (canEdit || isAdmin);
   const showDeleteButton = !permissionLoading && isAdmin;
+
+  // 添加调试信息
+  console.log('SongItem - song:', song.name, 'creators:', song.creators);
 
   return (
     <div className="song-item">
@@ -167,13 +179,17 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
     const untypedIds = new Set<string>();    // 无类型信息的ID（其他字段）
     
     songs.forEach(song => {
+      console.log('Processing song:', song.name, 'creators:', song.creators);
+      
       // 处理 creators 结构（CreatorID_Type[]） - 有类型信息
       if (song.creators) {
         song.creators.forEach(creator => {
+          console.log('Processing creator in getAllCreatorInfo:', creator);
           if (creator.id && creator.id.trim()) {
-            // 标准化类型后存储
-            const normalizedType = normalizeCreatorType(creator.creatorType);
-            typedCreators.add(`${normalizedType}-${creator.id}`);
+            // 直接使用 creatorType，它应该是正确的类型
+            const key = `${creator.creatorType}-${creator.id}`;
+            console.log('Adding typed creator key:', key);
+            typedCreators.add(key);
           }
         });
       }
@@ -187,6 +203,11 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
             untypedIds.add(id);
           }
         });
+    });
+    
+    console.log('getAllCreatorInfo result:', {
+      typedCreators: Array.from(typedCreators),
+      untypedIds: Array.from(untypedIds)
     });
     
     return {
@@ -207,15 +228,29 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
         // 处理有类型信息的创作者
         for (const typedCreator of typedCreators) {
           const [creatorType, id] = typedCreator.split('-', 2);
-          if (!id || !creatorType) continue;
+          if (!id || !creatorType) {
+            console.warn('Invalid typed creator format:', typedCreator);
+            continue;
+          }
           
           try {
-            // creatorType 已经是标准化的小写形式
+            // creatorType 应该是 'artist' 或 'band'
             const type = creatorType as 'artist' | 'band';
+            
+            // 验证类型是否有效
+            if (type !== 'artist' && type !== 'band') {
+              console.warn(`Invalid creator type: ${creatorType} for ${typedCreator}`);
+              continue;
+            }
+            
+            console.log(`Calling getArtistBandsByIds for:`, { id, type });
             const result = await getArtistBandsByIds([{ id, type }]);
+            console.log(`Result for ${typedCreator}:`, result);
+            
             if (result.length > 0) {
               newNameMap[typedCreator] = result[0].name;
               newNameMap[id] = result[0].name; // 也存储不带类型前缀的版本
+              console.log(`Mapped ${typedCreator} -> ${result[0].name}`);
             } else {
               console.warn(`No result for typed creator ${typedCreator}`);
               newNameMap[typedCreator] = id;
@@ -256,6 +291,7 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
           }
         }
         
+        console.log('Final nameMap:', newNameMap);
         setNameMap(newNameMap);
       } catch (error) {
         console.error('Failed to load creator names:', error);

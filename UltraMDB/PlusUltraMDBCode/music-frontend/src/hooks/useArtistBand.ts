@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { artistService } from '../services/artist.service';
 import { bandService } from '../services/band.service';
-import { Artist, Band } from '../types';
+import { Artist, Band, CreatorID_Type } from '../types';
 
 export interface ArtistBandItem {
   id: string;
@@ -10,18 +10,6 @@ export interface ArtistBandItem {
   type: 'artist' | 'band';
   members?: string[]; // 只有乐队才有
 }
-
-// 标准化创作者类型 - 统一处理大小写问题
-const normalizeCreatorType = (creatorType: string): 'artist' | 'band' => {
-  const normalized = creatorType.toLowerCase();
-  return normalized === 'artist' ? 'artist' : 'band';
-};
-
-// 获取创作者类型的中文显示名称
-const getCreatorTypeDisplayName = (creatorType: string): string => {
-  const normalized = normalizeCreatorType(creatorType);
-  return normalized === 'artist' ? '艺术家' : '乐队';
-};
 
 export const useArtistBand = () => {
   const [loading, setLoading] = useState(false);
@@ -230,43 +218,41 @@ export const useArtistBand = () => {
     return results;
   }, [getArtistById, getBandById, searchArtistBand]);
 
-  // 将CreatorID_Type数组转换为选中项目 - 修复类型判断问题
-  const convertCreatorsToSelectedItems = useCallback(async (creators: Array<{creatorType: string, id: string}>): Promise<ArtistBandItem[]> => {
+  // 专门处理 CreatorID_Type[] 到 ArtistBandItem[] 的转换
+  const convertCreatorsToSelectedItems = useCallback(async (creators: CreatorID_Type[]): Promise<ArtistBandItem[]> => {
     if (!creators || creators.length === 0) return [];
     
     const results: ArtistBandItem[] = [];
     
     for (const creator of creators) {
       try {
-        // 使用标准化的类型判断
-        const normalizedType = normalizeCreatorType(creator.creatorType);
+        // 直接使用 creator.creatorType，它已经是类型安全的
         const creatorItem = await getArtistBandsByIds([{
           id: creator.id, 
-          type: normalizedType
+          type: creator.creatorType // 直接使用，无需转换
         }]);
         
         if (creatorItem.length > 0) {
           results.push(creatorItem[0]);
         } else {
-          // 如果找不到，创建警告项目 - 修复类型显示问题
-          const displayName = getCreatorTypeDisplayName(creator.creatorType);
+          // 如果找不到，创建警告项目
+          const displayName = creator.creatorType === 'artist' ? '艺术家' : '乐队';
           results.push({
             id: `not-found-${creator.id}`,
             name: creator.id,
             bio: `警告：无法找到ID为"${creator.id}"的${displayName}，可能是已删除的项目。请重新搜索选择。`,
-            type: normalizedType
+            type: creator.creatorType
           });
         }
       } catch (error) {
         console.warn(`Failed to convert creator to item:`, creator, error);
         // 创建一个错误项目
-        const normalizedType = normalizeCreatorType(creator.creatorType);
-        const displayName = getCreatorTypeDisplayName(creator.creatorType);
+        const displayName = creator.creatorType === 'artist' ? '艺术家' : '乐队';
         results.push({
           id: `error-${creator.id}`,
           name: creator.id,
           bio: `错误：处理"${creator.id}"的${displayName}时发生错误，请重新搜索选择`,
-          type: normalizedType
+          type: creator.creatorType
         });
       }
     }
@@ -339,7 +325,7 @@ export const useArtistBand = () => {
     getBandById,
     getArtistBandsByIds,
     convertIdsToArtistBandItems,
-    convertCreatorsToSelectedItems, // 新增：专门处理 CreatorID_Type 的转换
+    convertCreatorsToSelectedItems, // 专门处理 CreatorID_Type[]
     convertIdsToSelectedItems,      // 处理传统字符串ID数组
     convertArtistBandItemsToIds,
     convertArtistBandItemsToNames,
