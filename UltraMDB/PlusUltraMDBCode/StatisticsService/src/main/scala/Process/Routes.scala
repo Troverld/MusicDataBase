@@ -105,12 +105,12 @@ object Routes:
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSimilarCreators[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
-       
-      // 相似创作者推荐
-      case "GetAverageRating" =>
+
+      // 获取评分
+      case "GetSongRate" =>
         IO(
-          decode[GetAverageRatingPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetAverageRating[${err.getMessage}]")
+          decode[GetSongRatePlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetSongRate[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
 
