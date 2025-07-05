@@ -1,9 +1,10 @@
 package Impl
 
 // External service APIs
-import APIs.CreatorService.{GetArtistByID, SearchAllBelongingBands} // <--- 关键导入
+import APIs.CreatorService.{GetArtistByID, SearchAllBelongingBands}
 import APIs.MusicService.FilterSongsByEntity
 import APIs.OrganizeService.validateAdminMapping
+import Objects.CreatorService.{CreatorID_Type, CreatorType}
 
 // Internal project common libraries
 import Common.API.{PlanContext, Planner}
@@ -74,7 +75,7 @@ case class DeleteArtistMessagePlanner(
 
     // 检查是否被歌曲引用
     val songReferenceCheck: IO[Boolean] =
-      FilterSongsByEntity(adminID, adminToken, entityID = Some(artistID), entityType = Some("artist")).send.map {
+      FilterSongsByEntity(adminID, adminToken, Some(CreatorID_Type(CreatorType.Artist, artistID))).send.map {
         case (Some(songList), _) => songList.nonEmpty
         case _                   => false
       }
