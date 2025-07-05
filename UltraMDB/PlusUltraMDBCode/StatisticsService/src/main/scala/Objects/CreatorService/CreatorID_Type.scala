@@ -32,20 +32,29 @@ object CreatorType {
     case _        => None
   }
   
+  def toString(creatorType: CreatorType): String = creatorType match {
+    case Artist => "artist"
+    case Band => "band"
+  }
+  
   // 为 CreatorType 提供 Circe 编解码器，以便 CreatorID_Type 可以自动派生
   // Circe 会自动将 case object 编码为字符串，例如 "Artist"
   // Circe 默认的 Encoder 和 Decoder
   private val circeEncoder: Encoder[CreatorType] = deriveEncoder
   private val circeDecoder: Decoder[CreatorType] = deriveDecoder
 
-  // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[CreatorType] = Encoder.instance { currentObj =>
-    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  // 自定义 Jackson 编解码器，直接处理字符串转换而不依赖 Jackson 的反射
+  private val jacksonEncoder: Encoder[CreatorType] = Encoder.instance { creatorType =>
+    Json.fromString(toString(creatorType))
   }
 
   private val jacksonDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[CreatorType]() {})) }
-    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+    cursor.as[String].flatMap { typeStr =>
+      fromString(typeStr) match {
+        case Some(creatorType) => Right(creatorType)
+        case None => Left(io.circe.DecodingFailure(s"Invalid CreatorType: $typeStr", cursor.history))
+      }
+    }
   }
 
   // Circe + Jackson 兜底的 Encoder
@@ -97,14 +106,23 @@ case object CreatorID_Type {
   private val circeEncoder: Encoder[CreatorID_Type] = deriveEncoder
   private val circeDecoder: Decoder[CreatorID_Type] = deriveDecoder
 
-  // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[CreatorID_Type] = Encoder.instance { currentObj =>
-    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  // 修复的 Jackson 编解码器 - 不再依赖 JacksonSerializeUtils 的复杂反射
+  private val jacksonEncoder: Encoder[CreatorID_Type] = Encoder.instance { creatorIdType =>
+    Json.obj(
+      "creatorType" -> Json.fromString(CreatorType.toString(creatorIdType.creatorType)),
+      "id" -> Json.fromString(creatorIdType.id)
+    )
   }
 
   private val jacksonDecoder: Decoder[CreatorID_Type] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[CreatorID_Type]() {})) } 
-    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+    for {
+      creatorTypeStr <- cursor.downField("creatorType").as[String]
+      id <- cursor.downField("id").as[String]
+      creatorType <- CreatorType.fromString(creatorTypeStr) match {
+        case Some(ct) => Right(ct)
+        case None => Left(io.circe.DecodingFailure(s"Invalid CreatorType: $creatorTypeStr", cursor.history))
+      }
+    } yield CreatorID_Type(creatorType, id)
   }
   
   // Circe + Jackson 兜底的 Encoder
