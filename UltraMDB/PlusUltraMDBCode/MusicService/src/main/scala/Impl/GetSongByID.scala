@@ -85,24 +85,26 @@ case class GetSongByID(
       List(SqlParameter("String", songID))
     ).flatMap {
       case Some(rawJson) =>
-        // 需要修复的字段名列表
-        val listFields = List("creators", "performers", "lyricists", "composers", "arrangers", "instrumentalists", "genres")
+        val listFields = List(
+          "creators", "performers", "lyricists",
+          "composers", "arrangers", "instrumentalists", "genres"
+        )
 
         val patchedJson = rawJson.mapObject { jsonObj =>
+          // Step 1: 修复数组字段（从 JSON 字符串转成数组）
           val fixedLists = listFields.foldLeft(jsonObj) { case (acc, field) =>
             acc(field) match {
               case Some(jsonVal) if jsonVal.isString =>
-                val jsonStr = jsonVal.asString.getOrElse("[]")
-                io.circe.parser.parse(jsonStr) match {
-                  case Right(arrayJson) if arrayJson.isArray =>
-                    acc.add(field, arrayJson)
+                jsonVal.asString.flatMap(str => io.circe.parser.parse(str).toOption) match {
+                  case Some(parsedJson) if parsedJson.isArray =>
+                    acc.add(field, parsedJson)
                   case _ => acc
                 }
               case _ => acc
             }
           }
 
-          // 修复 releaseTime（从字符串时间戳 -> 数字时间戳）
+          // Step 2: 修复 releaseTime 字段（从字符串转成 Long）
           val fixedTime = fixedLists("releaseTime") match {
             case Some(jsonVal) if jsonVal.isString =>
               jsonVal.asString.flatMap(str => scala.util.Try(str.toLong).toOption) match {
@@ -124,5 +126,6 @@ case class GetSongByID(
         IO.pure((None, "Song not found."))
     }
   }
+
 
 }
