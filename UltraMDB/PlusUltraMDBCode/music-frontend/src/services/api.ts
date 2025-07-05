@@ -3,18 +3,18 @@ import { getToken, getUser } from '../utils/storage';
 import { PlanContext } from '../types';
 
 // 服务端口映射，根据后端ServiceUtils.portMap配置
-const SERVICE_PORTS = {
-  organize: 10011,   // OrganizeService
-  music: 10010,      // MusicService
-  creator: 10012,    // CreatorService
-  track: 10013       // TrackService
-};
 // const SERVICE_PORTS = {
 //   organize: 10011,   // OrganizeService
-//   music: 10011,      // MusicService
-//   creator: 10011,    // CreatorService
-//   track: 10011       // TrackService
+//   music: 10010,      // MusicService
+//   creator: 10012,    // CreatorService
+//   track: 10013       // TrackService
 // };
+const SERVICE_PORTS = {
+  organize: 10011,   // OrganizeService
+  music: 10011,      // MusicService
+  creator: 10011,    // CreatorService
+  track: 10011       // TrackService
+};
 
 // API到服务的映射
 const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {

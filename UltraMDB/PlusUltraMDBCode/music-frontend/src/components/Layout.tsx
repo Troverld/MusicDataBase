@@ -75,9 +75,25 @@ const Layout: React.FC = () => {
             <Link to="/artists">Artists</Link>
             <Link to="/bands">Bands</Link>
             
-            {/* 只有管理员可以看到曲风管理 */}
-            {isAdmin && <Link to="/genres">Genres</Link>}
-            {!isAdmin && !permissionLoading && (
+            {/* 所有已认证用户都可以查看曲风 */}
+            {(isUser || isAdmin) && <Link to="/genres">Genres</Link>}
+            
+            {/* 权限加载中时显示加载状态 */}
+            {permissionLoading && (
+              <span 
+                style={{ 
+                  color: '#6c757d', 
+                  fontSize: '14px',
+                  padding: '8px 12px'
+                }}
+              >
+                <div className="loading-spinner" style={{ marginRight: '4px' }}></div>
+                Loading...
+              </span>
+            )}
+            
+            {/* 权限验证失败时显示禁用状态 */}
+            {!permissionLoading && !isUser && !isAdmin && (
               <span 
                 style={{ 
                   color: '#6c757d', 
@@ -85,7 +101,7 @@ const Layout: React.FC = () => {
                   cursor: 'not-allowed',
                   padding: '8px 12px'
                 }}
-                title="需要管理员权限"
+                title="需要用户权限"
               >
                 Genres
               </span>

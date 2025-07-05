@@ -9,12 +9,23 @@ export const musicService = {
       throw new Error('User not authenticated');
     }
 
+    // 转换 creators 为 CreatorID_Type 格式
+    const convertToCreatorIDType = (creators: string[]) => {
+      return creators.map(creatorId => ({
+        // 假设这些是艺术家ID，如果需要区分艺术家和乐队，需要额外逻辑
+        creatorType: "Artist", // 或根据实际情况判断是 "Artist" 还是 "Band"
+        id: creatorId
+      }));
+    };
+
     const data = {
       userID: user.userID,
       userToken: user.userToken,
       name: songData.name,
-      releaseTime: songData.releaseTime || Date.now(),
-      creators: songData.creators || [],
+      // 转换时间戳为 DateTime 格式（ISO string）
+      releaseTime: new Date(songData.releaseTime || Date.now()).toISOString(),
+      // 转换 creators 为 CreatorID_Type 格式
+      creators: convertToCreatorIDType(songData.creators || []),
       performers: songData.performers || [],
       lyricists: songData.lyricists || [],
       composers: songData.composers || [],
@@ -32,13 +43,24 @@ export const musicService = {
       throw new Error('User not authenticated');
     }
 
+    // 转换 creators 为 CreatorID_Type 格式
+    const convertToCreatorIDType = (creators?: string[]) => {
+      if (!creators) return undefined;
+      return creators.map(creatorId => ({
+        creatorType: "Artist", // 或根据实际情况判断
+        id: creatorId
+      }));
+    };
+
     const data = {
       userID: user.userID,
       userToken: user.userToken,
       songID,
       name: songData.name,
-      releaseTime: songData.releaseTime,
-      creators: songData.creators,
+      // 转换时间戳为 DateTime 格式
+      releaseTime: songData.releaseTime ? new Date(songData.releaseTime).toISOString() : undefined,
+      // 转换 creators 为 CreatorID_Type 格式
+      creators: convertToCreatorIDType(songData.creators),
       performers: songData.performers,
       lyricists: songData.lyricists,
       composers: songData.composers,
@@ -119,5 +141,25 @@ export const musicService = {
     });
     
     return songs;
+  },
+
+  // 新增：按实体筛选歌曲
+  async filterSongsByEntity(creator?: {id: string, type: 'artist' | 'band'}, genreID?: string): Promise<[string[] | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      creator: creator ? {
+        creatorType: creator.type === 'artist' ? 'Artist' : 'Band',
+        id: creator.id
+      } : undefined,
+      genres: genreID
+    };
+
+    return callAPI<[string[] | null, string]>('FilterSongsByEntity', data);
   }
 };

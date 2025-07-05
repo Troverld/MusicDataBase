@@ -44,25 +44,29 @@ const Dashboard: React.FC = () => {
     // 用户权限功能
     if (isUser || isAdmin) {
       features[0].description = '上传新歌曲，编辑自己的歌曲';
-    }
-
-    // 管理员专属功能
-    if (isAdmin) {
+      
+      // 添加曲风功能 - 所有已认证用户都可以访问
       features.push({
         title: '🎼 曲风管理',
-        description: '创建和管理音乐曲风分类',
+        description: isAdmin ? '创建和管理音乐曲风分类' : '查看音乐曲风分类',
         link: '/genres',
         available: true
       });
-      
+    }
+
+    // 管理员专属权限调整
+    if (isAdmin) {
       // 更新其他功能描述
       features[1].description = '创建、编辑和删除艺术家信息';
       features[2].description = '创建、编辑和删除乐队信息';
       features[0].description = '完整的歌曲管理，包括删除权限';
-    } else {
+    }
+
+    // 如果用户未认证，显示受限的曲风功能
+    if (!isUser && !isAdmin && !permissionLoading) {
       features.push({
         title: '🎼 曲风管理',
-        description: '需要管理员权限',
+        description: '需要用户权限',
         link: '/genres',
         available: false
       });
@@ -232,7 +236,7 @@ const Dashboard: React.FC = () => {
         
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
           <p><strong>系统功能:</strong> 本系统支持音乐作品管理、艺术家档案管理、乐队信息管理和曲风分类管理。</p>
-          <p><strong>权限说明:</strong> 不同用户角色拥有不同的操作权限，管理员拥有完整权限，普通用户可管理自己的内容。</p>
+          <p><strong>权限说明:</strong> 不同用户角色拥有不同的操作权限，管理员拥有完整权限，普通用户可管理自己的内容并查看公共信息。</p>
           <p><strong>数据安全:</strong> 所有操作都经过权限验证，确保数据安全和用户隐私。</p>
         </div>
       </div>
