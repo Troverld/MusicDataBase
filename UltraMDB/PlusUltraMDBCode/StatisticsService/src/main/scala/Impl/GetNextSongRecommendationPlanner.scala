@@ -7,7 +7,7 @@ import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
 import APIs.MusicService.{GetSongByID, GetSongProfile, FilterSongsByEntity}
 import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity, GetUserSongRecommendations}
-import Objects.StatisticsService.Profile
+import Objects.StatisticsService.{Dim, Profile}
 import Utils.StatisticsUtils
 import cats.effect.IO
 import cats.implicits._
@@ -30,7 +30,7 @@ case class GetNextSongRecommendationPlanner(
   private val FALLBACK_PAGE_SIZE = 20
   private val PREFERENCE_THRESHOLD = 0.05
   private val SOFTMAX_PREFERENCE_THRESHOLD = 0.2
-  
+
   private type RecommendationStrategy = Set[String] => IO[Option[String]]
 
   override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
@@ -48,7 +48,7 @@ case class GetNextSongRecommendationPlanner(
         recommendByUserTopGenre(userPortrait),
         fallbackRecommendation()
       )
-      
+
       nextSongId <- tryStrategies(strategies, recentPlayedSongs + currentSongID)
     } yield nextSongId
 
@@ -79,17 +79,17 @@ case class GetNextSongRecommendationPlanner(
     logInfo("正在通过API获取用户画像") >>
       GetUserPortrait(userID, userToken).send.flatMap {
         case (Some(portrait), _) => IO.pure(portrait)
-        case (None, msg) => 
+        case (None, msg) =>
           logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >>
-          IO.pure(Profile(List.empty, norm = true))
+            IO.pure(Profile(List.empty, norm = true))
       }
   }
 
   private def getSongGenres(songId: String)(using PlanContext): IO[List[String]] = {
     logInfo(s"正在通过API获取歌曲 ${songId} 的曲风") >>
       GetSongProfile(userID, userToken, songId).send.map {
-        case (Some(profile), _) => profile.vector.map(_._1)
-        case (None, msg) => 
+        case (Some(profile), _) => profile.vector.map(_.GenreID)
+        case (None, msg) =>
           logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg. 将视为空曲风列表。")
           List.empty[String]
       }
@@ -101,7 +101,7 @@ case class GetNextSongRecommendationPlanner(
     readDBRows(sql, List(SqlParameter("String", userID), SqlParameter("Int", RECENT_SONGS_LIMIT.toString)))
       .map(_.map(decodeField[String](_, "song_id")).toSet)
   }
-  
+
   private def tryStrategies(strategies: List[RecommendationStrategy], excludeSongs: Set[String])(using PlanContext): IO[String] = {
     strategies.foldLeft(IO.pure(None: Option[String])) { (acc, strategy) =>
       acc.flatMap {
@@ -114,12 +114,12 @@ case class GetNextSongRecommendationPlanner(
     }
   }
 
-  private def recommendSameGenre(currentGenres: List[String], userPortrait: Profile): RecommendationStrategy = excludeSongs => {
-    val genresWithPreference = currentGenres.flatMap(g => userPortrait.vector.find(_._1 == g))
+  private def recommendSameGenre(currentGenres: List[String], userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
+    val genresWithPreference = currentGenres.flatMap(g => userPortrait.vector.find(_.GenreID == g))
     if (genresWithPreference.isEmpty) {
       logInfo("策略1: 用户对当前曲风无偏好记录，跳过") >> IO.pure(None)
     } else {
-      val avgPreference = genresWithPreference.map(_._2).sum / genresWithPreference.length
+      val avgPreference = genresWithPreference.map(_.value).sum / genresWithPreference.length
       logInfo(s"策略1: 用户对当前曲风的平均偏好度为: $avgPreference")
 
       if (avgPreference >= PREFERENCE_THRESHOLD) {
@@ -137,8 +137,8 @@ case class GetNextSongRecommendationPlanner(
     }
   }
 
-  private def recommendByUserTopGenre(userPortrait: Profile): RecommendationStrategy = excludeSongs => {
-    val highlyLikedGenres = userPortrait.vector.filter(_._2 > SOFTMAX_PREFERENCE_THRESHOLD)
+  private def recommendByUserTopGenre(userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
+    val highlyLikedGenres = userPortrait.vector.filter(_.value > SOFTMAX_PREFERENCE_THRESHOLD)
     if (highlyLikedGenres.isEmpty) {
       logInfo(s"策略2: 用户没有偏好度高于 ${SOFTMAX_PREFERENCE_THRESHOLD} 的曲风，跳过") >> IO.pure(None)
     } else {
@@ -152,31 +152,44 @@ case class GetNextSongRecommendationPlanner(
     }
   }
 
-  private def fallbackRecommendation(): RecommendationStrategy = excludeSongs => {
+  private def fallbackRecommendation()(using PlanContext): RecommendationStrategy = excludeSongs => {
     logInfo("策略3: 启动后备推荐策略")
-    GetUserSongRecommendations(userID, userToken, pageSize = FALLBACK_PAGE_SIZE).send.map {
+    GetUserSongRecommendations(userID, userToken, pageSize = FALLBACK_PAGE_SIZE).send.flatMap {
       case (Some(recommendedIds), _) =>
-        recommendedIds.find(id => !excludeSongs.contains(id))
+        IO.pure(recommendedIds.find(id => !excludeSongs.contains(id)))
       case (None, msg) =>
-        logInfo(s"后备推荐API调用失败: $msg")
-        None
+        logInfo(s"后备推荐API调用失败: $msg").as(None)
     }
   }
 
   private def findSongInGenreByPopularity(genre: String, excludeSongs: Set[String])(using PlanContext): IO[Option[String]] = {
     for {
-      candidateSongsOpt <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send
-      candidates = candidateSongsOpt._1.getOrElse(List.empty)
+      candidateIds <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send.map(_._1.getOrElse(List.empty))
+
+      candidates = candidateIds
         .filterNot(excludeSongs.contains)
         .take(CANDIDATE_SONGS_LIMIT)
-      
+
       songsWithPopularity <- candidates.parTraverse { songId =>
         GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0)))
       }
-      
+
       topSongs = songsWithPopularity.sortBy(-_._2).take(TOP_N_SONGS_FOR_SAMPLING)
-      sampledSong = StatisticsUtils.softmaxSample(topSongs)
-      
+
+      sampledSong <- if (topSongs.isEmpty) {
+        IO.pure(None)
+      } else {
+        val songDims = topSongs.map { case (id, popularity) => Dim(id, popularity) }
+        val songsProfile = Profile(vector = songDims, norm = false)
+        IO.pure(StatisticsUtils.softmaxSample(songsProfile))
+      }
+
     } yield sampledSong
   }
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }

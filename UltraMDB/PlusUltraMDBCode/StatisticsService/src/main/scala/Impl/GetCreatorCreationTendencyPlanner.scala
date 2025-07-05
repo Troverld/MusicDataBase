@@ -7,7 +7,7 @@ import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
 import APIs.CreatorService.{GetArtistByID, GetBandByID}
 import APIs.MusicService.{FilterSongsByEntity, GetSongProfile}
-import Objects.CreatorService.{CreatorID_Type, CreatorType} // 1. 导入新的类型
+import Objects.CreatorService.{CreatorID_Type, CreatorType}
 import Objects.StatisticsService.{Dim, Profile}
 import Utils.StatisticsUtils
 import cats.effect.IO
@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory
 case class GetCreatorCreationTendencyPlanner(
                                               userID: String,
                                               userToken: String,
-                                              creator: CreatorID_Type, // 2. 使用新的 CreatorID_Type
+                                              creator: CreatorID_Type,
                                               override val planContext: PlanContext
                                             ) extends Planner[(Option[Profile], String)] {
 
@@ -34,26 +34,15 @@ case class GetCreatorCreationTendencyPlanner(
 
   override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
     val logic: IO[Profile] = for {
-      // 日志更新
       _ <- logInfo(s"开始获取创作者 ${creator.id} (${creator.creatorType}) 的创作倾向")
-
-      // 步骤1: 验证用户身份
       _ <- validateUser()
-
-      // 步骤2: 验证创作者类型 (此步骤已通过类型系统保证，故移除)
-
-      // 步骤3: 验证创作者存在性
       _ <- validateCreator()
-
-      // 步骤4: 实时计算创作倾向
       tendency <- calculateTendency()
-
     } yield tendency
 
     logic.map { tendency =>
       (Some(tendency), "获取创作倾向成功")
     }.handleErrorWith { error =>
-      // 日志更新
       logError(s"获取创作者 ${creator.id} (${creator.creatorType}) 创作倾向失败", error) >>
         IO.pure((None, error.getMessage))
     }
@@ -74,13 +63,10 @@ case class GetCreatorCreationTendencyPlanner(
     }
   }
 
-  // 3. validateCreatorType 方法已移除，因为类型安全由 CreatorID_Type 保证
-
   /**
    * 步骤3: 验证创作者存在性
    */
   private def validateCreator()(using PlanContext): IO[Unit] = {
-    // 4. 重构验证逻辑，使用 creator 对象
     logInfo(s"正在验证创作者 ${creator.id} 是否存在") >> {
       creator.creatorType match {
         case CreatorType.Artist =>
@@ -105,7 +91,7 @@ case class GetCreatorCreationTendencyPlanner(
       _ <- logInfo("开始实时计算创作倾向")
       songs <- getCreatorSongs()
       _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
-      
+
       profile <- if (songs.isEmpty) {
         logInfo("创作者暂无作品，返回空倾向")
         IO.pure(Profile(List.empty, norm = true))
@@ -121,17 +107,17 @@ case class GetCreatorCreationTendencyPlanner(
 
   /**
    * 获取创作者的所有作品
+   * (已使用最新版本的 FilterSongsByEntity API)
    */
   private def getCreatorSongs()(using PlanContext): IO[List[String]] = {
-    // 5. 重构下游API调用，使用 creator 对象
+    // **修正点**: 使用更新后的 FilterSongsByEntity API
     FilterSongsByEntity(
       userID = userID,
       userToken = userToken,
-      entityID = Some(creator.id),
-      entityType = Some(creator.creatorType.toString.toLowerCase)
+      creator = Some(creator) // 直接传递 creator 对象
     ).send.flatMap {
       case (Some(songs), _) => IO.pure(songs)
-      case (None, message) => 
+      case (None, message) =>
         logInfo(s"获取创作者作品失败: $message. 将视为空列表处理。") >> IO.pure(List.empty)
     }
   }
@@ -158,9 +144,9 @@ case class GetCreatorCreationTendencyPlanner(
     }
   }
 
-  private def logInfo(message: String): IO[Unit] = 
+  private def logInfo(message: String): IO[Unit] =
     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
-    
-  private def logError(message: String, cause: Throwable): IO[Unit] = 
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
 }
