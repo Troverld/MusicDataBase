@@ -13,8 +13,8 @@ const isStringCreator = (creator: any): creator is string => {
   return typeof creator === 'string';
 };
 
-// 处理新的 creators 结构（CreatorID_Type[]）和传统的字符串数组
-const formatCreatorList = (creators: CreatorID_Type[] | string[], nameMap: { [key: string]: string }) => {
+// 处理新的 creators 结构（混合 CreatorID_Type 和 string）和传统的字符串数组
+const formatCreatorList = (creators: (CreatorID_Type | string)[] | string[], nameMap: { [key: string]: string }) => {
   if (!creators || creators.length === 0) return '无';
   
   // 检查是否是新的 CreatorID_Type 结构
@@ -24,8 +24,15 @@ const formatCreatorList = (creators: CreatorID_Type[] | string[], nameMap: { [ke
     const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
     return names.length > 0 ? names.join(', ') : '无';
   } else {
-    // 旧结构：string[]
-    const names = (creators as string[]).map(id => nameMap[id] || id).filter(name => name);
+    // 旧结构或混合结构：需要逐个处理
+    const names: string[] = [];
+    creators.forEach(creator => {
+      if (isCreatorIDType(creator)) {
+        names.push(nameMap[creator.id] || creator.id);
+      } else if (typeof creator === 'string') {
+        names.push(nameMap[creator] || creator);
+      }
+    });
     return names.length > 0 ? names.join(', ') : '无';
   }
 };
@@ -174,19 +181,17 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
     const allIds = new Set<string>();
     
     songs.forEach(song => {
-      // 处理新的 creators 结构（CreatorID_Type[]）
+      // 处理新的 creators 结构（混合 CreatorID_Type 和 string）
       if (song.creators) {
-        song.creators.forEach(creator => {
+        song.creators.forEach((creator: CreatorID_Type | string) => {
           if (isCreatorIDType(creator)) {
             // 新结构：CreatorID_Type
             if (creator.id && creator.id.trim()) {
               allIds.add(creator.id);
             }
-          } else if (isStringCreator(creator)) {
+          } else if (typeof creator === 'string' && creator.trim()) {
             // 旧结构：直接是字符串
-            if (creator.trim()) {
-              allIds.add(creator);
-            }
+            allIds.add(creator);
           }
         });
       }

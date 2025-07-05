@@ -58,7 +58,7 @@ const SongManagement: React.FC = () => {
   }, [dropdownOpen]);
 
   // 将CreatorID_Type数组或字符串ID数组转换为选中项目
-  const convertCreatorsToSelectedItems = async (creators: CreatorID_Type[] | string[]): Promise<ArtistBandItem[]> => {
+  const convertCreatorsToSelectedItems = async (creators: (CreatorID_Type | string)[] | string[]): Promise<ArtistBandItem[]> => {
     if (!creators || creators.length === 0) return [];
     
     const results: ArtistBandItem[] = [];
