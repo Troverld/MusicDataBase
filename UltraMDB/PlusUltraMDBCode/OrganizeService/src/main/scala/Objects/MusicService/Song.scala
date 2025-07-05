@@ -5,33 +5,22 @@ import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.syntax.*
 import io.circe.parser.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import com.fasterxml.jackson.core.`type`.TypeReference
 import Common.Serialize.JacksonSerializeUtils
+import Objects.CreatorService.CreatorID_Type
 
 import scala.util.Try
-
 import org.joda.time.DateTime
+
 import java.util.UUID
 
-
-/**
- * Song
- * desc: 歌曲信息，包括ID、名称、发布时间、创作者、表演者和所属分类
- * @param songID: String (歌曲的唯一ID)
- * @param name: String (歌曲名称)
- * @param releaseTime: DateTime (歌曲的发布时间)
- * @param creators: String (歌曲的创作者)
- * @param performers: String (歌曲的表演者)
- * @param genres: String (歌曲所属的分类)
- */
 
 case class Song(
                  songID: String,
                  name: String,
                  releaseTime: DateTime,
-                 creators: List[String],
+                 creators: List[CreatorID_Type],
                  performers: List[String],
                  lyricists: List[String],
                  arrangers: List[String],
