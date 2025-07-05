@@ -37,7 +37,7 @@ const SongItem: React.FC<SongItemProps> = ({
     if (!creators || creators.length === 0) return '无';
     
     // 检查是否是新的 CreatorID_Type 结构
-    if (creators.length > 0 && typeof creators[0] === 'object' && 'id' in creators[0]) {
+    if (creators.length > 0 && isCreatorIDType(creators[0])) {
       // 新结构：CreatorID_Type[]
       const creatorIds = (creators as CreatorID_Type[]).map(creator => creator.id);
       const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
@@ -160,6 +160,15 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
   // 存储ID到名称的映射
   const [nameMap, setNameMap] = useState<{ [key: string]: string }>({});
 
+  // 类型守卫函数
+  const isCreatorIDType = (creator: any): creator is CreatorID_Type => {
+    return creator && typeof creator === 'object' && 'id' in creator && 'creatorType' in creator;
+  };
+
+  const isStringCreator = (creator: any): creator is string => {
+    return typeof creator === 'string';
+  };
+
   // 获取所有相关的艺术家和乐队ID - 更新以处理新的数据结构
   const getAllCreatorIds = (songs: Song[]) => {
     const allIds = new Set<string>();
@@ -168,14 +177,16 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
       // 处理新的 creators 结构（CreatorID_Type[]）
       if (song.creators) {
         song.creators.forEach(creator => {
-          if (creator && typeof creator === 'object' && 'id' in creator) {
+          if (isCreatorIDType(creator)) {
             // 新结构：CreatorID_Type
-            if (creator.id && typeof creator.id === 'string' && creator.id.trim()) {
+            if (creator.id && creator.id.trim()) {
               allIds.add(creator.id);
             }
-          } else if (typeof creator === 'string' && creator.trim()) {
+          } else if (isStringCreator(creator)) {
             // 旧结构：直接是字符串
-            allIds.add(creator);
+            if (creator.trim()) {
+              allIds.add(creator);
+            }
           }
         });
       }
