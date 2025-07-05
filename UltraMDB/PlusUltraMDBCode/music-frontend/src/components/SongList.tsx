@@ -1,8 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Song } from '../types';
+import { Song, CreatorID_Type } from '../types';
 import { useGenres } from '../hooks/useGenres';
 import { useArtistBand } from '../hooks/useArtistBand';
 import { usePermissions, useSongPermission } from '../hooks/usePermissions';
+
+// 处理新的 creators 结构（CreatorID_Type[]）
+const formatCreatorList = (creators: CreatorID_Type[], nameMap: { [key: string]: string }) => {
+  if (!creators || creators.length === 0) return '无';
+  
+  const names = creators.map(creator => nameMap[creator.id] || creator.id).filter(name => name);
+  return names.length > 0 ? names.join(', ') : '无';
+};
+
+// 处理传统的字符串数组格式的创作者列表
+const formatStringCreatorList = (creatorIds: string[], nameMap: { [key: string]: string }) => {
+  if (!creatorIds || creatorIds.length === 0) return '无';
+  
+  const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
+  return names.length > 0 ? names.join(', ') : '无';
+};
 
 interface SongListProps {
   songs: Song[];
@@ -32,13 +48,6 @@ const SongItem: React.FC<SongItemProps> = ({
     return new Date(timestamp).toLocaleDateString('zh-CN');
   };
 
-  const formatCreatorList = (creatorIds: string[]) => {
-    if (!creatorIds || creatorIds.length === 0) return '无';
-    
-    const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
-    return names.length > 0 ? names.join(', ') : '无';
-  };
-
   const formatGenres = (genreIds: string[]): string[] => {
     if (genreIds.length === 0) return [];
     return getGenreNamesByIds(genreIds);
@@ -53,24 +62,24 @@ const SongItem: React.FC<SongItemProps> = ({
       
       <div style={{ marginBottom: '10px' }}>
         <p><strong>发布时间:</strong> {formatDate(song.releaseTime)}</p>
-        <p><strong>创作者:</strong> {formatCreatorList(song.creators)}</p>
-        <p><strong>演唱者:</strong> {formatCreatorList(song.performers)}</p>
+        <p><strong>创作者:</strong> {formatCreatorList(song.creators, nameMap)}</p>
+        <p><strong>演唱者:</strong> {formatStringCreatorList(song.performers, nameMap)}</p>
       </div>
 
       {song.lyricists && song.lyricists.length > 0 && (
-        <p><strong>作词:</strong> {formatCreatorList(song.lyricists)}</p>
+        <p><strong>作词:</strong> {formatStringCreatorList(song.lyricists, nameMap)}</p>
       )}
       
       {song.composers && song.composers.length > 0 && (
-        <p><strong>作曲:</strong> {formatCreatorList(song.composers)}</p>
+        <p><strong>作曲:</strong> {formatStringCreatorList(song.composers, nameMap)}</p>
       )}
       
       {song.arrangers && song.arrangers.length > 0 && (
-        <p><strong>编曲:</strong> {formatCreatorList(song.arrangers)}</p>
+        <p><strong>编曲:</strong> {formatStringCreatorList(song.arrangers, nameMap)}</p>
       )}
       
       {song.instrumentalists && song.instrumentalists.length > 0 && (
-        <p><strong>演奏:</strong> {formatCreatorList(song.instrumentalists)}</p>
+        <p><strong>演奏:</strong> {formatStringCreatorList(song.instrumentalists, nameMap)}</p>
       )}
 
       <div style={{ marginTop: '10px' }}>
@@ -147,11 +156,21 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
     const allIds = new Set<string>();
     
     songs.forEach(song => {
-      [...(song.creators || []), ...(song.performers || []), 
+      // 处理 creators 结构（CreatorID_Type[]）
+      if (song.creators) {
+        song.creators.forEach(creator => {
+          if (creator.id && creator.id.trim()) {
+            allIds.add(creator.id);
+          }
+        });
+      }
+      
+      // 处理其他字段（仍然是字符串数组）
+      [...(song.performers || []), 
        ...(song.lyricists || []), ...(song.composers || []), 
        ...(song.arrangers || []), ...(song.instrumentalists || [])]
         .forEach(id => {
-          if (id && id.trim()) {
+          if (id && typeof id === 'string' && id.trim()) {
             allIds.add(id);
           }
         });

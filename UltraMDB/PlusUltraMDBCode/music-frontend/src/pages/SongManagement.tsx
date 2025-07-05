@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { musicService } from '../services/music.service';
-import { Song } from '../types';
+import { Song, CreatorID_Type } from '../types';
 import SongList from '../components/SongList';
 import { useGenres } from '../hooks/useGenres';
 import { useArtistBand, ArtistBandItem } from '../hooks/useArtistBand';
@@ -57,7 +57,47 @@ const SongManagement: React.FC = () => {
     };
   }, [dropdownOpen]);
 
-  // 将艺术家/乐队ID转换为选中项目
+  // 将CreatorID_Type数组转换为选中项目
+  const convertCreatorsToSelectedItems = async (creators: CreatorID_Type[]): Promise<ArtistBandItem[]> => {
+    if (!creators || creators.length === 0) return [];
+    
+    const results: ArtistBandItem[] = [];
+    
+    for (const creator of creators) {
+      try {
+        // 处理 CreatorID_Type 格式
+        const creatorItem = await getArtistBandsByIds([{
+          id: creator.id, 
+          type: creator.creatorType as 'artist' | 'band'
+        }]);
+        
+        if (creatorItem.length > 0) {
+          results.push(creatorItem[0]);
+        } else {
+          // 如果找不到，创建警告项目
+          results.push({
+            id: `not-found-${creator.id}`,
+            name: creator.id,
+            bio: `警告：无法找到ID为"${creator.id}"的${creator.creatorType === 'artist' ? '艺术家' : '乐队'}，可能是已删除的项目。请重新搜索选择。`,
+            type: creator.creatorType as 'artist' | 'band'
+          });
+        }
+      } catch (error) {
+        console.warn(`Failed to convert creator to item:`, creator, error);
+        // 创建一个错误项目
+        results.push({
+          id: `error-${creator.id}`,
+          name: creator.id,
+          bio: `错误：处理"${creator.id}"时发生错误，请重新搜索选择`,
+          type: 'artist'
+        });
+      }
+    }
+    
+    return results;
+  };
+
+  // 将字符串ID数组转换为选中项目（用于处理传统的字符串数组字段）
   const convertIdsToSelectedItems = async (ids: string[]): Promise<ArtistBandItem[]> => {
     if (!ids || ids.length === 0) return [];
     
@@ -67,8 +107,9 @@ const SongManagement: React.FC = () => {
       if (!id.trim()) continue;
       
       try {
-        // 首先尝试作为艺术家ID获取
         let found = false;
+        
+        // 首先尝试作为艺术家ID获取
         try {
           const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
           if (artistItems.length > 0) {
@@ -92,12 +133,12 @@ const SongManagement: React.FC = () => {
           }
         }
         
-        // 如果都找不到，可能是旧数据中存储的是名称，尝试搜索
+        // 如果都找不到，可能是存储的是名称，尝试搜索
         if (!found) {
           try {
             const searchResults = await searchArtistBand(id, 'both');
             const exactMatch = searchResults.find(item => 
-              item.name.toLowerCase() === id.trim().toLowerCase()
+              item.name.toLowerCase() === id.toLowerCase()
             );
             
             if (exactMatch) {
@@ -114,7 +155,7 @@ const SongManagement: React.FC = () => {
           results.push({
             id: `not-found-${id}`,
             name: id,
-            bio: `警告：无法找到ID为"${id}"的艺术家或乐队，可能是旧数据或已删除的项目。请重新搜索选择。`,
+            bio: `警告：无法找到ID为"${id}"的艺术家或乐队，可能是已删除的项目。请重新搜索选择。`,
             type: 'artist'
           });
         }
@@ -193,7 +234,7 @@ const SongManagement: React.FC = () => {
     // 转换现有的ID列表为选中项目
     try {
       const [creators, performers, lyricists, composers, arrangers, instrumentalists] = await Promise.all([
-        convertIdsToSelectedItems(song.creators || []),
+        convertCreatorsToSelectedItems(song.creators || []), // 处理 CreatorID_Type[]
         convertIdsToSelectedItems(song.performers || []),
         convertIdsToSelectedItems(song.lyricists || []),
         convertIdsToSelectedItems(song.composers || []),
@@ -215,7 +256,7 @@ const SongManagement: React.FC = () => {
       );
       
       if (notFoundItems.length > 0) {
-        setError(`警告：有 ${notFoundItems.length} 个创作者信息无法准确匹配，可能是旧数据或已删除的项目。请检查并重新选择相关项目。`);
+        setError(`警告：有 ${notFoundItems.length} 个创作者信息无法准确匹配，可能是已删除的项目。请检查并重新选择相关项目。`);
       }
       
     } catch (error) {
@@ -696,7 +737,7 @@ const SongManagement: React.FC = () => {
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 歌曲管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
           <p><strong>权限说明:</strong> 只有注册用户可以上传歌曲，用户只能编辑自己上传的歌曲，管理员拥有所有权限。</p>
-          <p><strong>智能显示:</strong> 歌曲列表现在显示艺术家和乐队的名称，而不是ID，提供更好的用户体验。</p>
+          <p><strong>智能显示:</strong> 歌曲列表显示艺术家和乐队的名称，而不是ID，提供更好的用户体验。</p>
           <p><strong>智能选择:</strong> 通过搜索选择艺术家和乐队，系统会自动使用 ID 进行匹配，避免重名问题。</p>
           <p><strong>创作者与演唱者:</strong> 支持选择艺术家或乐队，系统会显示类型和简介供您参考。</p>
           <p><strong>专业角色:</strong> 作词、作曲、编曲、演奏等角色通常由个人艺术家担任，因此只能选择艺术家。</p>
