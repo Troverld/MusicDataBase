@@ -4,11 +4,15 @@ import { useGenres } from '../hooks/useGenres';
 import { useArtistBand } from '../hooks/useArtistBand';
 import { usePermissions, useSongPermission } from '../hooks/usePermissions';
 
-// 处理新的 creators 结构（CreatorID_Type[]）
+// 处理新的 creators 结构（CreatorID_Type[]） - 使用类型信息
 const formatCreatorList = (creators: CreatorID_Type[], nameMap: { [key: string]: string }) => {
   if (!creators || creators.length === 0) return '无';
   
-  const names = creators.map(creator => nameMap[creator.id] || creator.id).filter(name => name);
+  const names = creators.map(creator => {
+    // 使用组合键：类型-ID
+    const key = `${creator.creatorType}-${creator.id}`;
+    return nameMap[key] || nameMap[creator.id] || creator.id;
+  }).filter(name => name);
   return names.length > 0 ? names.join(', ') : '无';
 };
 
@@ -54,7 +58,7 @@ const SongItem: React.FC<SongItemProps> = ({
   };
 
   const showEditButton = !permissionLoading && (canEdit || isAdmin);
-  const showDeleteButton = !permissionLoading && isAdmin; // 只有管理员可以删除
+  const showDeleteButton = !permissionLoading && isAdmin;
 
   return (
     <div className="song-item">
@@ -101,7 +105,6 @@ const SongItem: React.FC<SongItemProps> = ({
         </p>
       )}
 
-      {/* 权限相关的提示信息 */}
       {permissionLoading && (
         <div className="permission-warning">
           <div className="loading-spinner"></div>
@@ -151,32 +154,36 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
   // 存储ID到名称的映射
   const [nameMap, setNameMap] = useState<{ [key: string]: string }>({});
 
-  // 获取所有相关的艺术家和乐队ID
-  const getAllCreatorIds = (songs: Song[]) => {
-    const allIds = new Set<string>();
+  // 获取所有相关的艺术家和乐队ID，区分有类型信息和无类型信息的
+  const getAllCreatorInfo = (songs: Song[]) => {
+    const typedCreators = new Set<string>(); // 有类型信息的创作者（creators字段）
+    const untypedIds = new Set<string>();    // 无类型信息的ID（其他字段）
     
     songs.forEach(song => {
-      // 处理 creators 结构（CreatorID_Type[]）
+      // 处理 creators 结构（CreatorID_Type[]） - 有类型信息
       if (song.creators) {
         song.creators.forEach(creator => {
           if (creator.id && creator.id.trim()) {
-            allIds.add(creator.id);
+            typedCreators.add(`${creator.creatorType}-${creator.id}`);
           }
         });
       }
       
-      // 处理其他字段（仍然是字符串数组）
+      // 处理其他字段（仍然是字符串数组） - 无类型信息
       [...(song.performers || []), 
        ...(song.lyricists || []), ...(song.composers || []), 
        ...(song.arrangers || []), ...(song.instrumentalists || [])]
         .forEach(id => {
           if (id && typeof id === 'string' && id.trim()) {
-            allIds.add(id);
+            untypedIds.add(id);
           }
         });
     });
     
-    return Array.from(allIds);
+    return {
+      typedCreators: Array.from(typedCreators),
+      untypedIds: Array.from(untypedIds)
+    };
   };
 
   // 加载所有创作者名称
@@ -184,39 +191,55 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
     const loadCreatorNames = async () => {
       if (songs.length === 0) return;
       
-      const creatorIds = getAllCreatorIds(songs);
-      if (creatorIds.length === 0) return;
+      const { typedCreators, untypedIds } = getAllCreatorInfo(songs);
+      const newNameMap: { [key: string]: string } = {};
 
       try {
-        // 尝试将ID识别为艺术家或乐队
-        const creatorItems = await Promise.all(
-          creatorIds.map(async (id) => {
-            try {
-              // 首先尝试作为艺术家ID获取
-              const artistResult = await getArtistBandsByIds([{id, type: 'artist'}]);
-              if (artistResult.length > 0) {
-                return { id, name: artistResult[0].name };
-              }
-              
-              // 如果不是艺术家，尝试作为乐队ID获取
-              const bandResult = await getArtistBandsByIds([{id, type: 'band'}]);
-              if (bandResult.length > 0) {
-                return { id, name: bandResult[0].name };
-              }
-              
-              // 如果都不是，返回ID本身（可能已经是名称）
-              return { id, name: id };
-            } catch (error) {
-              console.warn(`Failed to resolve creator ${id}:`, error);
-              return { id, name: id };
+        // 处理有类型信息的创作者
+        for (const typedCreator of typedCreators) {
+          const [creatorType, id] = typedCreator.split('-', 2);
+          if (!id || !creatorType) continue;
+          
+          try {
+            const type = creatorType.toLowerCase() === 'artist' ? 'artist' : 'band';
+            const result = await getArtistBandsByIds([{ id, type }]);
+            if (result.length > 0) {
+              newNameMap[typedCreator] = result[0].name;
+              newNameMap[id] = result[0].name; // 也存储不带类型前缀的版本
             }
-          })
-        );
+          } catch (error) {
+            console.warn(`Failed to resolve typed creator ${typedCreator}:`, error);
+            newNameMap[typedCreator] = id;
+            newNameMap[id] = id;
+          }
+        }
 
-        const newNameMap: { [key: string]: string } = {};
-        creatorItems.forEach(item => {
-          newNameMap[item.id] = item.name;
-        });
+        // 处理无类型信息的ID（需要猜测类型）
+        for (const id of untypedIds) {
+          if (newNameMap[id]) continue; // 如果已经从有类型信息的创作者中获取了，跳过
+          
+          try {
+            // 首先尝试作为艺术家ID获取
+            const artistResult = await getArtistBandsByIds([{id, type: 'artist'}]);
+            if (artistResult.length > 0) {
+              newNameMap[id] = artistResult[0].name;
+              continue;
+            }
+            
+            // 如果不是艺术家，尝试作为乐队ID获取
+            const bandResult = await getArtistBandsByIds([{id, type: 'band'}]);
+            if (bandResult.length > 0) {
+              newNameMap[id] = bandResult[0].name;
+              continue;
+            }
+            
+            // 如果都不是，返回ID本身（可能已经是名称）
+            newNameMap[id] = id;
+          } catch (error) {
+            console.warn(`Failed to resolve untyped creator ${id}:`, error);
+            newNameMap[id] = id;
+          }
+        }
         
         setNameMap(newNameMap);
       } catch (error) {
