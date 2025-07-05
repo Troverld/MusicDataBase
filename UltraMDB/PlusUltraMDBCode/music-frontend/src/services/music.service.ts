@@ -1,6 +1,7 @@
 import { callAPI } from './api';
 import { Song } from '../types';
 import { getUser } from '../utils/storage';
+import { ArtistBandItem } from '../hooks/useArtistBand';
 
 export const musicService = {
   async uploadSong(songData: any): Promise<[string | null, string]> {
@@ -10,7 +11,7 @@ export const musicService = {
     }
 
     // 转换 ArtistBandItem[] 为 CreatorID_Type[] 格式
-    const convertToCreatorIDType = (items: any[]) => {
+    const convertToCreatorIDType = (items: ArtistBandItem[]) => {
       if (!items || items.length === 0) return [];
       return items.map(item => ({
         creatorType: item.type === 'artist' ? 'Artist' : 'Band',
@@ -47,18 +48,18 @@ export const musicService = {
       // 智能转换 creators
       creators: smartConvertCreators(songData.creators),
       // performers 也可能包含乐队，同样智能转换
-      performers: smartConvertCreators(songData.performers)?.map(item => item.id) || [],
+      performers: smartConvertCreators(songData.performers)?.map((item: any) => item.id) || [],
       // 以下角色通常只有艺术家
-      lyricists: Array.isArray(songData.lyricists) ? songData.lyricists.map(item => 
+      lyricists: Array.isArray(songData.lyricists) ? songData.lyricists.map((item: ArtistBandItem | string) => 
         typeof item === 'object' ? item.id : item
       ) : [],
-      composers: Array.isArray(songData.composers) ? songData.composers.map(item => 
+      composers: Array.isArray(songData.composers) ? songData.composers.map((item: ArtistBandItem | string) => 
         typeof item === 'object' ? item.id : item
       ) : [],
-      arrangers: Array.isArray(songData.arrangers) ? songData.arrangers.map(item => 
+      arrangers: Array.isArray(songData.arrangers) ? songData.arrangers.map((item: ArtistBandItem | string) => 
         typeof item === 'object' ? item.id : item
       ) : [],
-      instrumentalists: Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map(item => 
+      instrumentalists: Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map((item: ArtistBandItem | string) => 
         typeof item === 'object' ? item.id : item
       ) : [],
       genres: songData.genres || []
@@ -78,7 +79,7 @@ export const musicService = {
       if (!data || data.length === 0) return undefined;
       // 如果是 ArtistBandItem[] 格式（有 type 属性）
       if (data[0] && typeof data[0] === 'object' && data[0].type) {
-        return data.map((item: any) => ({
+        return data.map((item: ArtistBandItem) => ({
           creatorType: item.type === 'artist' ? 'Artist' : 'Band',
           id: item.id
         }));
@@ -101,28 +102,28 @@ export const musicService = {
       creators: songData.creators ? smartConvertCreators(songData.creators) : undefined,
       // performers 也智能转换，但后端期望的是 string[]
       performers: songData.performers ? (
-        Array.isArray(songData.performers) ? songData.performers.map((item: any) => 
+        Array.isArray(songData.performers) ? songData.performers.map((item: ArtistBandItem | string) => 
           typeof item === 'object' ? item.id : item
         ) : songData.performers
       ) : undefined,
       // 以下角色转换为 string[]
       lyricists: songData.lyricists ? (
-        Array.isArray(songData.lyricists) ? songData.lyricists.map((item: any) => 
+        Array.isArray(songData.lyricists) ? songData.lyricists.map((item: ArtistBandItem | string) => 
           typeof item === 'object' ? item.id : item
         ) : songData.lyricists
       ) : undefined,
       composers: songData.composers ? (
-        Array.isArray(songData.composers) ? songData.composers.map((item: any) => 
+        Array.isArray(songData.composers) ? songData.composers.map((item: ArtistBandItem | string) => 
           typeof item === 'object' ? item.id : item
         ) : songData.composers
       ) : undefined,
       arrangers: songData.arrangers ? (
-        Array.isArray(songData.arrangers) ? songData.arrangers.map((item: any) => 
+        Array.isArray(songData.arrangers) ? songData.arrangers.map((item: ArtistBandItem | string) => 
           typeof item === 'object' ? item.id : item
         ) : songData.arrangers
       ) : undefined,
       instrumentalists: songData.instrumentalists ? (
-        Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map((item: any) => 
+        Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map((item: ArtistBandItem | string) => 
           typeof item === 'object' ? item.id : item
         ) : songData.instrumentalists
       ) : undefined,
