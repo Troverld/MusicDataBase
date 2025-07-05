@@ -1,6 +1,6 @@
 // uncredited
 
-ackage Impl
+package Impl
 
 import Common.API.{PlanContext, Planner}
 import Common.DBAPI._
