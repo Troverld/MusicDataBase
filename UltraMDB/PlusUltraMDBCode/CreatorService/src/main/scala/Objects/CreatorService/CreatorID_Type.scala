@@ -37,18 +37,13 @@ object CreatorType {
     case Band => "band"
   }
   
-  // 为 CreatorType 提供 Circe 编解码器，以便 CreatorID_Type 可以自动派生
-  // Circe 会自动将 case object 编码为字符串，例如 "Artist"
-  // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[CreatorType] = deriveEncoder
-  private val circeDecoder: Decoder[CreatorType] = deriveDecoder
-
-  // 自定义 Jackson 编解码器，直接处理字符串转换而不依赖 Jackson 的反射
-  private val jacksonEncoder: Encoder[CreatorType] = Encoder.instance { creatorType =>
-    Json.fromString(toString(creatorType))
+  // 为 CreatorType 提供一致的小写编解码器
+  // 强制使用自定义编码器，确保始终返回小写
+  private val customEncoder: Encoder[CreatorType] = Encoder.instance { creatorType =>
+    Json.fromString(toString(creatorType)) // 始终使用 toString 方法，确保小写
   }
 
-  private val jacksonDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
+  private val customDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
     cursor.as[String].flatMap { typeStr =>
       fromString(typeStr) match {
         case Some(creatorType) => Right(creatorType)
@@ -57,15 +52,9 @@ object CreatorType {
     }
   }
 
-  // Circe + Jackson 兜底的 Encoder
-  given creatorTypeEncoder: Encoder[CreatorType] = Encoder.instance { config =>
-    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
-  }
-
-  // Circe + Jackson 兜底的 Decoder
-  given creatorTypeDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
-    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
-  }
+  // 使用统一的编解码器，不再使用 Circe 的自动派生
+  given creatorTypeEncoder: Encoder[CreatorType] = customEncoder
+  given creatorTypeDecoder: Decoder[CreatorType] = customDecoder
 }
 
 /**
@@ -84,11 +73,6 @@ case class CreatorID_Type (creatorType: CreatorType, id: String) {
   //process class code 预留标志位，不要删除
 }
 
-/**
- * 说明：您的示例中使用了 case object 作为伴生对象，但在Scala中，
- * 为了让编译器能自动找到隐式参数（如编解码器），
- * case class 的伴生对象应为普通的 object。此处我遵循了标准的Scala实践。
- */
 case object CreatorID_Type {
   // --- 工厂方法，用于安全创建 ---
   def apply(idType: String, id: String): Try[CreatorID_Type] =
@@ -100,21 +84,17 @@ case object CreatorID_Type {
   def artist(id: String): CreatorID_Type = new CreatorID_Type(CreatorType.Artist, id)
   def band(id: String): CreatorID_Type = new CreatorID_Type(CreatorType.Band, id)
 
-  // --- 完全复制您的 Circe + Jackson 兜底序列化策略 ---
+  // --- 使用统一的编解码策略，确保一致性 ---
 
-  // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[CreatorID_Type] = deriveEncoder
-  private val circeDecoder: Decoder[CreatorID_Type] = deriveDecoder
-
-  // 修复的 Jackson 编解码器 - 不再依赖 JacksonSerializeUtils 的复杂反射
-  private val jacksonEncoder: Encoder[CreatorID_Type] = Encoder.instance { creatorIdType =>
+  // 使用自定义编解码器，确保 creatorType 字段始终是小写
+  private val customEncoder: Encoder[CreatorID_Type] = Encoder.instance { creatorIdType =>
     Json.obj(
       "creatorType" -> Json.fromString(CreatorType.toString(creatorIdType.creatorType)),
       "id" -> Json.fromString(creatorIdType.id)
     )
   }
 
-  private val jacksonDecoder: Decoder[CreatorID_Type] = Decoder.instance { cursor =>
+  private val customDecoder: Decoder[CreatorID_Type] = Decoder.instance { cursor =>
     for {
       creatorTypeStr <- cursor.downField("creatorType").as[String]
       id <- cursor.downField("id").as[String]
@@ -125,15 +105,9 @@ case object CreatorID_Type {
     } yield CreatorID_Type(creatorType, id)
   }
   
-  // Circe + Jackson 兜底的 Encoder
-  given CreatorID_TypeEncoder: Encoder[CreatorID_Type] = Encoder.instance { config =>
-    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
-  }
-
-  // Circe + Jackson 兜底的 Decoder
-  given CreatorID_TypeDecoder: Decoder[CreatorID_Type] = Decoder.instance { cursor =>
-    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
-  }
+  // 使用统一的编解码器，不再提供后备方案
+  given CreatorID_TypeEncoder: Encoder[CreatorID_Type] = customEncoder
+  given CreatorID_TypeDecoder: Decoder[CreatorID_Type] = customDecoder
   
   //process object code 预留标志位，不要删除
 }
