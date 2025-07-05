@@ -43,8 +43,8 @@ export const musicService = {
       userID: user.userID,
       userToken: user.userToken,
       name: songData.name,
-      // 转换时间戳为 DateTime 格式（ISO string）
-      releaseTime: new Date(songData.releaseTime || Date.now()).toISOString(),
+      // 转换为时间戳（Long 类型）
+      releaseTime: songData.releaseTime || Date.now(),
       // 智能转换 creators
       creators: smartConvertCreators(songData.creators),
       // performers 也可能包含乐队，同样智能转换
@@ -96,8 +96,8 @@ export const musicService = {
       userToken: user.userToken,
       songID,
       name: songData.name,
-      // 转换时间戳为 DateTime 格式
-      releaseTime: songData.releaseTime ? new Date(songData.releaseTime).toISOString() : undefined,
+      // 转换为时间戳（Long 类型）
+      releaseTime: songData.releaseTime ? (typeof songData.releaseTime === 'number' ? songData.releaseTime : new Date(songData.releaseTime).getTime()) : undefined,
       // 智能转换 creators
       creators: songData.creators ? smartConvertCreators(songData.creators) : undefined,
       // performers 也智能转换，但后端期望的是 string[]
