@@ -314,14 +314,14 @@ const SongManagement: React.FC = () => {
     const songData = {
       name: formData.name,
       releaseTime: new Date(formData.releaseTime).getTime(),
-      // 传递 ID 而不是名称
-      creators: selectedCreators.map(item => item.id),
-      performers: selectedPerformers.map(item => item.id),
-      lyricists: selectedLyricists.map(item => item.id),
-      composers: selectedComposers.map(item => item.id),
-      arrangers: selectedArrangers.map(item => item.id),
-      instrumentalists: selectedInstrumentalists.map(item => item.id),
-      genres: Array.from(selectedGenresSet) // 曲风已经是ID列表
+      // 直接传递 ArtistBandItem[] 给 service，保留类型信息
+      creators: selectedCreators, // ArtistBandItem[]
+      performers: selectedPerformers, // ArtistBandItem[]
+      lyricists: selectedLyricists, // ArtistBandItem[]
+      composers: selectedComposers, // ArtistBandItem[]
+      arrangers: selectedArrangers, // ArtistBandItem[]
+      instrumentalists: selectedInstrumentalists, // ArtistBandItem[]
+      genres: Array.from(selectedGenresSet) // 曲风仍然是 string[]
     };
 
     try {

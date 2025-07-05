@@ -3,19 +3,39 @@ import { Song } from '../types';
 import { getUser } from '../utils/storage';
 
 export const musicService = {
-  async uploadSong(songData: Partial<Song>): Promise<[string | null, string]> {
+  async uploadSong(songData: any): Promise<[string | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
 
-    // 转换 creators 为 CreatorID_Type 格式
-    const convertToCreatorIDType = (creators: string[]) => {
-      return creators.map(creatorId => ({
-        // 假设这些是艺术家ID，如果需要区分艺术家和乐队，需要额外逻辑
-        creatorType: "Artist", // 或根据实际情况判断是 "Artist" 还是 "Band"
-        id: creatorId
+    // 转换 ArtistBandItem[] 为 CreatorID_Type[] 格式
+    const convertToCreatorIDType = (items: any[]) => {
+      if (!items || items.length === 0) return [];
+      return items.map(item => ({
+        creatorType: item.type === 'artist' ? 'Artist' : 'Band',
+        id: item.id
       }));
+    };
+
+    // 转换 string[] 为 CreatorID_Type[] 格式（向后兼容）
+    const convertStringArrayToCreatorIDType = (ids: string[]) => {
+      if (!ids || ids.length === 0) return [];
+      return ids.map(id => ({
+        creatorType: 'Artist', // 默认为艺术家
+        id: id
+      }));
+    };
+
+    // 智能判断数据格式并转换
+    const smartConvertCreators = (data: any) => {
+      if (!data || data.length === 0) return [];
+      // 如果是 ArtistBandItem[] 格式（有 type 属性）
+      if (data[0] && typeof data[0] === 'object' && data[0].type) {
+        return convertToCreatorIDType(data);
+      }
+      // 如果是 string[] 格式
+      return convertStringArrayToCreatorIDType(data);
     };
 
     const data = {
@@ -24,31 +44,49 @@ export const musicService = {
       name: songData.name,
       // 转换时间戳为 DateTime 格式（ISO string）
       releaseTime: new Date(songData.releaseTime || Date.now()).toISOString(),
-      // 转换 creators 为 CreatorID_Type 格式
-      creators: convertToCreatorIDType(songData.creators || []),
-      performers: songData.performers || [],
-      lyricists: songData.lyricists || [],
-      composers: songData.composers || [],
-      arrangers: songData.arrangers || [],
-      instrumentalists: songData.instrumentalists || [],
+      // 智能转换 creators
+      creators: smartConvertCreators(songData.creators),
+      // performers 也可能包含乐队，同样智能转换
+      performers: smartConvertCreators(songData.performers)?.map(item => item.id) || [],
+      // 以下角色通常只有艺术家
+      lyricists: Array.isArray(songData.lyricists) ? songData.lyricists.map(item => 
+        typeof item === 'object' ? item.id : item
+      ) : [],
+      composers: Array.isArray(songData.composers) ? songData.composers.map(item => 
+        typeof item === 'object' ? item.id : item
+      ) : [],
+      arrangers: Array.isArray(songData.arrangers) ? songData.arrangers.map(item => 
+        typeof item === 'object' ? item.id : item
+      ) : [],
+      instrumentalists: Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map(item => 
+        typeof item === 'object' ? item.id : item
+      ) : [],
       genres: songData.genres || []
     };
 
     return callAPI<[string | null, string]>('UploadNewSong', data);
   },
 
-  async updateSong(songID: string, songData: Partial<Song>): Promise<[boolean, string]> {
+  async updateSong(songID: string, songData: any): Promise<[boolean, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
 
-    // 转换 creators 为 CreatorID_Type 格式
-    const convertToCreatorIDType = (creators?: string[]) => {
-      if (!creators) return undefined;
-      return creators.map(creatorId => ({
-        creatorType: "Artist", // 或根据实际情况判断
-        id: creatorId
+    // 智能判断数据格式并转换（复用上面的逻辑）
+    const smartConvertCreators = (data: any) => {
+      if (!data || data.length === 0) return undefined;
+      // 如果是 ArtistBandItem[] 格式（有 type 属性）
+      if (data[0] && typeof data[0] === 'object' && data[0].type) {
+        return data.map((item: any) => ({
+          creatorType: item.type === 'artist' ? 'Artist' : 'Band',
+          id: item.id
+        }));
+      }
+      // 如果是 string[] 格式
+      return data.map((id: string) => ({
+        creatorType: 'Artist', // 默认为艺术家
+        id: id
       }));
     };
 
@@ -59,13 +97,35 @@ export const musicService = {
       name: songData.name,
       // 转换时间戳为 DateTime 格式
       releaseTime: songData.releaseTime ? new Date(songData.releaseTime).toISOString() : undefined,
-      // 转换 creators 为 CreatorID_Type 格式
-      creators: convertToCreatorIDType(songData.creators),
-      performers: songData.performers,
-      lyricists: songData.lyricists,
-      composers: songData.composers,
-      arrangers: songData.arrangers,
-      instrumentalists: songData.instrumentalists,
+      // 智能转换 creators
+      creators: songData.creators ? smartConvertCreators(songData.creators) : undefined,
+      // performers 也智能转换，但后端期望的是 string[]
+      performers: songData.performers ? (
+        Array.isArray(songData.performers) ? songData.performers.map((item: any) => 
+          typeof item === 'object' ? item.id : item
+        ) : songData.performers
+      ) : undefined,
+      // 以下角色转换为 string[]
+      lyricists: songData.lyricists ? (
+        Array.isArray(songData.lyricists) ? songData.lyricists.map((item: any) => 
+          typeof item === 'object' ? item.id : item
+        ) : songData.lyricists
+      ) : undefined,
+      composers: songData.composers ? (
+        Array.isArray(songData.composers) ? songData.composers.map((item: any) => 
+          typeof item === 'object' ? item.id : item
+        ) : songData.composers
+      ) : undefined,
+      arrangers: songData.arrangers ? (
+        Array.isArray(songData.arrangers) ? songData.arrangers.map((item: any) => 
+          typeof item === 'object' ? item.id : item
+        ) : songData.arrangers
+      ) : undefined,
+      instrumentalists: songData.instrumentalists ? (
+        Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map((item: any) => 
+          typeof item === 'object' ? item.id : item
+        ) : songData.instrumentalists
+      ) : undefined,
       genres: songData.genres
     };
 
