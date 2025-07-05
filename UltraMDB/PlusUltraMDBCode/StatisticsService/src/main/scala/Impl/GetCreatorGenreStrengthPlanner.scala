@@ -8,7 +8,8 @@ import APIs.OrganizeService.validateUserMapping
 import APIs.CreatorService.{GetArtistByID, GetBandByID}
 import APIs.MusicService.{FilterSongsByEntity, GetSongProfile}
 import APIs.StatisticsService.GetSongPopularity
-import Objects.StatisticsService.Profile
+import Objects.CreatorService.{CreatorID_Type, CreatorType} // 导入新类型
+import Objects.StatisticsService.{Dim, Profile}             // 导入新类型
 import Utils.StatisticsUtils
 import cats.effect.IO
 import cats.implicits._
@@ -20,48 +21,36 @@ import org.slf4j.LoggerFactory
  *
  * @param userID      请求用户的ID
  * @param userToken   用户认证令牌
- * @param creatorID   创作者ID
- * @param creatorType 创作者类型 ("Artist" 或 "Band")
+ * @param creator     创作者的智能ID对象
  * @param planContext 执行上下文
  */
 case class GetCreatorGenreStrengthPlanner(
                                            userID: String,
                                            userToken: String,
-                                           creatorID: String,
-                                           creatorType: String,
+                                           creator: CreatorID_Type, // 使用 CreatorID_Type
                                            override val planContext: PlanContext
                                          ) extends Planner[(Option[Profile], String)] {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
   override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
-    // 移除缓存逻辑，直接进行计算
     val logic: IO[Profile] = for {
-      _ <- logInfo(s"开始获取创作者 ${creatorID} (${creatorType}) 的曲风实力")
-
-      // 步骤1: 验证用户身份
+      _ <- logInfo(s"开始获取创作者 ${creator.id} (${creator.creatorType}) 的曲风实力")
       _ <- validateUser()
-
-      // 步骤2: 验证创作者类型
-      _ <- validateCreatorType()
-
-      // 步骤3: 验证创作者存在性
+      // validateCreatorType 已移除
       _ <- validateCreator()
-
-      // 步骤4: 实时计算实力
       strength <- calculateStrength()
-
     } yield strength
 
     logic.map { strength =>
       (Some(strength), "获取创作实力成功")
     }.handleErrorWith { error =>
-      logError(s"获取创作者 ${creatorID} 创作实力失败", error) >>
+      logError(s"获取创作者 ${creator.id} (${creator.creatorType}) 创作实力失败", error) >>
         IO.pure((None, error.getMessage))
     }
   }
 
-  // --- Validation Steps (unchanged) ---
+  // --- Validation Steps (Refactored) ---
 
   private def validateUser()(using PlanContext): IO[Unit] = {
     logInfo("正在验证用户身份") >> {
@@ -71,22 +60,17 @@ case class GetCreatorGenreStrengthPlanner(
     }
   }
 
-  private def validateCreatorType()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在验证创作者类型: ${creatorType}") >> {
-      if (creatorType == "Artist" || creatorType == "Band") IO.unit
-      else IO.raiseError(new IllegalArgumentException(s"无效的创作者类型: ${creatorType}，只支持 'Artist' 或 'Band'"))
-    }
-  }
+  // validateCreatorType 方法已移除
 
   private def validateCreator()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在验证创作者 ${creatorID} 是否存在") >> {
-      val validationIO = creatorType match {
-        case "Artist" => GetArtistByID(userID, userToken, creatorID).send
-        case "Band"   => GetBandByID(userID, userToken, creatorID).send
+    logInfo(s"正在验证创作者 ${creator.id} 是否存在") >> {
+      val validationIO = creator.creatorType match {
+        case CreatorType.Artist => GetArtistByID(userID, userToken, creator.id).send
+        case CreatorType.Band   => GetBandByID(userID, userToken, creator.id).send
       }
       validationIO.flatMap {
-        case (Some(_), _) => logInfo(s"${creatorType}存在性验证通过")
-        case (None, msg)  => IO.raiseError(new IllegalStateException(s"${creatorType}不存在: $msg"))
+        case (Some(_), _) => logInfo(s"${creator.creatorType}存在性验证通过")
+        case (None, msg)  => IO.raiseError(new IllegalStateException(s"${creator.creatorType}不存在: $msg"))
       }
     }
   }
@@ -102,16 +86,16 @@ case class GetCreatorGenreStrengthPlanner(
       songs <- getCreatorSongs()
       _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
 
-      strength <- if (songs.isEmpty) {
+      strengthProfile <- if (songs.isEmpty) {
         logInfo("创作者暂无作品，返回空实力")
         IO.pure(Profile(List.empty, norm = false))
       } else {
         for {
-          genreStrengths <- calculateGenreStrengths(songs)
-          _ <- logInfo(s"计算出曲风实力: ${genreStrengths}")
-        } yield Profile(genreStrengths, norm = false)
+          genreStrengthDims <- calculateGenreStrengths(songs)
+          _ <- logInfo(s"计算出曲风实力: ${genreStrengthDims}")
+        } yield Profile(genreStrengthDims, norm = false) // 实力向量非归一化
       }
-    } yield strength
+    } yield strengthProfile
   }
 
   /**
@@ -121,8 +105,8 @@ case class GetCreatorGenreStrengthPlanner(
     FilterSongsByEntity(
       userID = userID,
       userToken = userToken,
-      entityID = Some(creatorID),
-      entityType = Some(creatorType.toLowerCase)
+      entityID = Some(creator.id),
+      entityType = Some(creator.creatorType.toString.toLowerCase)
     ).send.flatMap {
       case (Some(songs), _) => IO.pure(songs)
       case (None, message) =>
@@ -133,15 +117,14 @@ case class GetCreatorGenreStrengthPlanner(
   /**
    * 计算各曲风的实力分数
    * 实力 = 该曲风下所有作品的平均热度
+   * 修正: 返回 IO[List[Dim]]
    */
-  private def calculateGenreStrengths(songs: List[String])(using PlanContext): IO[List[(String, Double)]] = {
+  private def calculateGenreStrengths(songs: List[String])(using PlanContext): IO[List[Dim]] = {
     for {
       // 1. 为每首歌获取其曲风和热度
-      songData <- songs.traverse { songId =>
-        fetchSongData(songId)
-      }
+      songData <- songs.traverse(fetchSongData)
 
-      // 2. 按曲风分组计算平均热度
+      // 2. 按曲风分组计算平均热度，并返回 List[Dim]
       genreStrengths = calculateAveragePopularityByGenre(songData)
 
     } yield genreStrengths
@@ -152,7 +135,6 @@ case class GetCreatorGenreStrengthPlanner(
    */
   private def fetchSongData(songId: String)(using PlanContext): IO[(List[String], Double)] = {
     for {
-      // 并行调用两个API
       results <- (
         GetSongProfile(userID, userToken, songId).send,
         GetSongPopularity(userID, userToken, songId).send
@@ -160,9 +142,9 @@ case class GetCreatorGenreStrengthPlanner(
 
       (profileResult, popularityResult) = results
 
-      // 解析曲风
+      // 修正: 解析曲风，使用 .GenreID
       genres = profileResult match {
-        case (Some(profile), _) => profile.vector.map(_._1) // 提取GenreID
+        case (Some(profile), _) => profile.vector.map(_.GenreID)
         case (None, msg) =>
           logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg")
           List.empty[String]
@@ -179,20 +161,20 @@ case class GetCreatorGenreStrengthPlanner(
     } yield (genres, popularity)
   }
 
-
   /**
    * 根据歌曲数据，按曲风计算平均热度
+   * 修正: 返回 List[Dim]
    */
   private def calculateAveragePopularityByGenre(
     songData: List[(List[String], Double)]
-  ): List[(String, Double)] = {
-    // 将每首歌的热度分配给其所有曲风 (Map step)
+  ): List[Dim] = {
+    // Map step: 将每首歌的热度分配给其所有曲风
     val genrePopularities: List[(String, Double)] = for {
       (genres, popularity) <- songData if genres.nonEmpty && popularity > 0
       genre <- genres
     } yield (genre, popularity)
 
-    // 按曲风分组并计算平均值 (Reduce step)
+    // Reduce step: 按曲风分组并计算平均值
     genrePopularities
       .groupBy(_._1)
       .view
@@ -201,6 +183,7 @@ case class GetCreatorGenreStrengthPlanner(
         if (scores.isEmpty) 0.0 else scores.sum / scores.length
       }
       .toList
+      .map { case (genreId, avgPopularity) => Dim(genreId, avgPopularity) } // 修正: 将结果包装成 Dim 对象
   }
 
   private def logInfo(message: String): IO[Unit] =
