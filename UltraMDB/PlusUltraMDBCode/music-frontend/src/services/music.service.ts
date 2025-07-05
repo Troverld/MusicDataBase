@@ -14,54 +14,28 @@ export const musicService = {
     const convertToCreatorIDType = (items: ArtistBandItem[]) => {
       if (!items || items.length === 0) return [];
       return items.map(item => ({
-        creatorType: item.type === 'artist' ? 'Artist' : 'Band',
+        creatorType: item.type === 'artist' ? 'artist' : 'band',
         id: item.id
       }));
     };
 
-    // 转换 string[] 为 CreatorID_Type[] 格式（向后兼容）
-    const convertStringArrayToCreatorIDType = (ids: string[]) => {
-      if (!ids || ids.length === 0) return [];
-      return ids.map(id => ({
-        creatorType: 'Artist', // 默认为艺术家
-        id: id
-      }));
-    };
-
-    // 智能判断数据格式并转换
-    const smartConvertCreators = (data: any) => {
-      if (!data || data.length === 0) return [];
-      // 如果是 ArtistBandItem[] 格式（有 type 属性）
-      if (data[0] && typeof data[0] === 'object' && data[0].type) {
-        return convertToCreatorIDType(data);
-      }
-      // 如果是 string[] 格式
-      return convertStringArrayToCreatorIDType(data);
+    // 提取 ID 列表
+    const extractIds = (items: ArtistBandItem[]) => {
+      if (!items || items.length === 0) return [];
+      return items.map(item => item.id);
     };
 
     const data = {
       userID: user.userID,
       userToken: user.userToken,
       name: songData.name,
-      // 转换为时间戳（Long 类型）
       releaseTime: songData.releaseTime || Date.now(),
-      // 智能转换 creators
-      creators: smartConvertCreators(songData.creators),
-      // performers 也可能包含乐队，同样智能转换
-      performers: smartConvertCreators(songData.performers)?.map((item: any) => item.id) || [],
-      // 以下角色通常只有艺术家
-      lyricists: Array.isArray(songData.lyricists) ? songData.lyricists.map((item: ArtistBandItem | string) => 
-        typeof item === 'object' ? item.id : item
-      ) : [],
-      composers: Array.isArray(songData.composers) ? songData.composers.map((item: ArtistBandItem | string) => 
-        typeof item === 'object' ? item.id : item
-      ) : [],
-      arrangers: Array.isArray(songData.arrangers) ? songData.arrangers.map((item: ArtistBandItem | string) => 
-        typeof item === 'object' ? item.id : item
-      ) : [],
-      instrumentalists: Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map((item: ArtistBandItem | string) => 
-        typeof item === 'object' ? item.id : item
-      ) : [],
+      creators: convertToCreatorIDType(songData.creators || []),
+      performers: extractIds(songData.performers || []),
+      lyricists: extractIds(songData.lyricists || []),
+      composers: extractIds(songData.composers || []),
+      arrangers: extractIds(songData.arrangers || []),
+      instrumentalists: extractIds(songData.instrumentalists || []),
       genres: songData.genres || []
     };
 
@@ -74,21 +48,19 @@ export const musicService = {
       throw new Error('User not authenticated');
     }
 
-    // 智能判断数据格式并转换（复用上面的逻辑）
-    const smartConvertCreators = (data: any) => {
-      if (!data || data.length === 0) return undefined;
-      // 如果是 ArtistBandItem[] 格式（有 type 属性）
-      if (data[0] && typeof data[0] === 'object' && data[0].type) {
-        return data.map((item: ArtistBandItem) => ({
-          creatorType: item.type === 'artist' ? 'Artist' : 'Band',
-          id: item.id
-        }));
-      }
-      // 如果是 string[] 格式
-      return data.map((id: string) => ({
-        creatorType: 'Artist', // 默认为艺术家
-        id: id
+    // 转换 ArtistBandItem[] 为 CreatorID_Type[] 格式
+    const convertToCreatorIDType = (items: ArtistBandItem[]) => {
+      if (!items || items.length === 0) return [];
+      return items.map(item => ({
+        creatorType: item.type === 'artist' ? 'artist' : 'band',
+        id: item.id
       }));
+    };
+
+    // 提取 ID 列表
+    const extractIds = (items: ArtistBandItem[]) => {
+      if (!items || items.length === 0) return [];
+      return items.map(item => item.id);
     };
 
     const data = {
@@ -96,37 +68,13 @@ export const musicService = {
       userToken: user.userToken,
       songID,
       name: songData.name,
-      // 转换为时间戳（Long 类型）
       releaseTime: songData.releaseTime ? (typeof songData.releaseTime === 'number' ? songData.releaseTime : new Date(songData.releaseTime).getTime()) : undefined,
-      // 智能转换 creators
-      creators: songData.creators ? smartConvertCreators(songData.creators) : undefined,
-      // performers 也智能转换，但后端期望的是 string[]
-      performers: songData.performers ? (
-        Array.isArray(songData.performers) ? songData.performers.map((item: ArtistBandItem | string) => 
-          typeof item === 'object' ? item.id : item
-        ) : songData.performers
-      ) : undefined,
-      // 以下角色转换为 string[]
-      lyricists: songData.lyricists ? (
-        Array.isArray(songData.lyricists) ? songData.lyricists.map((item: ArtistBandItem | string) => 
-          typeof item === 'object' ? item.id : item
-        ) : songData.lyricists
-      ) : undefined,
-      composers: songData.composers ? (
-        Array.isArray(songData.composers) ? songData.composers.map((item: ArtistBandItem | string) => 
-          typeof item === 'object' ? item.id : item
-        ) : songData.composers
-      ) : undefined,
-      arrangers: songData.arrangers ? (
-        Array.isArray(songData.arrangers) ? songData.arrangers.map((item: ArtistBandItem | string) => 
-          typeof item === 'object' ? item.id : item
-        ) : songData.arrangers
-      ) : undefined,
-      instrumentalists: songData.instrumentalists ? (
-        Array.isArray(songData.instrumentalists) ? songData.instrumentalists.map((item: ArtistBandItem | string) => 
-          typeof item === 'object' ? item.id : item
-        ) : songData.instrumentalists
-      ) : undefined,
+      creators: songData.creators ? convertToCreatorIDType(songData.creators) : undefined,
+      performers: songData.performers ? extractIds(songData.performers) : undefined,
+      lyricists: songData.lyricists ? extractIds(songData.lyricists) : undefined,
+      composers: songData.composers ? extractIds(songData.composers) : undefined,
+      arrangers: songData.arrangers ? extractIds(songData.arrangers) : undefined,
+      instrumentalists: songData.instrumentalists ? extractIds(songData.instrumentalists) : undefined,
       genres: songData.genres
     };
 
@@ -139,7 +87,6 @@ export const musicService = {
       throw new Error('User not authenticated');
     }
 
-    // Note: DeleteSong API requires admin privileges
     const data = {
       adminID: user.userID,
       adminToken: user.userToken,
@@ -164,7 +111,6 @@ export const musicService = {
     return callAPI<[string[] | null, string]>('SearchSongsByName', data);
   },
 
-  // 新增：根据歌曲ID获取歌曲详情
   async getSongById(songID: string): Promise<[Song | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -180,11 +126,9 @@ export const musicService = {
     return callAPI<[Song | null, string]>('GetSongByID', data);
   },
 
-  // 新增：批量获取歌曲详情
   async getSongsByIds(songIDs: string[]): Promise<Song[]> {
     const songs: Song[] = [];
     
-    // 并行获取所有歌曲详情
     const promises = songIDs.map(songID => this.getSongById(songID));
     const results = await Promise.allSettled(promises);
     
@@ -204,7 +148,6 @@ export const musicService = {
     return songs;
   },
 
-  // 新增：按实体筛选歌曲
   async filterSongsByEntity(creator?: {id: string, type: 'artist' | 'band'}, genreID?: string): Promise<[string[] | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -215,7 +158,7 @@ export const musicService = {
       userID: user.userID,
       userToken: user.userToken,
       creator: creator ? {
-        creatorType: creator.type === 'artist' ? 'Artist' : 'Band',
+        creatorType: creator.type === 'artist' ? 'artist' : 'band',
         id: creator.id
       } : undefined,
       genres: genreID
