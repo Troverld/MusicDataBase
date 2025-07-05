@@ -8,7 +8,7 @@ import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import Common.ServiceUtils.schemaName
 import Objects.CreatorService.{Artist, Band}
 import Objects.MusicService.Song
-import Objects.StatisticsService.Profile
+import Objects.StatisticsService.{Dim, Profile}
 import cats.effect.IO
 import cats.implicits.*
 import io.circe.*
@@ -102,7 +102,7 @@ case class GetSongProfile(
 
       // Step 3: 构建 Profile 向量（genre 是否出现）
       profileVec = allGenres.map { gid =>
-        gid -> (if (songGenres.contains(gid)) 1.0 else 0.0)
+        Dim(GenreID = gid, value = if (songGenres.contains(gid)) 1.0 else 0.0)
       }
 
     } yield (Some(Profile(profileVec, norm = false)), "")
