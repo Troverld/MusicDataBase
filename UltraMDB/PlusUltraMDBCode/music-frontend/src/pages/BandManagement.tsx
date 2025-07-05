@@ -1,8 +1,151 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { bandService } from '../services/band.service';
 import { Band } from '../types';
 import { ArtistBandItem, useArtistBand } from '../hooks/useArtistBand';
 import ArtistBandSelector from '../components/ArtistBandSelector';
+import { usePermissions, useBandPermission } from '../hooks/usePermissions';
+
+interface BandItemProps {
+  band: Band;
+  onEdit: (band: Band) => void;
+  onDelete: (bandID: string) => void;
+  memberNamesDisplay: { [bandID: string]: string[] };
+}
+
+const BandItem: React.FC<BandItemProps> = ({ band, onEdit, onDelete, memberNamesDisplay }) => {
+  const { isAdmin } = usePermissions();
+  const { canEdit, loading: permissionLoading } = useBandPermission(band.bandID);
+
+  const showEditButton = !permissionLoading && (canEdit || isAdmin);
+  const showDeleteButton = !permissionLoading && isAdmin; // 只有管理员可以删除
+
+  return (
+    <div className="song-item">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+        <Link 
+          to={`/bands/${band.bandID}`}
+          style={{ textDecoration: 'none', color: 'inherit' }}
+        >
+          <h3 style={{ cursor: 'pointer', color: '#007bff' }}>{band.name} →</h3>
+        </Link>
+        
+        {permissionLoading && (
+          <div className="loading-spinner" title="正在检查权限..."></div>
+        )}
+      </div>
+      
+      <div style={{ marginBottom: '15px' }}>
+        <p><strong>乐队ID:</strong> 
+          <span style={{ 
+            fontFamily: 'monospace', 
+            backgroundColor: '#f8f9fa', 
+            padding: '2px 6px', 
+            borderRadius: '3px',
+            marginLeft: '8px',
+            fontSize: '12px'
+          }}>
+            {band.bandID}
+          </span>
+        </p>
+      </div>
+
+      <div style={{ marginBottom: '15px' }}>
+        <strong>简介:</strong>
+        <div style={{ 
+          marginTop: '8px', 
+          padding: '12px', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '4px',
+          lineHeight: '1.5',
+          fontSize: '14px'
+        }}>
+          {band.bio || '暂无简介'}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '15px' }}>
+        <strong>乐队成员:</strong>
+        <div style={{ marginTop: '5px' }}>
+          {memberNamesDisplay[band.bandID] && memberNamesDisplay[band.bandID].length > 0 ? (
+            memberNamesDisplay[band.bandID].map((memberName, index) => (
+              <span key={index} className="chip" style={{ backgroundColor: '#fff3cd', color: '#856404' }}>
+                {memberName}
+              </span>
+            ))
+          ) : (band.members && band.members.length > 0) ? (
+            // 如果名称解析失败，显示原始值（可能是ID）
+            band.members.map((member, index) => (
+              <span key={index} className="chip" style={{ backgroundColor: '#f8d7da', color: '#721c24' }}>
+                {member} (未解析)
+              </span>
+            ))
+          ) : (
+            <span className="chip" style={{ backgroundColor: '#f8f9fa', color: '#6c757d' }}>
+              暂无成员
+            </span>
+          )}
+        </div>
+      </div>
+
+      {band.managers && band.managers.length > 0 && (
+        <div style={{ marginBottom: '15px' }}>
+          <strong>管理者:</strong>
+          <div style={{ marginTop: '5px' }}>
+            {band.managers.map((manager, index) => (
+              <span key={index} className="chip" style={{ backgroundColor: '#e3f2fd', color: '#1976d2' }}>
+                {manager}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 权限相关的提示信息 */}
+      {!permissionLoading && !canEdit && !isAdmin && (
+        <div className="permission-denied">
+          ⚠️ 您没有编辑此乐队的权限
+        </div>
+      )}
+
+      <div className="song-actions">
+        <Link 
+          to={`/bands/${band.bandID}`}
+          className="btn btn-primary"
+          style={{ textDecoration: 'none', marginRight: '10px' }}
+        >
+          查看详情
+        </Link>
+        
+        {showEditButton && (
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => onEdit(band)}
+            disabled={permissionLoading}
+          >
+            编辑
+          </button>
+        )}
+        
+        {showDeleteButton && (
+          <button 
+            className="btn btn-danger" 
+            onClick={() => onDelete(band.bandID)}
+            disabled={permissionLoading}
+          >
+            删除
+          </button>
+        )}
+        
+        {!showEditButton && !showDeleteButton && !permissionLoading && (
+          <span style={{ color: '#666', fontSize: '14px' }}>
+            仅查看模式
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const BandManagement: React.FC = () => {
   const [bands, setBands] = useState<Band[]>([]);
@@ -12,6 +155,8 @@ const BandManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  const { isAdmin } = usePermissions();
   
   // 乐队成员选择状态
   const [selectedMembers, setSelectedMembers] = useState<ArtistBandItem[]>([]);
@@ -114,7 +259,7 @@ const BandManagement: React.FC = () => {
       const memberItems = await convertIdsToArtistBandItems(band.members || []);
       setSelectedMembers(memberItems);
       
-      // 检查是否有无法解析的成员
+      // 检查是否有无法找到的项目
       const unresolvedMembers = memberItems.filter(item => 
         item.id.startsWith('unresolved-')
       );
@@ -240,7 +385,7 @@ const BandManagement: React.FC = () => {
     <div>
       <h1>乐队管理</h1>
       <p style={{ color: '#666', marginBottom: '30px', fontSize: '16px' }}>
-        管理系统中的乐队信息，搜索、创建、编辑或删除乐队档案。通过智能选择器添加乐队成员，显示成员名称而不是ID，提供更好的用户体验。
+        管理系统中的乐队信息，搜索、创建、编辑或删除乐队档案。点击乐队名称可查看详细信息。通过智能选择器添加乐队成员，显示成员名称而不是ID，提供更好的用户体验。
       </p>
       
       {error && <div className="error-message">{error}</div>}
@@ -266,13 +411,22 @@ const BandManagement: React.FC = () => {
         </div>
       </div>
       
-      <button 
-        className="btn btn-primary" 
-        onClick={() => { resetForm(); setShowModal(true); }}
-        style={{ marginBottom: '20px' }}
-      >
-        创建新乐队
-      </button>
+      {/* 只有管理员可以创建新乐队 */}
+      {isAdmin && (
+        <button 
+          className="btn btn-primary" 
+          onClick={() => { resetForm(); setShowModal(true); }}
+          style={{ marginBottom: '20px' }}
+        >
+          创建新乐队
+        </button>
+      )}
+      
+      {!isAdmin && (
+        <div className="permission-warning" style={{ marginBottom: '20px' }}>
+          ⚠️ 您没有创建乐队的权限，仅能查看和编辑您有权限的乐队
+        </div>
+      )}
       
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -290,84 +444,13 @@ const BandManagement: React.FC = () => {
           ) : (
             <div className="song-list">
               {bands.map((band) => (
-                <div key={band.bandID} className="song-item">
-                  <h3>{band.name}</h3>
-                  
-                  <div style={{ marginBottom: '15px' }}>
-                    <p><strong>乐队ID:</strong> 
-                      <span style={{ 
-                        fontFamily: 'monospace', 
-                        backgroundColor: '#f8f9fa', 
-                        padding: '2px 6px', 
-                        borderRadius: '3px',
-                        marginLeft: '8px',
-                        fontSize: '12px'
-                      }}>
-                        {band.bandID}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div style={{ marginBottom: '15px' }}>
-                    <strong>简介:</strong>
-                    <div style={{ 
-                      marginTop: '8px', 
-                      padding: '12px', 
-                      backgroundColor: '#f8f9fa', 
-                      borderRadius: '4px',
-                      lineHeight: '1.5',
-                      fontSize: '14px'
-                    }}>
-                      {band.bio || '暂无简介'}
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: '15px' }}>
-                    <strong>乐队成员:</strong>
-                    <div style={{ marginTop: '5px' }}>
-                      {memberNamesDisplay[band.bandID] && memberNamesDisplay[band.bandID].length > 0 ? (
-                        memberNamesDisplay[band.bandID].map((memberName, index) => (
-                          <span key={index} className="chip" style={{ backgroundColor: '#fff3cd', color: '#856404' }}>
-                            {memberName}
-                          </span>
-                        ))
-                      ) : (band.members && band.members.length > 0) ? (
-                        // 如果名称解析失败，显示原始值（可能是ID）
-                        band.members.map((member, index) => (
-                          <span key={index} className="chip" style={{ backgroundColor: '#f8d7da', color: '#721c24' }}>
-                            {member} (未解析)
-                          </span>
-                        ))
-                      ) : (
-                        <span className="chip" style={{ backgroundColor: '#f8f9fa', color: '#6c757d' }}>
-                          暂无成员
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {band.managers && band.managers.length > 0 && (
-                    <div style={{ marginBottom: '15px' }}>
-                      <strong>管理者:</strong>
-                      <div style={{ marginTop: '5px' }}>
-                        {band.managers.map((manager, index) => (
-                          <span key={index} className="chip" style={{ backgroundColor: '#e3f2fd', color: '#1976d2' }}>
-                            {manager}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="song-actions">
-                    <button className="btn btn-secondary" onClick={() => handleEdit(band)}>
-                      编辑
-                    </button>
-                    <button className="btn btn-danger" onClick={() => handleDelete(band.bandID)}>
-                      删除
-                    </button>
-                  </div>
-                </div>
+                <BandItem
+                  key={band.bandID}
+                  band={band}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  memberNamesDisplay={memberNamesDisplay}
+                />
               ))}
             </div>
           )}
@@ -451,12 +534,14 @@ const BandManagement: React.FC = () => {
       }}>
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 乐队管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
+          <p><strong>查看详情:</strong> 点击乐队名称可以查看完整的乐队信息页面，包括成员详情。</p>
           <p><strong>智能显示:</strong> 乐队成员现在显示艺术家的名称而不是ID，提供更直观的用户体验。</p>
+          <p><strong>权限管理:</strong> 只有管理员可以创建和删除乐队，乐队管理者可以编辑对应乐队的信息。</p>
           <p><strong>搜索乐队:</strong> 在搜索框中输入乐队名称的关键词，支持模糊匹配。</p>
           <p><strong>智能成员选择:</strong> 通过搜索选择艺术家作为乐队成员，系统使用 ID 进行精确匹配。</p>
           <p><strong>创建乐队:</strong> 填写乐队名称、选择成员和详细简介。系统会自动验证成员的存在性。</p>
           <p><strong>编辑乐队:</strong> 编辑模式下会智能加载现有成员信息，如有数据问题会提示重新选择。</p>
-          <p><strong>删除乐队:</strong> 删除操作不可撤销，请确保该乐队未被歌曲或专辑引用。</p>
+          <p><strong>删除乐队:</strong> 删除操作不可撤销，仅管理员可执行，请确保该乐队未被歌曲或专辑引用。</p>
           <p><strong>数据一致性:</strong> 系统使用艺术家 ID 管理乐队成员，同时在界面显示名称，确保数据准确性。</p>
         </div>
       </div>

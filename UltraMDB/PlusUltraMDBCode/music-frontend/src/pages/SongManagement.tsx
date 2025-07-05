@@ -5,6 +5,7 @@ import SongList from '../components/SongList';
 import { useGenres } from '../hooks/useGenres';
 import { useArtistBand, ArtistBandItem } from '../hooks/useArtistBand';
 import ArtistBandSelector from '../components/ArtistBandSelector';
+import { usePermissions } from '../hooks/usePermissions';
 
 const SongManagement: React.FC = () => {
   const [songs, setSongs] = useState<Song[]>([]);
@@ -15,6 +16,9 @@ const SongManagement: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  // 权限检查
+  const { isUser, isAdmin } = usePermissions();
   
   // 使用 Set 来管理选中的曲风ID
   const [selectedGenresSet, setSelectedGenresSet] = useState<Set<string>>(new Set());
@@ -389,9 +393,16 @@ const SongManagement: React.FC = () => {
 
   const selectedGenresList = getSelectedGenresList();
 
+  // 检查用户是否可以上传歌曲
+  const canUploadSongs = isUser || isAdmin;
+
   return (
     <div>
       <h1>歌曲管理</h1>
+      <p style={{ color: '#666', marginBottom: '30px', fontSize: '16px' }}>
+        管理系统中的歌曲信息，搜索现有歌曲，查看详细信息。
+        {canUploadSongs ? '您可以上传新歌曲并编辑您有权限的歌曲。' : '您可以搜索和查看歌曲信息。'}
+      </p>
       
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
@@ -416,13 +427,20 @@ const SongManagement: React.FC = () => {
         </div>
       </div>
       
-      <button 
-        className="btn btn-primary" 
-        onClick={() => { resetForm(); setShowModal(true); }}
-        style={{ marginBottom: '20px' }}
-      >
-        上传新歌曲
-      </button>
+      {/* 只有有权限的用户可以上传歌曲 */}
+      {canUploadSongs ? (
+        <button 
+          className="btn btn-primary" 
+          onClick={() => { resetForm(); setShowModal(true); }}
+          style={{ marginBottom: '20px' }}
+        >
+          上传新歌曲
+        </button>
+      ) : (
+        <div className="permission-warning" style={{ marginBottom: '20px' }}>
+          ⚠️ 您没有上传歌曲的权限，仅能搜索和查看歌曲信息
+        </div>
+      )}
       
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -432,7 +450,7 @@ const SongManagement: React.FC = () => {
         <SongList songs={songs} onEdit={handleEdit} onDelete={handleDelete} />
       )}
       
-      {showModal && (
+      {showModal && canUploadSongs && (
         <div className="modal" onClick={() => { setShowModal(false); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -677,6 +695,7 @@ const SongManagement: React.FC = () => {
       }}>
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 歌曲管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
+          <p><strong>权限说明:</strong> 只有注册用户可以上传歌曲，用户只能编辑自己上传的歌曲，管理员拥有所有权限。</p>
           <p><strong>智能显示:</strong> 歌曲列表现在显示艺术家和乐队的名称，而不是ID，提供更好的用户体验。</p>
           <p><strong>智能选择:</strong> 通过搜索选择艺术家和乐队，系统会自动使用 ID 进行匹配，避免重名问题。</p>
           <p><strong>创作者与演唱者:</strong> 支持选择艺术家或乐队，系统会显示类型和简介供您参考。</p>

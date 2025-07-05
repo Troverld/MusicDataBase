@@ -1,0 +1,83 @@
+/* 模态框样式 */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    position: relative; /* 确保下拉框定位正确 */
+  }
+  
+  @keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+  }
+  
+  .modal-header button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+  }
+  
+  .modal-header button:hover {
+    background-color: #f8f9fa;
+    color: #333;
+  }
+  
+  /* 确保下拉框在模态框中不被裁剪 */
+  .modal-content .multi-select-dropdown-menu {
+    z-index: 1060; /* 比模态框更高的z-index */
+    position: absolute;
+    max-height: 200px; /* 限制高度以适应模态框 */
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .modal-content {
+      margin: 20px;
+      width: calc(100% - 40px);
+      padding: 20px;
+    }
+  }

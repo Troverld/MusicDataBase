@@ -1,6 +1,124 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { artistService } from '../services/artist.service';
 import { Artist } from '../types';
+import { usePermissions, useArtistPermission } from '../hooks/usePermissions';
+
+interface ArtistItemProps {
+  artist: Artist;
+  onEdit: (artist: Artist) => void;
+  onDelete: (artistID: string) => void;
+}
+
+const ArtistItem: React.FC<ArtistItemProps> = ({ artist, onEdit, onDelete }) => {
+  const { isAdmin } = usePermissions();
+  const { canEdit, loading: permissionLoading } = useArtistPermission(artist.artistID);
+
+  const showEditButton = !permissionLoading && (canEdit || isAdmin);
+  const showDeleteButton = !permissionLoading && isAdmin; // 只有管理员可以删除
+
+  return (
+    <div className="song-item">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+        <Link 
+          to={`/artists/${artist.artistID}`}
+          style={{ textDecoration: 'none', color: 'inherit' }}
+        >
+          <h3 style={{ cursor: 'pointer', color: '#007bff' }}>{artist.name} →</h3>
+        </Link>
+        
+        {permissionLoading && (
+          <div className="loading-spinner" title="正在检查权限..."></div>
+        )}
+      </div>
+      
+      <div style={{ marginBottom: '15px' }}>
+        <p><strong>艺术家ID:</strong> 
+          <span style={{ 
+            fontFamily: 'monospace', 
+            backgroundColor: '#f8f9fa', 
+            padding: '2px 6px', 
+            borderRadius: '3px',
+            marginLeft: '8px',
+            fontSize: '12px'
+          }}>
+            {artist.artistID}
+          </span>
+        </p>
+      </div>
+
+      <div style={{ marginBottom: '15px' }}>
+        <strong>简介:</strong>
+        <div style={{ 
+          marginTop: '8px', 
+          padding: '12px', 
+          backgroundColor: '#f8f9fa', 
+          borderRadius: '4px',
+          lineHeight: '1.5',
+          fontSize: '14px'
+        }}>
+          {artist.bio || '暂无简介'}
+        </div>
+      </div>
+
+      {artist.managers && artist.managers.length > 0 && (
+        <div style={{ marginBottom: '15px' }}>
+          <strong>管理者:</strong>
+          <div style={{ marginTop: '5px' }}>
+            {artist.managers.map((manager, index) => (
+              <span key={index} className="chip" style={{ backgroundColor: '#e3f2fd', color: '#1976d2' }}>
+                {manager}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 权限相关的提示信息 */}
+      {!permissionLoading && !canEdit && !isAdmin && (
+        <div className="permission-denied">
+          ⚠️ 您没有编辑此艺术家的权限
+        </div>
+      )}
+
+      <div className="song-actions">
+        <Link 
+          to={`/artists/${artist.artistID}`}
+          className="btn btn-primary"
+          style={{ textDecoration: 'none', marginRight: '10px' }}
+        >
+          查看详情
+        </Link>
+        
+        {showEditButton && (
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => onEdit(artist)}
+            disabled={permissionLoading}
+          >
+            编辑
+          </button>
+        )}
+        
+        {showDeleteButton && (
+          <button 
+            className="btn btn-danger" 
+            onClick={() => onDelete(artist.artistID)}
+            disabled={permissionLoading}
+          >
+            删除
+          </button>
+        )}
+        
+        {!showEditButton && !showDeleteButton && !permissionLoading && (
+          <span style={{ color: '#666', fontSize: '14px' }}>
+            仅查看模式
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const ArtistManagement: React.FC = () => {
   const [artists, setArtists] = useState<Artist[]>([]);
@@ -10,6 +128,8 @@ const ArtistManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  const { isAdmin } = usePermissions();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -133,16 +253,11 @@ const ArtistManagement: React.FC = () => {
     clearMessages();
   }, [searchKeyword]);
 
-  const formatList = (items: string[] | undefined) => {
-    if (!items || items.length === 0) return '无';
-    return items.join(', ');
-  };
-
   return (
     <div>
       <h1>艺术家管理</h1>
       <p style={{ color: '#666', marginBottom: '30px', fontSize: '16px' }}>
-        管理系统中的艺术家信息，搜索、创建、编辑或删除艺术家档案。
+        管理系统中的艺术家信息，搜索、创建、编辑或删除艺术家档案。点击艺术家名称可查看详细信息。
       </p>
       
       {error && <div className="error-message">{error}</div>}
@@ -168,13 +283,22 @@ const ArtistManagement: React.FC = () => {
         </div>
       </div>
       
-      <button 
-        className="btn btn-primary" 
-        onClick={() => { resetForm(); setShowModal(true); }}
-        style={{ marginBottom: '20px' }}
-      >
-        创建新艺术家
-      </button>
+      {/* 只有管理员可以创建新艺术家 */}
+      {isAdmin && (
+        <button 
+          className="btn btn-primary" 
+          onClick={() => { resetForm(); setShowModal(true); }}
+          style={{ marginBottom: '20px' }}
+        >
+          创建新艺术家
+        </button>
+      )}
+      
+      {!isAdmin && (
+        <div className="permission-warning" style={{ marginBottom: '20px' }}>
+          ⚠️ 您没有创建艺术家的权限，仅能查看和编辑您有权限的艺术家
+        </div>
+      )}
       
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
@@ -192,60 +316,12 @@ const ArtistManagement: React.FC = () => {
           ) : (
             <div className="song-list">
               {artists.map((artist) => (
-                <div key={artist.artistID} className="song-item">
-                  <h3>{artist.name}</h3>
-                  
-                  <div style={{ marginBottom: '15px' }}>
-                    <p><strong>艺术家ID:</strong> 
-                      <span style={{ 
-                        fontFamily: 'monospace', 
-                        backgroundColor: '#f8f9fa', 
-                        padding: '2px 6px', 
-                        borderRadius: '3px',
-                        marginLeft: '8px',
-                        fontSize: '12px'
-                      }}>
-                        {artist.artistID}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div style={{ marginBottom: '15px' }}>
-                    <strong>简介:</strong>
-                    <div style={{ 
-                      marginTop: '8px', 
-                      padding: '12px', 
-                      backgroundColor: '#f8f9fa', 
-                      borderRadius: '4px',
-                      lineHeight: '1.5',
-                      fontSize: '14px'
-                    }}>
-                      {artist.bio || '暂无简介'}
-                    </div>
-                  </div>
-
-                  {artist.managers && artist.managers.length > 0 && (
-                    <div style={{ marginBottom: '15px' }}>
-                      <strong>管理者:</strong>
-                      <div style={{ marginTop: '5px' }}>
-                        {artist.managers.map((manager, index) => (
-                          <span key={index} className="chip" style={{ backgroundColor: '#e3f2fd', color: '#1976d2' }}>
-                            {manager}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="song-actions">
-                    <button className="btn btn-secondary" onClick={() => handleEdit(artist)}>
-                      编辑
-                    </button>
-                    <button className="btn btn-danger" onClick={() => handleDelete(artist.artistID)}>
-                      删除
-                    </button>
-                  </div>
-                </div>
+                <ArtistItem
+                  key={artist.artistID}
+                  artist={artist}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           )}
@@ -320,11 +396,12 @@ const ArtistManagement: React.FC = () => {
       }}>
         <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 艺术家管理提示</h3>
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
+          <p><strong>查看详情:</strong> 点击艺术家名称可以查看完整的艺术家信息页面。</p>
           <p><strong>搜索艺术家:</strong> 在搜索框中输入艺术家名称的关键词，支持模糊匹配。</p>
+          <p><strong>权限管理:</strong> 只有管理员可以创建和删除艺术家，艺术家管理者可以编辑对应艺术家的信息。</p>
           <p><strong>创建艺术家:</strong> 填写艺术家名称和详细简介，系统会自动生成唯一的艺术家ID。</p>
-          <p><strong>编辑艺术家:</strong> 点击"编辑"按钮修改艺术家的名称和简介信息。</p>
-          <p><strong>删除艺术家:</strong> 删除操作不可撤销，请确保该艺术家未被歌曲或专辑引用。</p>
-          <p><strong>权限说明:</strong> 艺术家管理功能需要管理员权限，请确保您有足够的操作权限。</p>
+          <p><strong>编辑艺术家:</strong> 只有有权限的用户才能看到"编辑"按钮并修改艺术家信息。</p>
+          <p><strong>删除艺术家:</strong> 删除操作不可撤销，仅管理员可执行，请确保该艺术家未被歌曲或专辑引用。</p>
         </div>
       </div>
     </div>

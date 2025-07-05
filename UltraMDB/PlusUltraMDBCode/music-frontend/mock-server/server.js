@@ -1,538 +1,1095 @@
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 10011;
 
-// Middleware
+// 中间件
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// Load mock database
-let db = JSON.parse(fs.readFileSync(path.join(__dirname, 'db.json'), 'utf8'));
+// 模拟数据存储
+let users = [
+  { userID: 'admin_001', userName: 'admin', password: 'admin123', userToken: null, role: 'admin' },
+  { userID: 'user_001', userName: 'user1', password: 'user123', userToken: null, role: 'user' },
+  { userID: 'user_002', userName: 'user2', password: 'user123', userToken: null, role: 'user' }
+];
 
-// Initialize artists array if it doesn't exist
-if (!db.artists) {
-  db.artists = [];
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
+let artists = [
+  { artistID: 'artist_001', name: '周杰伦', bio: '华语流行音乐天王，台湾歌手、词曲创作者、演员、导演。', managers: ['user_001'] },
+  { artistID: 'artist_002', name: '邓紫棋', bio: '香港创作型女歌手，有着独特的嗓音和创作才华。', managers: ['user_002'] },
+  { artistID: 'artist_003', name: '林俊杰', bio: '新加坡华语流行男歌手、词曲创作者、音乐制作人。', managers: [] }
+];
+
+let bands = [
+  { 
+    bandID: 'band_001', 
+    name: 'Beyond', 
+    members: ['artist_001', 'artist_002'], 
+    bio: '香港著名摇滚乐队，成立于1983年。', 
+    managers: ['user_001'] 
+  },
+  { 
+    bandID: 'band_002', 
+    name: '五月天', 
+    members: ['artist_003'], 
+    bio: '台湾摇滚乐团，成立于1997年。', 
+    managers: [] 
+  }
+];
+
+let genres = [
+  { genreID: 'genre_001', name: '流行', description: '主流的现代流行音乐风格' },
+  { genreID: 'genre_002', name: '摇滚', description: '以强烈节拍和电吉他为特色的音乐风格' },
+  { genreID: 'genre_003', name: '爵士', description: '起源于美国的音乐风格，强调即兴演奏' },
+  { genreID: 'genre_004', name: '古典', description: '传统的西方古典音乐' },
+  { genreID: 'genre_005', name: '电子', description: '使用电子设备和技术制作的音乐' }
+];
+
+let songs = [
+  {
+    songID: 'song_001',
+    name: '青花瓷',
+    releaseTime: 1577836800000, // 2020-01-01
+    creators: ['artist_001'],
+    performers: ['artist_001'],
+    lyricists: ['artist_001'],
+    composers: ['artist_001'],
+    arrangers: ['artist_001'],
+    instrumentalists: ['artist_001'],
+    genres: ['genre_001', 'genre_004'],
+    uploadedBy: 'user_001',
+    uploadTime: Date.now()
+  },
+  {
+    songID: 'song_002',
+    name: '泡沫',
+    releaseTime: 1609459200000, // 2021-01-01
+    creators: ['artist_002'],
+    performers: ['artist_002'],
+    lyricists: ['artist_002'],
+    composers: ['artist_002'],
+    arrangers: ['artist_002'],
+    instrumentalists: [],
+    genres: ['genre_001'],
+    uploadedBy: 'user_002',
+    uploadTime: Date.now()
+  }
+];
+
+// 用户会话存储
+let userSessions = new Map();
+
+// 辅助函数
+const generateToken = () => `token_${uuidv4().replace(/-/g, '')}`;
+const generateID = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+const validateUser = (userID, userToken) => {
+  return userSessions.has(userID) && userSessions.get(userID) === userToken;
+};
+
+const validateAdmin = (adminID, adminToken) => {
+  if (!validateUser(adminID, adminToken)) {
+    return false;
+  }
+  
+  const user = users.find(u => u.userID === adminID);
+  return user && user.role === 'admin';
+};
+
+const getUserRole = (userID) => {
+  const user = users.find(u => u.userID === userID);
+  return user ? user.role : null;
+};
+
+// 通用路由处理器
+app.post('/api/:endpoint', (req, res) => {
+  const { endpoint } = req.params;
+  const data = req.body;
+  
+  console.log(`[${new Date().toISOString()}] ${endpoint}:`, JSON.stringify(data, null, 2));
+  
+  try {
+    const result = handleAPICall(endpoint, data);
+    res.json(result);
+  } catch (error) {
+    console.error(`Error handling ${endpoint}:`, error);
+    res.status(500).json([null, error.message || 'Internal server error']);
+  }
+});
+
+function handleAPICall(endpoint, data) {
+  switch (endpoint) {
+    // OrganizeService APIs
+    case 'UserLoginMessage':
+      return handleUserLogin(data);
+    case 'UserRegisterMessage':
+      return handleUserRegister(data);
+    case 'UserLogoutMessage':
+      return handleUserLogout(data);
+    case 'validateUserMapping':
+      return handleValidateUserMapping(data);
+    case 'validateAdminMapping':
+      return handleValidateAdminMapping(data);
+      
+    // CreatorService APIs
+    case 'CreateArtistMessage':
+      return handleCreateArtist(data);
+    case 'UpdateArtistMessage':
+      return handleUpdateArtist(data);
+    case 'DeleteArtistMessage':
+      return handleDeleteArtist(data);
+    case 'GetArtistByID':
+      return handleGetArtistByID(data);
+    case 'SearchArtistByName':
+      return handleSearchArtistByName(data);
+    case 'CreateBandMessage':
+      return handleCreateBand(data);
+    case 'UpdateBandMessage':
+      return handleUpdateBand(data);
+    case 'DeleteBandMessage':
+      return handleDeleteBand(data);
+    case 'GetBandByID':
+      return handleGetBandByID(data);
+    case 'SearchBandByName':
+      return handleSearchBandByName(data);
+    case 'AddArtistManager':
+      return handleAddArtistManager(data);
+    case 'AddBandManager':
+      return handleAddBandManager(data);
+    case 'validArtistOwnership':
+      return handleValidArtistOwnership(data);
+    case 'validBandOwnership':
+      return handleValidBandOwnership(data);
+      
+    // MusicService APIs
+    case 'UploadNewSong':
+      return handleUploadNewSong(data);
+    case 'UpdateSongMetadata':
+      return handleUpdateSongMetadata(data);
+    case 'DeleteSong':
+      return handleDeleteSong(data);
+    case 'SearchSongsByName':
+      return handleSearchSongsByName(data);
+    case 'GetSongByID':
+      return handleGetSongByID(data);
+    case 'CreateNewGenre':
+      return handleCreateNewGenre(data);
+    case 'DeleteGenre':
+      return handleDeleteGenre(data);
+    case 'GetGenreList':
+      return handleGetGenreList(data);
+    case 'FilterSongsByEntity':
+      return handleFilterSongsByEntity(data);
+    case 'ValidateSongOwnership':
+      return handleValidateSongOwnership(data);
+      
+    // StatisticsService APIs
+    case 'LogPlayback':
+      return handleLogPlayback(data);
+    case 'RateSong':
+      return handleRateSong(data);
+    case 'GetAverageRating':
+      return handleGetAverageRating(data);
+    case 'GetUserPortrait':
+      return handleGetUserPortrait(data);
+    case 'GetUserSongRecommendations':
+      return handleGetUserSongRecommendations(data);
+    case 'GetNextSongRecommendation':
+      return handleGetNextSongRecommendation(data);
+    case 'GetSongPopularity':
+      return handleGetSongPopularity(data);
+    case 'GetSimilarSongs':
+      return handleGetSimilarSongs(data);
+    case 'GetSimilarCreators':
+      return handleGetSimilarCreators(data);
+    case 'GetCreatorCreationTendency':
+      return handleGetCreatorCreationTendency(data);
+    case 'GetCreatorGenreStrength':
+      return handleGetCreatorGenreStrength(data);
+    case 'GetSongProfile':
+      return handleGetSongProfile(data);
+      
+    default:
+      throw new Error(`Unknown endpoint: ${endpoint}`);
+  }
 }
 
-// Helper function to generate IDs
-const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-// Helper function to generate artist IDs
-const generateArtistId = () => `artist-${String(db.artists.length + 1).padStart(3, '0')}`;
-
-// Log all requests
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  console.log('Request Body:', JSON.stringify(req.body, null, 2));
-  next();
-});
-
-// API Routes
-
-// User Registration
-app.post('/api/UserRegisterMessage', (req, res) => {
-  const { userName, password } = req.body;
-  
-  // Check if user already exists
-  if (db.users.find(u => u.userName === userName)) {
-    return res.json([null, "用户名已存在"]);
-  }
-  
-  // Create new user
-  const userId = generateId();
-  db.users.push({
-    userID: userId,
-    userName,
-    password,
-    account: userName
-  });
-  
-  // Save to db
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([userId, "注册成功"]);
-});
-
-// User Login
-app.post('/api/UserLoginMessage', (req, res) => {
-  const { userName, password } = req.body;
-  
-  const user = db.users.find(u => u.userName === userName && u.password === password);
+// OrganizeService 处理函数
+function handleUserLogin(data) {
+  const { userName, password } = data;
+  const user = users.find(u => u.userName === userName && u.password === password);
   
   if (user) {
-    const token = `token-${generateId()}`;
-    const userID = user.userID || generateId();
+    const token = generateToken();
     user.userToken = token;
-    user.userID = userID;
-    
-    // 保存更新
-    fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-    
-    // 返回 [[userID, token], message] 格式
-    res.json([[userID, token], "登录成功"]);
+    userSessions.set(user.userID, token);
+    return [[user.userID, token], '登录成功'];
   } else {
-    res.json([null, "用户名或密码错误"]);
+    return [null, '用户名或密码错误'];
   }
-});
+}
 
-// User Logout
-app.post('/api/UserLogoutMessage', (req, res) => {
-  const { userID, userToken } = req.body;
+function handleUserRegister(data) {
+  const { userName, password } = data;
   
-  const user = db.users.find(u => u.userID === userID && u.userToken === userToken);
-  
-  if (user) {
-    delete user.userToken;
-    fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-    res.json([true, "登出成功"]);
-  } else {
-    res.json([false, "无效的用户令牌"]);
+  if (users.find(u => u.userName === userName)) {
+    return [null, '用户名已存在'];
   }
-});
-
-// Upload New Song
-app.post('/api/UploadNewSong', (req, res) => {
-  const { userID, userToken, name, releaseTime, creators, performers, genres, lyricists, composers, arrangers, instrumentalists } = req.body;
   
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
+  const userID = generateID('user');
+  const newUser = { userID, userName, password, userToken: null };
+  users.push(newUser);
+  
+  return [userID, '注册成功'];
+}
+
+function handleUserLogout(data) {
+  const { userID, userToken } = data;
+  
+  if (validateUser(userID, userToken)) {
+    userSessions.delete(userID);
+    const user = users.find(u => u.userID === userID);
+    if (user) user.userToken = null;
+    return [true, '登出成功'];
+  }
+  
+  return [false, '无效的用户令牌'];
+}
+
+function handleValidateUserMapping(data) {
+  const { userID, userToken } = data;
+  return [validateUser(userID, userToken), validateUser(userID, userToken) ? '用户验证成功' : '用户验证失败'];
+}
+
+function handleValidateAdminMapping(data) {
+  const { adminID, adminToken } = data;
+  return [validateAdmin(adminID, adminToken), validateAdmin(adminID, adminToken) ? '管理员验证成功' : '管理员验证失败'];
+}
+
+// CreatorService 处理函数
+function handleCreateArtist(data) {
+  const { adminID, adminToken, name, bio } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [null, '管理员验证失败'];
+  }
+  
+  if (artists.find(a => a.name === name)) {
+    return [null, '艺术家名称已存在'];
+  }
+  
+  const artistID = generateID('artist');
+  const newArtist = { artistID, name, bio, managers: [] };
+  artists.push(newArtist);
+  
+  return [artistID, '艺术家创建成功'];
+}
+
+function handleUpdateArtist(data) {
+  const { userID, userToken, artistID, name, bio } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  const artist = artists.find(a => a.artistID === artistID);
+  if (!artist) {
+    return [false, '艺术家不存在'];
+  }
+  
+  if (name !== undefined) artist.name = name;
+  if (bio !== undefined) artist.bio = bio;
+  
+  return [true, '艺术家信息更新成功'];
+}
+
+function handleDeleteArtist(data) {
+  const { adminID, adminToken, artistID } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [false, '管理员验证失败'];
+  }
+  
+  const index = artists.findIndex(a => a.artistID === artistID);
+  if (index === -1) {
+    return [false, '艺术家不存在'];
+  }
+  
+  artists.splice(index, 1);
+  return [true, '艺术家删除成功'];
+}
+
+function handleGetArtistByID(data) {
+  const { userID, userToken, artistID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const artist = artists.find(a => a.artistID === artistID);
+  if (!artist) {
+    return [null, '艺术家不存在'];
+  }
+  
+  return [artist, '获取艺术家信息成功'];
+}
+
+function handleSearchArtistByName(data) {
+  const { userID, userToken, artistName } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const matchedArtists = artists.filter(a => 
+    a.name.toLowerCase().includes(artistName.toLowerCase())
+  );
+  
+  const artistIDs = matchedArtists.map(a => a.artistID);
+  return [artistIDs, `找到${artistIDs.length}个匹配的艺术家`];
+}
+
+function handleCreateBand(data) {
+  const { adminID, adminToken, name, members, bio } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [null, '管理员验证失败'];
+  }
+  
+  if (bands.find(b => b.name === name)) {
+    return [null, '乐队名称已存在'];
+  }
+  
+  const bandID = generateID('band');
+  const newBand = { bandID, name, members: members || [], bio, managers: [] };
+  bands.push(newBand);
+  
+  return [bandID, '乐队创建成功'];
+}
+
+function handleUpdateBand(data) {
+  const { userID, userToken, bandID, name, members, bio } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  const band = bands.find(b => b.bandID === bandID);
+  if (!band) {
+    return [false, '乐队不存在'];
+  }
+  
+  if (name !== undefined) band.name = name;
+  if (members !== undefined) band.members = members;
+  if (bio !== undefined) band.bio = bio;
+  
+  return [true, '乐队信息更新成功'];
+}
+
+function handleDeleteBand(data) {
+  const { adminID, adminToken, bandID } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [false, '管理员验证失败'];
+  }
+  
+  const index = bands.findIndex(b => b.bandID === bandID);
+  if (index === -1) {
+    return [false, '乐队不存在'];
+  }
+  
+  bands.splice(index, 1);
+  return [true, '乐队删除成功'];
+}
+
+function handleGetBandByID(data) {
+  const { userID, userToken, bandID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const band = bands.find(b => b.bandID === bandID);
+  if (!band) {
+    return [null, '乐队不存在'];
+  }
+  
+  return [band, '获取乐队信息成功'];
+}
+
+function handleSearchBandByName(data) {
+  const { userID, userToken, BandName } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const matchedBands = bands.filter(b => 
+    b.name.toLowerCase().includes(BandName.toLowerCase())
+  );
+  
+  const bandIDs = matchedBands.map(b => b.bandID);
+  return [bandIDs, `找到${bandIDs.length}个匹配的乐队`];
+}
+
+function handleAddArtistManager(data) {
+  const { adminID, adminToken, userID, artistID } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [false, '管理员验证失败'];
+  }
+  
+  const artist = artists.find(a => a.artistID === artistID);
+  if (!artist) {
+    return [false, '艺术家不存在'];
+  }
+  
+  if (!artist.managers.includes(userID)) {
+    artist.managers.push(userID);
+  }
+  
+  return [true, '管理者添加成功'];
+}
+
+function handleAddBandManager(data) {
+  const { adminID, adminToken, userID, bandID } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [false, '管理员验证失败'];
+  }
+  
+  const band = bands.find(b => b.bandID === bandID);
+  if (!band) {
+    return [false, '乐队不存在'];
+  }
+  
+  if (!band.managers.includes(userID)) {
+    band.managers.push(userID);
+  }
+  
+  return [true, '管理者添加成功'];
+}
+
+function handleValidArtistOwnership(data) {
+  const { userID, userToken, artistID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  const user = users.find(u => u.userID === userID);
   if (!user) {
-    return res.json([null, "用户认证失败"]);
+    return [false, '用户不存在'];
   }
   
-  // Create new song
-  const songId = generateId();
+  // 管理员拥有所有权限
+  if (user.role === 'admin') {
+    return [true, '管理员拥有艺术家管理权限'];
+  }
+  
+  const artist = artists.find(a => a.artistID === artistID);
+  if (!artist) {
+    return [false, '艺术家不存在'];
+  }
+  
+  // 检查用户是否是艺术家的管理者
+  if (artist.managers && artist.managers.includes(userID)) {
+    return [true, '拥有艺术家管理权限'];
+  }
+  
+  return [false, '没有艺术家管理权限'];
+}
+
+function handleValidBandOwnership(data) {
+  const { userID, userToken, bandID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  const user = users.find(u => u.userID === userID);
+  if (!user) {
+    return [false, '用户不存在'];
+  }
+  
+  // 管理员拥有所有权限
+  if (user.role === 'admin') {
+    return [true, '管理员拥有乐队管理权限'];
+  }
+  
+  const band = bands.find(b => b.bandID === bandID);
+  if (!band) {
+    return [false, '乐队不存在'];
+  }
+  
+  // 检查用户是否是乐队的管理者
+  if (band.managers && band.managers.includes(userID)) {
+    return [true, '拥有乐队管理权限'];
+  }
+  
+  return [false, '没有乐队管理权限'];
+}
+
+// MusicService 处理函数
+function handleUploadNewSong(data) {
+  const { userID, userToken, name, releaseTime, creators, performers, lyricists, composers, arrangers, instrumentalists, genres } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const songID = generateID('song');
   const newSong = {
-    songID: songId,
+    songID,
     name,
     releaseTime,
     creators: creators || [],
     performers: performers || [],
-    genres: genres || [],
     lyricists: lyricists || [],
     composers: composers || [],
     arrangers: arrangers || [],
     instrumentalists: instrumentalists || [],
+    genres: genres || [],
     uploadedBy: userID,
     uploadTime: Date.now()
   };
   
-  db.songs.push(newSong);
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([songId, "歌曲上传成功"]);
-});
+  songs.push(newSong);
+  return [songID, '歌曲上传成功'];
+}
 
-// Update Song Metadata
-app.post('/api/UpdateSongMetadata', (req, res) => {
-  const { userID, userToken, songID, ...updateData } = req.body;
+function handleUpdateSongMetadata(data) {
+  const { userID, userToken, songID, name, releaseTime, creators, performers, lyricists, composers, arrangers, instrumentalists, genres } = data;
   
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  const user = users.find(u => u.userID === userID);
   if (!user) {
-    return res.json([false, "用户认证失败"]);
+    return [false, '用户不存在'];
   }
   
-  // Find song
-  const songIndex = db.songs.findIndex(s => s.songID === songID);
-  if (songIndex === -1) {
-    return res.json([false, "歌曲不存在"]);
-  }
-  
-  // Update song
-  Object.keys(updateData).forEach(key => {
-    if (updateData[key] !== undefined && updateData[key] !== null) {
-      db.songs[songIndex][key] = updateData[key];
-    }
-  });
-  
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([true, "歌曲更新成功"]);
-});
-
-// Delete Song (Admin only)
-app.post('/api/DeleteSong', (req, res) => {
-  const { adminID, adminToken, songID } = req.body;
-  
-  // Verify admin (for demo, any logged-in user can delete)
-  const user = db.users.find(u => u.userToken === adminToken);
-  if (!user) {
-    return res.json([false, "管理员认证失败"]);
-  }
-  
-  // Delete song
-  const songIndex = db.songs.findIndex(s => s.songID === songID);
-  if (songIndex === -1) {
-    return res.json([false, "歌曲不存在"]);
-  }
-  
-  db.songs.splice(songIndex, 1);
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([true, "歌曲删除成功"]);
-});
-
-// Search Songs by Name
-app.post('/api/SearchSongsByName', (req, res) => {
-  const { userID, userToken, keywords } = req.body;
-  
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
-  if (!user) {
-    return res.json([null, "用户认证失败"]);
-  }
-  
-  // Search songs
-  const matchedSongs = db.songs.filter(song => 
-    song.name.toLowerCase().includes(keywords.toLowerCase())
-  );
-  
-  const songIds = matchedSongs.map(s => s.songID);
-  
-  res.json([songIds, "搜索成功"]);
-});
-
-// Get Song By ID
-app.post('/api/GetSongByID', (req, res) => {
-  const { userID, userToken, songID } = req.body;
-  
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
-  if (!user) {
-    return res.json([null, "用户认证失败"]);
-  }
-  
-  // Find song
-  const song = db.songs.find(s => s.songID === songID);
+  const song = songs.find(s => s.songID === songID);
   if (!song) {
-    return res.json([null, "歌曲不存在"]);
+    return [false, '歌曲不存在'];
   }
   
-  res.json([song, "获取歌曲成功"]);
-});
-
-// Get Genre List
-app.post('/api/GetGenreList', (req, res) => {
-  const { userID, userToken } = req.body;
+  // 检查权限：管理员、上传者或相关创作者的管理者才能编辑
+  let hasPermission = false;
   
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
-  if (!user) {
-    return res.json([null, "用户认证失败"]);
-  }
-  
-  // Return all genres
-  res.json([db.genres, "获取曲风列表成功"]);
-});
-
-// Create New Genre
-app.post('/api/CreateNewGenre', (req, res) => {
-  const { adminID, adminToken, name, description } = req.body;
-  
-  // Verify admin (for demo, any logged-in user can create genres)
-  const user = db.users.find(u => u.userToken === adminToken);
-  if (!user) {
-    return res.json([null, "管理员认证失败"]);
-  }
-  
-  // Check if genre name already exists
-  if (db.genres.find(g => g.name.toLowerCase() === name.toLowerCase())) {
-    return res.json([null, "曲风名称已存在"]);
-  }
-  
-  // Create new genre
-  const genreId = `genre-${String(db.genres.length + 1).padStart(3, '0')}`;
-  const newGenre = {
-    genreID: genreId,
-    name,
-    description
-  };
-  
-  db.genres.push(newGenre);
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([genreId, "曲风创建成功"]);
-});
-
-// Delete Genre
-app.post('/api/DeleteGenre', (req, res) => {
-  const { adminID, adminToken, genreID } = req.body;
-  
-  // Verify admin (for demo, any logged-in user can delete genres)
-  const user = db.users.find(u => u.userToken === adminToken);
-  if (!user) {
-    return res.json([false, "管理员认证失败"]);
-  }
-  
-  // Find genre
-  const genreIndex = db.genres.findIndex(g => g.genreID === genreID);
-  if (genreIndex === -1) {
-    return res.json([false, "曲风不存在"]);
-  }
-  
-  // Check if any songs use this genre
-  const songsUsingGenre = db.songs.filter(song => 
-    song.genres && song.genres.includes(genreID)
-  );
-  
-  if (songsUsingGenre.length > 0) {
-    return res.json([false, `无法删除曲风：有 ${songsUsingGenre.length} 首歌曲正在使用此曲风`]);
-  }
-  
-  // Delete genre
-  db.genres.splice(genreIndex, 1);
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([true, "曲风删除成功"]);
-});
-
-// ============ ARTIST MANAGEMENT APIs ============
-
-// Create Artist
-app.post('/api/CreateArtistMessage', (req, res) => {
-  const { adminID, adminToken, name, bio } = req.body;
-  
-  // Verify admin (for demo, any logged-in user can create artists)
-  const user = db.users.find(u => u.userToken === adminToken);
-  if (!user) {
-    return res.json([null, "管理员认证失败"]);
-  }
-  
-  // Check if artist name already exists
-  if (db.artists.find(a => a.name.toLowerCase() === name.toLowerCase())) {
-    return res.json([null, "艺术家名称已存在"]);
-  }
-  
-  // Create new artist
-  const artistId = generateArtistId();
-  const newArtist = {
-    artistID: artistId,
-    name,
-    bio,
-    managers: [] // Initialize empty managers array
-  };
-  
-  db.artists.push(newArtist);
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([artistId, "艺术家创建成功"]);
-});
-
-// Update Artist
-app.post('/api/UpdateArtistMessage', (req, res) => {
-  const { userID, userToken, artistID, name, bio } = req.body;
-  
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
-  if (!user) {
-    return res.json([false, "用户认证失败"]);
-  }
-  
-  // Find artist
-  const artistIndex = db.artists.findIndex(a => a.artistID === artistID);
-  if (artistIndex === -1) {
-    return res.json([false, "艺术家不存在"]);
-  }
-  
-  // Update artist fields if provided
-  if (name) {
-    // Check if new name conflicts with existing artists (excluding current one)
-    const existingArtist = db.artists.find(a => 
-      a.artistID !== artistID && a.name.toLowerCase() === name.toLowerCase()
-    );
-    if (existingArtist) {
-      return res.json([false, "艺术家名称已存在"]);
-    }
-    db.artists[artistIndex].name = name;
-  }
-  
-  if (bio) {
-    db.artists[artistIndex].bio = bio;
-  }
-  
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([true, "艺术家信息更新成功"]);
-});
-
-// Delete Artist
-app.post('/api/DeleteArtistMessage', (req, res) => {
-  const { adminID, adminToken, artistID } = req.body;
-  
-  // Verify admin (for demo, any logged-in user can delete artists)
-  const user = db.users.find(u => u.userToken === adminToken);
-  if (!user) {
-    return res.json([false, "管理员认证失败"]);
-  }
-  
-  // Find artist
-  const artistIndex = db.artists.findIndex(a => a.artistID === artistID);
-  if (artistIndex === -1) {
-    return res.json([false, "艺术家不存在"]);
-  }
-  
-  // Check if any songs reference this artist
-  const songsReferencingArtist = db.songs.filter(song => 
-    (song.creators && song.creators.includes(artistID)) ||
-    (song.performers && song.performers.includes(artistID)) ||
-    (song.lyricists && song.lyricists.includes(artistID)) ||
-    (song.composers && song.composers.includes(artistID)) ||
-    (song.arrangers && song.arrangers.includes(artistID)) ||
-    (song.instrumentalists && song.instrumentalists.includes(artistID))
-  );
-  
-  if (songsReferencingArtist.length > 0) {
-    return res.json([false, `无法删除艺术家：有 ${songsReferencingArtist.length} 首歌曲正在引用此艺术家`]);
-  }
-  
-  // Delete artist
-  db.artists.splice(artistIndex, 1);
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([true, "艺术家删除成功"]);
-});
-
-// Get Artist By ID
-app.post('/api/GetArtistByID', (req, res) => {
-  const { userID, userToken, artistID } = req.body;
-  
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
-  if (!user) {
-    return res.json([null, "用户认证失败"]);
-  }
-  
-  // Find artist
-  const artist = db.artists.find(a => a.artistID === artistID);
-  if (!artist) {
-    return res.json([null, "艺术家不存在"]);
-  }
-  
-  res.json([artist, "获取艺术家成功"]);
-});
-
-// Search Artist By Name
-app.post('/api/SearchArtistByName', (req, res) => {
-  const { userID, userToken, artistName } = req.body;
-  
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken);
-  if (!user) {
-    return res.json([null, "用户认证失败"]);
-  }
-  
-  // Search artists by name (fuzzy match)
-  const matchedArtists = db.artists.filter(artist => 
-    artist.name.toLowerCase().includes(artistName.toLowerCase())
-  );
-  
-  const artistIds = matchedArtists.map(a => a.artistID);
-  
-  if (artistIds.length === 0) {
-    return res.json([null, "未找到匹配的艺术家"]);
-  }
-  
-  res.json([artistIds, "搜索成功"]);
-});
-
-// Add Artist Manager
-app.post('/api/AddArtistManager', (req, res) => {
-  const { adminID, adminToken, userID, artistID } = req.body;
-  
-  // Verify admin
-  const admin = db.users.find(u => u.userToken === adminToken && u.userID === adminID);
-  if (!admin) {
-    return res.json([false, "管理员认证失败"]);
-  }
-  
-  // Check if target user exists
-  const targetUser = db.users.find(u => u.userID === userID);
-  if (!targetUser) {
-    return res.json([false, "目标用户不存在"]);
-  }
-  
-  // Find artist
-  const artistIndex = db.artists.findIndex(a => a.artistID === artistID);
-  if (artistIndex === -1) {
-    return res.json([false, "艺术家不存在"]);
-  }
-  
-  // Check if user is already a manager
-  if (db.artists[artistIndex].managers.includes(userID)) {
-    return res.json([false, "用户已经是该艺术家的管理者"]);
-  }
-  
-  // Add user to managers list
-  db.artists[artistIndex].managers.push(userID);
-  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-  
-  res.json([true, "艺术家管理者添加成功"]);
-});
-
-// Validate Artist Ownership
-app.post('/api/validArtistOwnership', (req, res) => {
-  const { userID, userToken, artistID } = req.body;
-  
-  // Verify user
-  const user = db.users.find(u => u.userToken === userToken && u.userID === userID);
-  if (!user) {
-    return res.json([false, "用户认证失败"]);
-  }
-  
-  // Find artist
-  const artist = db.artists.find(a => a.artistID === artistID);
-  if (!artist) {
-    return res.json([false, "艺术家不存在"]);
-  }
-  
-  // Check if user is a manager of this artist (for demo, allow all authenticated users)
-  const isManager = artist.managers.includes(userID);
-  
-  if (isManager) {
-    res.json([true, "用户拥有艺术家管理权限"]);
+  if (user.role === 'admin') {
+    hasPermission = true;
+  } else if (song.uploadedBy === userID) {
+    hasPermission = true;
   } else {
-    // For demo purposes, allow all authenticated users to manage artists
-    res.json([true, "用户拥有艺术家管理权限"]);
+    // 检查用户是否管理任何相关的艺术家或乐队
+    const allCreators = [
+      ...(song.creators || []),
+      ...(song.performers || []),
+      ...(song.lyricists || []),
+      ...(song.composers || []),
+      ...(song.arrangers || []),
+      ...(song.instrumentalists || [])
+    ];
+    
+    for (const creatorID of allCreators) {
+      const artist = artists.find(a => a.artistID === creatorID);
+      if (artist && artist.managers && artist.managers.includes(userID)) {
+        hasPermission = true;
+        break;
+      }
+      
+      const band = bands.find(b => b.bandID === creatorID);
+      if (band && band.managers && band.managers.includes(userID)) {
+        hasPermission = true;
+        break;
+      }
+    }
   }
-});
-
-// Get song details (additional endpoint for testing)
-app.post('/api/GetSongDetails', (req, res) => {
-  const { songIDs } = req.body;
   
-  const songs = db.songs.filter(s => songIDs.includes(s.songID));
-  res.json(songs);
+  if (!hasPermission) {
+    return [false, '没有编辑该歌曲的权限'];
+  }
+  
+  if (name !== undefined) song.name = name;
+  if (releaseTime !== undefined) song.releaseTime = releaseTime;
+  if (creators !== undefined) song.creators = creators;
+  if (performers !== undefined) song.performers = performers;
+  if (lyricists !== undefined) song.lyricists = lyricists;
+  if (composers !== undefined) song.composers = composers;
+  if (arrangers !== undefined) song.arrangers = arrangers;
+  if (instrumentalists !== undefined) song.instrumentalists = instrumentalists;
+  if (genres !== undefined) song.genres = genres;
+  
+  return [true, '歌曲信息更新成功'];
+}
+
+function handleDeleteSong(data) {
+  const { adminID, adminToken, songID } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [false, '管理员验证失败'];
+  }
+  
+  const index = songs.findIndex(s => s.songID === songID);
+  if (index === -1) {
+    return [false, '歌曲不存在'];
+  }
+  
+  songs.splice(index, 1);
+  return [true, '歌曲删除成功'];
+}
+
+function handleSearchSongsByName(data) {
+  const { userID, userToken, keywords } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const matchedSongs = songs.filter(s => 
+    s.name.toLowerCase().includes(keywords.toLowerCase())
+  );
+  
+  const songIDs = matchedSongs.map(s => s.songID);
+  return [songIDs, `找到${songIDs.length}首匹配的歌曲`];
+}
+
+function handleGetSongByID(data) {
+  const { userID, userToken, songID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [null, '歌曲不存在'];
+  }
+  
+  return [song, '获取歌曲信息成功'];
+}
+
+function handleCreateNewGenre(data) {
+  const { adminID, adminToken, name, description } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [null, '管理员验证失败'];
+  }
+  
+  if (genres.find(g => g.name === name)) {
+    return [null, '曲风名称已存在'];
+  }
+  
+  const genreID = generateID('genre');
+  const newGenre = { genreID, name, description };
+  genres.push(newGenre);
+  
+  return [genreID, '曲风创建成功'];
+}
+
+function handleDeleteGenre(data) {
+  const { adminID, adminToken, genreID } = data;
+  
+  if (!validateAdmin(adminID, adminToken)) {
+    return [false, '管理员验证失败'];
+  }
+  
+  const index = genres.findIndex(g => g.genreID === genreID);
+  if (index === -1) {
+    return [false, '曲风不存在'];
+  }
+  
+  genres.splice(index, 1);
+  return [true, '曲风删除成功'];
+}
+
+function handleGetGenreList(data) {
+  const { userID, userToken } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  return [genres, '获取曲风列表成功'];
+}
+
+function handleFilterSongsByEntity(data) {
+  const { userID, userToken, entityID, entityType, genres: genreFilter } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  let filteredSongs = songs;
+  
+  if (entityID && entityType) {
+    if (entityType === 'artist') {
+      filteredSongs = filteredSongs.filter(s => 
+        s.creators.includes(entityID) || 
+        s.performers.includes(entityID) ||
+        s.lyricists.includes(entityID) ||
+        s.composers.includes(entityID) ||
+        s.arrangers.includes(entityID) ||
+        s.instrumentalists.includes(entityID)
+      );
+    } else if (entityType === 'band') {
+      filteredSongs = filteredSongs.filter(s => 
+        s.creators.includes(entityID) || 
+        s.performers.includes(entityID)
+      );
+    }
+  }
+  
+  if (genreFilter) {
+    filteredSongs = filteredSongs.filter(s => 
+      s.genres.includes(genreFilter)
+    );
+  }
+  
+  const songIDs = filteredSongs.map(s => s.songID);
+  return [songIDs, `找到${songIDs.length}首符合条件的歌曲`];
+}
+
+function handleValidateSongOwnership(data) {
+  const { userID, userToken, songID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  const user = users.find(u => u.userID === userID);
+  if (!user) {
+    return [false, '用户不存在'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [false, '歌曲不存在'];
+  }
+  
+  // 管理员拥有所有权限
+  if (user.role === 'admin') {
+    return [true, '管理员拥有歌曲管理权限'];
+  }
+  
+  // 检查用户是否是歌曲的上传者
+  if (song.uploadedBy === userID) {
+    return [true, '拥有歌曲管理权限（上传者）'];
+  }
+  
+  // 检查用户是否是歌曲创作者之一
+  const allCreators = [
+    ...(song.creators || []),
+    ...(song.performers || []),
+    ...(song.lyricists || []),
+    ...(song.composers || []),
+    ...(song.arrangers || []),
+    ...(song.instrumentalists || [])
+  ];
+  
+  // 检查用户是否管理任何相关的艺术家
+  for (const creatorID of allCreators) {
+    const artist = artists.find(a => a.artistID === creatorID);
+    if (artist && artist.managers && artist.managers.includes(userID)) {
+      return [true, '拥有歌曲管理权限（艺术家管理者）'];
+    }
+    
+    const band = bands.find(b => b.bandID === creatorID);
+    if (band && band.managers && band.managers.includes(userID)) {
+      return [true, '拥有歌曲管理权限（乐队管理者）'];
+    }
+  }
+  
+  return [false, '没有歌曲管理权限'];
+}
+
+// StatisticsService 处理函数
+function handleLogPlayback(data) {
+  const { userID, userToken, songID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [false, '歌曲不存在'];
+  }
+  
+  // 模拟记录播放日志
+  console.log(`用户 ${userID} 播放了歌曲 ${songID}`);
+  return [true, '播放记录成功'];
+}
+
+function handleRateSong(data) {
+  const { userID, userToken, songID, rating } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [false, '用户验证失败'];
+  }
+  
+  if (rating < 1 || rating > 5) {
+    return [false, '评分必须在1-5之间'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [false, '歌曲不存在'];
+  }
+  
+  // 模拟记录评分
+  console.log(`用户 ${userID} 给歌曲 ${songID} 评分 ${rating}`);
+  return [true, '评分成功'];
+}
+
+function handleGetAverageRating(data) {
+  const { userID, userToken, songID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [[0, 0], '用户验证失败'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [[0, 0], '歌曲不存在'];
+  }
+  
+  // 模拟平均评分
+  const averageRating = 4.2 + Math.random() * 0.6; // 4.2-4.8之间
+  const ratingCount = Math.floor(Math.random() * 1000) + 50; // 50-1050之间
+  
+  return [[averageRating, ratingCount], '获取平均评分成功'];
+}
+
+function handleGetUserPortrait(data) {
+  const { userID, userToken } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  // 模拟用户画像
+  const profile = genres.map(genre => ({
+    genreID: genre.genreID,
+    preference: Math.random() // 0-1之间的偏好度
+  }));
+  
+  return [profile, '获取用户画像成功'];
+}
+
+function handleGetUserSongRecommendations(data) {
+  const { userID, userToken, pageNumber = 1, pageSize = 20 } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  // 模拟推荐歌曲（随机选择一些歌曲）
+  const shuffledSongs = [...songs].sort(() => Math.random() - 0.5);
+  const startIndex = (pageNumber - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const recommendedSongs = shuffledSongs.slice(startIndex, endIndex);
+  const songIDs = recommendedSongs.map(s => s.songID);
+  
+  return [songIDs, '获取推荐歌曲成功'];
+}
+
+function handleGetNextSongRecommendation(data) {
+  const { userID, userToken, currentSongID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const currentSong = songs.find(s => s.songID === currentSongID);
+  if (!currentSong) {
+    return [null, '当前歌曲不存在'];
+  }
+  
+  // 模拟推荐下一首歌（随机选择）
+  const otherSongs = songs.filter(s => s.songID !== currentSongID);
+  if (otherSongs.length === 0) {
+    return [null, '没有其他歌曲可推荐'];
+  }
+  
+  const randomSong = otherSongs[Math.floor(Math.random() * otherSongs.length)];
+  return [randomSong.songID, '获取下一首推荐歌曲成功'];
+}
+
+function handleGetSongPopularity(data) {
+  const { userID, userToken, songID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [null, '歌曲不存在'];
+  }
+  
+  // 模拟热度值
+  const popularity = Math.random() * 1000 + 100; // 100-1100之间
+  return [popularity, '获取歌曲热度成功'];
+}
+
+function handleGetSimilarSongs(data) {
+  const { userID, userToken, songID, limit = 10 } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [null, '歌曲不存在'];
+  }
+  
+  // 模拟相似歌曲（随机选择一些歌曲）
+  const otherSongs = songs.filter(s => s.songID !== songID);
+  const shuffledSongs = otherSongs.sort(() => Math.random() - 0.5);
+  const similarSongs = shuffledSongs.slice(0, limit);
+  const songIDs = similarSongs.map(s => s.songID);
+  
+  return [songIDs, '获取相似歌曲成功'];
+}
+
+function handleGetSimilarCreators(data) {
+  const { userID, userToken, creatorID, creatorType, limit = 10 } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  let allCreators = [];
+  
+  if (creatorType === 'artist' || creatorType === 'both') {
+    allCreators = allCreators.concat(artists.map(a => ({ id: a.artistID, type: 'artist' })));
+  }
+  
+  if (creatorType === 'band' || creatorType === 'both') {
+    allCreators = allCreators.concat(bands.map(b => ({ id: b.bandID, type: 'band' })));
+  }
+  
+  // 过滤掉当前创作者
+  const otherCreators = allCreators.filter(c => c.id !== creatorID);
+  
+  // 随机选择相似创作者
+  const shuffledCreators = otherCreators.sort(() => Math.random() - 0.5);
+  const similarCreators = shuffledCreators.slice(0, limit);
+  const creatorTuples = similarCreators.map(c => [c.id, c.type]);
+  
+  return [creatorTuples, '获取相似创作者成功'];
+}
+
+function handleGetCreatorCreationTendency(data) {
+  const { userID, userToken, creatorID, creatorType } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  let creator = null;
+  if (creatorType === 'artist') {
+    creator = artists.find(a => a.artistID === creatorID);
+  } else if (creatorType === 'band') {
+    creator = bands.find(b => b.bandID === creatorID);
+  }
+  
+  if (!creator) {
+    return [null, '创作者不存在'];
+  }
+  
+  // 模拟创作倾向
+  const tendency = genres.map(genre => ({
+    genreID: genre.genreID,
+    tendency: Math.random() // 0-1之间的倾向度
+  }));
+  
+  // 归一化处理
+  const total = tendency.reduce((sum, t) => sum + t.tendency, 0);
+  const normalizedTendency = tendency.map(t => ({
+    genreID: t.genreID,
+    tendency: t.tendency / total
+  }));
+  
+  return [normalizedTendency, '获取创作倾向成功'];
+}
+
+function handleGetCreatorGenreStrength(data) {
+  const { userID, userToken, creatorID, creatorType } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  let creator = null;
+  if (creatorType === 'artist') {
+    creator = artists.find(a => a.artistID === creatorID);
+  } else if (creatorType === 'band') {
+    creator = bands.find(b => b.bandID === creatorID);
+  }
+  
+  if (!creator) {
+    return [null, '创作者不存在'];
+  }
+  
+  // 模拟曲风实力
+  const strength = genres.map(genre => ({
+    genreID: genre.genreID,
+    strength: Math.random() * 1000 + 100 // 100-1100之间的实力值
+  }));
+  
+  return [strength, '获取曲风实力成功'];
+}
+
+function handleGetSongProfile(data) {
+  const { userID, userToken, songID } = data;
+  
+  if (!validateUser(userID, userToken)) {
+    return [null, '用户验证失败'];
+  }
+  
+  const song = songs.find(s => s.songID === songID);
+  if (!song) {
+    return [null, '歌曲不存在'];
+  }
+  
+  // 模拟歌曲画像
+  const profile = genres.map(genre => ({
+    genreID: genre.genreID,
+    score: Math.random() // 0-1之间的分数
+  }));
+  
+  return [profile, '获取歌曲画像成功'];
+}
+
+// 启动服务器
+app.listen(PORT, () => {
+  console.log(`🎵 Music Management Mock Server is running on port ${PORT}`);
+  console.log(`📊 Initial data:`);
+  console.log(`   - Users: ${users.length} (${users.filter(u => u.role === 'admin').length} admins, ${users.filter(u => u.role === 'user').length} regular users)`);
+  console.log(`   - Artists: ${artists.length}`);
+  console.log(`   - Bands: ${bands.length}`);
+  console.log(`   - Songs: ${songs.length}`);
+  console.log(`   - Genres: ${genres.length}`);
+  console.log(`🔐 Permission system:`);
+  console.log(`   - Admin users can: create/update/delete all resources`);
+  console.log(`   - Regular users can: view all, edit/delete only managed resources`);
+  console.log(`🚀 Server ready for API calls!`);
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Mock API Server running on http://localhost:${PORT}`);
-  console.log('Available endpoints:');
-  console.log('- POST /api/UserRegisterMessage');
-  console.log('- POST /api/UserLoginMessage');
-  console.log('- POST /api/UserLogoutMessage');
-  console.log('- POST /api/UploadNewSong');
-  console.log('- POST /api/UpdateSongMetadata');
-  console.log('- POST /api/DeleteSong');
-  console.log('- POST /api/SearchSongsByName');
-  console.log('- POST /api/GetSongByID');
-  console.log('- POST /api/GetGenreList');
-  console.log('- POST /api/CreateNewGenre');
-  console.log('- POST /api/DeleteGenre');
-  console.log('');
-  console.log('Artist Management APIs:');
-  console.log('- POST /api/CreateArtistMessage');
-  console.log('- POST /api/UpdateArtistMessage');
-  console.log('- POST /api/DeleteArtistMessage');
-  console.log('- POST /api/GetArtistByID');
-  console.log('- POST /api/SearchArtistByName');
-  console.log('- POST /api/AddArtistManager');
-  console.log('- POST /api/validArtistOwnership');
+// 优雅关闭
+process.on('SIGTERM', () => {
+  console.log('🛑 Shutting down mock server gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Shutting down mock server gracefully...');
+  process.exit(0);
 });
