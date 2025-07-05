@@ -32,7 +32,12 @@ const SongManagement: React.FC = () => {
   const [selectedInstrumentalists, setSelectedInstrumentalists] = useState<ArtistBandItem[]>([]);
   
   const { genres } = useGenres();
-  const { getArtistBandsByIds, searchArtistBand } = useArtistBand();
+  const { 
+    getArtistBandsByIds, 
+    searchArtistBand, 
+    convertCreatorsToSelectedItems,  // 专门处理 CreatorID_Type[]
+    convertIdsToSelectedItems        // 处理传统字符串ID数组
+  } = useArtistBand();
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState({
@@ -56,86 +61,6 @@ const SongManagement: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [dropdownOpen]);
-
-  // 将CreatorID_Type数组转换为选中项目 - 使用正确的类型信息
-  const convertCreatorsToSelectedItems = async (creators: CreatorID_Type[]): Promise<ArtistBandItem[]> => {
-    if (!creators || creators.length === 0) return [];
-    
-    const results: ArtistBandItem[] = [];
-    
-    for (const creator of creators) {
-      try {
-        // 直接使用 CreatorID_Type 中的类型信息
-        const type = creator.creatorType === 'artist' ? 'artist' : 'band';
-        const creatorItem = await getArtistBandsByIds([{
-          id: creator.id, 
-          type: type as 'artist' | 'band'
-        }]);
-        
-        if (creatorItem.length > 0) {
-          results.push(creatorItem[0]);
-        } else {
-          // 如果找不到，创建警告项目
-          results.push({
-            id: `not-found-${creator.id}`,
-            name: creator.id,
-            bio: `警告：无法找到ID为"${creator.id}"的${creator.creatorType === 'artist' ? '艺术家' : '乐队'}，可能是已删除的项目。请重新搜索选择。`,
-            type: creator.creatorType as 'artist' | 'band'
-          });
-        }
-      } catch (error) {
-        console.warn(`Failed to convert creator to item:`, creator, error);
-        // 创建一个错误项目
-        results.push({
-          id: `error-${creator.id}`,
-          name: creator.id,
-          bio: `错误：处理"${creator.id}"时发生错误，请重新搜索选择`,
-          type: 'artist'
-        });
-      }
-    }
-    
-    return results;
-  };
-
-  // 将字符串ID数组转换为选中项目（用于处理传统的字符串数组字段）
-  // 注意：这些字段只能是艺术家，因为只有创作者可以是乐队
-  const convertIdsToSelectedItems = async (ids: string[]): Promise<ArtistBandItem[]> => {
-    if (!ids || ids.length === 0) return [];
-    
-    const results: ArtistBandItem[] = [];
-    
-    for (const id of ids) {
-      if (!id.trim()) continue;
-      
-      try {
-        // 只尝试作为艺术家ID获取（因为只有创作者可以是乐队）
-        const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
-        if (artistItems.length > 0) {
-          results.push(artistItems[0]);
-        } else {
-          // 如果找不到艺术家，创建警告项目
-          results.push({
-            id: `not-found-${id}`,
-            name: id,
-            bio: `警告：无法找到ID为"${id}"的艺术家，可能是已删除的项目。请重新搜索选择。`,
-            type: 'artist'
-          });
-        }
-      } catch (error) {
-        console.warn(`Failed to convert ID to item: ${id}`, error);
-        // 创建一个错误项目
-        results.push({
-          id: `error-${id}`,
-          name: id,
-          bio: `错误：处理"${id}"时发生错误，请重新搜索选择`,
-          type: 'artist'
-        });
-      }
-    }
-    
-    return results;
-  };
 
   const handleSearch = async () => {
     if (!searchKeyword.trim()) {
@@ -194,11 +119,11 @@ const SongManagement: React.FC = () => {
     // 使用 Set 来管理选中的曲风
     setSelectedGenresSet(new Set(song.genres));
     
-    // 转换现有的ID列表为选中项目
+    // 转换现有的ID列表为选中项目 - 使用修复后的函数
     try {
       const [creators, performers, lyricists, composers, arrangers, instrumentalists] = await Promise.all([
-        convertCreatorsToSelectedItems(song.creators || []), // 处理 CreatorID_Type[]
-        convertIdsToSelectedItems(song.performers || []),
+        convertCreatorsToSelectedItems(song.creators || []), // 使用专门的函数处理 CreatorID_Type[]
+        convertIdsToSelectedItems(song.performers || []),    // 处理字符串ID数组
         convertIdsToSelectedItems(song.lyricists || []),
         convertIdsToSelectedItems(song.composers || []),
         convertIdsToSelectedItems(song.arrangers || []),

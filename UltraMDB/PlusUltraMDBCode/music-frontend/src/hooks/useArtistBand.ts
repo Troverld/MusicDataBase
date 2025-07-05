@@ -11,6 +11,18 @@ export interface ArtistBandItem {
   members?: string[]; // 只有乐队才有
 }
 
+// 标准化创作者类型 - 统一处理大小写问题
+const normalizeCreatorType = (creatorType: string): 'artist' | 'band' => {
+  const normalized = creatorType.toLowerCase();
+  return normalized === 'artist' ? 'artist' : 'band';
+};
+
+// 获取创作者类型的中文显示名称
+const getCreatorTypeDisplayName = (creatorType: string): string => {
+  const normalized = normalizeCreatorType(creatorType);
+  return normalized === 'artist' ? '艺术家' : '乐队';
+};
+
 export const useArtistBand = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -218,6 +230,89 @@ export const useArtistBand = () => {
     return results;
   }, [getArtistById, getBandById, searchArtistBand]);
 
+  // 将CreatorID_Type数组转换为选中项目 - 修复类型判断问题
+  const convertCreatorsToSelectedItems = useCallback(async (creators: Array<{creatorType: string, id: string}>): Promise<ArtistBandItem[]> => {
+    if (!creators || creators.length === 0) return [];
+    
+    const results: ArtistBandItem[] = [];
+    
+    for (const creator of creators) {
+      try {
+        // 使用标准化的类型判断
+        const normalizedType = normalizeCreatorType(creator.creatorType);
+        const creatorItem = await getArtistBandsByIds([{
+          id: creator.id, 
+          type: normalizedType
+        }]);
+        
+        if (creatorItem.length > 0) {
+          results.push(creatorItem[0]);
+        } else {
+          // 如果找不到，创建警告项目 - 修复类型显示问题
+          const displayName = getCreatorTypeDisplayName(creator.creatorType);
+          results.push({
+            id: `not-found-${creator.id}`,
+            name: creator.id,
+            bio: `警告：无法找到ID为"${creator.id}"的${displayName}，可能是已删除的项目。请重新搜索选择。`,
+            type: normalizedType
+          });
+        }
+      } catch (error) {
+        console.warn(`Failed to convert creator to item:`, creator, error);
+        // 创建一个错误项目
+        const normalizedType = normalizeCreatorType(creator.creatorType);
+        const displayName = getCreatorTypeDisplayName(creator.creatorType);
+        results.push({
+          id: `error-${creator.id}`,
+          name: creator.id,
+          bio: `错误：处理"${creator.id}"的${displayName}时发生错误，请重新搜索选择`,
+          type: normalizedType
+        });
+      }
+    }
+    
+    return results;
+  }, [getArtistBandsByIds]);
+
+  // 将字符串ID数组转换为选中项目（用于处理传统的字符串数组字段）
+  // 注意：这些字段只能是艺术家，因为只有创作者可以是乐队
+  const convertIdsToSelectedItems = useCallback(async (ids: string[]): Promise<ArtistBandItem[]> => {
+    if (!ids || ids.length === 0) return [];
+    
+    const results: ArtistBandItem[] = [];
+    
+    for (const id of ids) {
+      if (!id.trim()) continue;
+      
+      try {
+        // 只尝试作为艺术家ID获取（因为只有创作者可以是乐队）
+        const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
+        if (artistItems.length > 0) {
+          results.push(artistItems[0]);
+        } else {
+          // 如果找不到艺术家，创建警告项目
+          results.push({
+            id: `not-found-${id}`,
+            name: id,
+            bio: `警告：无法找到ID为"${id}"的艺术家，可能是已删除的项目。请重新搜索选择。`,
+            type: 'artist'
+          });
+        }
+      } catch (error) {
+        console.warn(`Failed to convert ID to item: ${id}`, error);
+        // 创建一个错误项目
+        results.push({
+          id: `error-${id}`,
+          name: id,
+          bio: `错误：处理"${id}"时发生错误，请重新搜索选择`,
+          type: 'artist'
+        });
+      }
+    }
+    
+    return results;
+  }, [getArtistBandsByIds]);
+
   // 将艺术家/乐队项目转换为ID列表
   const convertArtistBandItemsToIds = useCallback((items: ArtistBandItem[]): string[] => {
     return items.map(item => item.id).filter(id => id && !id.startsWith('unresolved-'));
@@ -244,6 +339,8 @@ export const useArtistBand = () => {
     getBandById,
     getArtistBandsByIds,
     convertIdsToArtistBandItems,
+    convertCreatorsToSelectedItems, // 新增：专门处理 CreatorID_Type 的转换
+    convertIdsToSelectedItems,      // 处理传统字符串ID数组
     convertArtistBandItemsToIds,
     convertArtistBandItemsToNames,
     convertIdsToNames
