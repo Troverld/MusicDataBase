@@ -22,18 +22,25 @@ export type LoginResponse = [
 
 export type RegisterResponse = [string | null, string];
 
+// 新增：CreatorID_Type 接口，匹配后端结构
+export interface CreatorID_Type {
+  creatorType: 'artist' | 'band';
+  id: string;
+}
+
+// 更新 Song 接口以匹配后端新结构
 export interface Song {
   songID: string;
   name: string;
   releaseTime: number;
-  creators: string[];
+  creators: CreatorID_Type[];  // 现在是 CreatorID_Type 对象数组
   performers: string[];
   genres: string[];
   lyricists?: string[];
   composers?: string[];
   arrangers?: string[];
   instrumentalists?: string[];
-  uploadedBy?: string;      // 添加上传者字段
+  uploaderID?: string;      // 添加上传者字段（对应后端的 uploaderID）
   uploadTime?: number;      // 添加上传时间字段
 }
 

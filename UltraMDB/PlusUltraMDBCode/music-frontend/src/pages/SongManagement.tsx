@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { musicService } from '../services/music.service';
-import { Song } from '../types';
+import { Song, CreatorID_Type } from '../types';
 import SongList from '../components/SongList';
 import { useGenres } from '../hooks/useGenres';
 import { useArtistBand, ArtistBandItem } from '../hooks/useArtistBand';
@@ -57,80 +57,109 @@ const SongManagement: React.FC = () => {
     };
   }, [dropdownOpen]);
 
-  // 将艺术家/乐队ID转换为选中项目
-  const convertIdsToSelectedItems = async (ids: string[]): Promise<ArtistBandItem[]> => {
-    if (!ids || ids.length === 0) return [];
+  // 将CreatorID_Type数组或字符串ID数组转换为选中项目
+  const convertCreatorsToSelectedItems = async (creators: CreatorID_Type[] | string[]): Promise<ArtistBandItem[]> => {
+    if (!creators || creators.length === 0) return [];
     
     const results: ArtistBandItem[] = [];
     
-    for (const id of ids) {
-      if (!id.trim()) continue;
-      
+    for (const creator of creators) {
       try {
-        // 首先尝试作为艺术家ID获取
-        let found = false;
-        try {
-          const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
-          if (artistItems.length > 0) {
-            results.push(artistItems[0]);
-            found = true;
+        if (typeof creator === 'object' && 'id' in creator && 'creatorType' in creator) {
+          // 新格式：CreatorID_Type
+          const creatorItem = await getArtistBandsByIds([{
+            id: creator.id, 
+            type: creator.creatorType as 'artist' | 'band'
+          }]);
+          
+          if (creatorItem.length > 0) {
+            results.push(creatorItem[0]);
+          } else {
+            // 如果找不到，创建警告项目
+            results.push({
+              id: `not-found-${creator.id}`,
+              name: creator.id,
+              bio: `警告：无法找到ID为"${creator.id}"的${creator.creatorType === 'artist' ? '艺术家' : '乐队'}，可能是已删除的项目。请重新搜索选择。`,
+              type: creator.creatorType as 'artist' | 'band'
+            });
           }
-        } catch (error) {
-          // 继续尝试乐队
-        }
-        
-        // 如果不是艺术家，尝试作为乐队ID获取
-        if (!found) {
+        } else if (typeof creator === 'string') {
+          // 旧格式：字符串ID，需要猜测类型
+          const id = creator.trim();
+          if (!id) continue;
+          
+          let found = false;
+          
+          // 首先尝试作为艺术家ID获取
           try {
-            const bandItems = await getArtistBandsByIds([{id, type: 'band'}]);
-            if (bandItems.length > 0) {
-              results.push(bandItems[0]);
+            const artistItems = await getArtistBandsByIds([{id, type: 'artist'}]);
+            if (artistItems.length > 0) {
+              results.push(artistItems[0]);
               found = true;
             }
           } catch (error) {
-            // 继续
+            // 继续尝试乐队
           }
-        }
-        
-        // 如果都找不到，可能是旧数据中存储的是名称，尝试搜索
-        if (!found) {
-          try {
-            const searchResults = await searchArtistBand(id, 'both');
-            const exactMatch = searchResults.find(item => 
-              item.name.toLowerCase() === id.trim().toLowerCase()
-            );
-            
-            if (exactMatch) {
-              results.push(exactMatch);
-              found = true;
+          
+          // 如果不是艺术家，尝试作为乐队ID获取
+          if (!found) {
+            try {
+              const bandItems = await getArtistBandsByIds([{id, type: 'band'}]);
+              if (bandItems.length > 0) {
+                results.push(bandItems[0]);
+                found = true;
+              }
+            } catch (error) {
+              // 继续
             }
-          } catch (error) {
-            // 继续
           }
-        }
-        
-        // 如果还是找不到，创建一个警告项目
-        if (!found) {
-          results.push({
-            id: `not-found-${id}`,
-            name: id,
-            bio: `警告：无法找到ID为"${id}"的艺术家或乐队，可能是旧数据或已删除的项目。请重新搜索选择。`,
-            type: 'artist'
-          });
+          
+          // 如果都找不到，可能是旧数据中存储的是名称，尝试搜索
+          if (!found) {
+            try {
+              const searchResults = await searchArtistBand(id, 'both');
+              const exactMatch = searchResults.find(item => 
+                item.name.toLowerCase() === id.toLowerCase()
+              );
+              
+              if (exactMatch) {
+                results.push(exactMatch);
+                found = true;
+              }
+            } catch (error) {
+              // 继续
+            }
+          }
+          
+          // 如果还是找不到，创建一个警告项目
+          if (!found) {
+            results.push({
+              id: `not-found-${id}`,
+              name: id,
+              bio: `警告：无法找到ID为"${id}"的艺术家或乐队，可能是旧数据或已删除的项目。请重新搜索选择。`,
+              type: 'artist'
+            });
+          }
         }
       } catch (error) {
-        console.warn(`Failed to convert ID to item: ${id}`, error);
+        console.warn(`Failed to convert creator to item:`, creator, error);
         // 创建一个错误项目
+        const fallbackId = typeof creator === 'object' && 'id' in creator ? creator.id : creator.toString();
         results.push({
-          id: `error-${id}`,
-          name: id,
-          bio: `错误：处理"${id}"时发生错误，请重新搜索选择`,
+          id: `error-${fallbackId}`,
+          name: fallbackId,
+          bio: `错误：处理"${fallbackId}"时发生错误，请重新搜索选择`,
           type: 'artist'
         });
       }
     }
     
     return results;
+  };
+
+  // 将字符串ID数组转换为选中项目（用于处理传统的字符串数组字段）
+  const convertIdsToSelectedItems = async (ids: string[]): Promise<ArtistBandItem[]> => {
+    return convertCreatorsToSelectedItems(ids);
   };
 
   const handleSearch = async () => {
@@ -190,10 +219,10 @@ const SongManagement: React.FC = () => {
     // 使用 Set 来管理选中的曲风
     setSelectedGenresSet(new Set(song.genres));
     
-    // 转换现有的ID列表为选中项目
+    // 转换现有的ID列表为选中项目 - 使用新的转换函数处理不同的数据格式
     try {
       const [creators, performers, lyricists, composers, arrangers, instrumentalists] = await Promise.all([
-        convertIdsToSelectedItems(song.creators || []),
+        convertCreatorsToSelectedItems(song.creators || []), // 使用新的转换函数处理 CreatorID_Type[]
         convertIdsToSelectedItems(song.performers || []),
         convertIdsToSelectedItems(song.lyricists || []),
         convertIdsToSelectedItems(song.composers || []),
