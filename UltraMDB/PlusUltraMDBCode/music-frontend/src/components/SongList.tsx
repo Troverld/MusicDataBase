@@ -4,37 +4,12 @@ import { useGenres } from '../hooks/useGenres';
 import { useArtistBand } from '../hooks/useArtistBand';
 import { usePermissions, useSongPermission } from '../hooks/usePermissions';
 
-// 类型守卫函数 - 定义在组件外部以便复用
-const isCreatorIDType = (creator: any): creator is CreatorID_Type => {
-  return creator && typeof creator === 'object' && 'id' in creator && 'creatorType' in creator;
-};
-
-const isStringCreator = (creator: any): creator is string => {
-  return typeof creator === 'string';
-};
-
-// 处理新的 creators 结构（混合 CreatorID_Type 和 string）和传统的字符串数组
-const formatCreatorList = (creators: (CreatorID_Type | string)[] | string[], nameMap: { [key: string]: string }) => {
+// 处理新的 creators 结构（CreatorID_Type[]）
+const formatCreatorList = (creators: CreatorID_Type[], nameMap: { [key: string]: string }) => {
   if (!creators || creators.length === 0) return '无';
   
-  // 检查是否是新的 CreatorID_Type 结构
-  if (creators.length > 0 && isCreatorIDType(creators[0])) {
-    // 新结构：CreatorID_Type[]
-    const creatorIds = (creators as CreatorID_Type[]).map(creator => creator.id);
-    const names = creatorIds.map(id => nameMap[id] || id).filter(name => name);
-    return names.length > 0 ? names.join(', ') : '无';
-  } else {
-    // 旧结构或混合结构：需要逐个处理
-    const names: string[] = [];
-    creators.forEach(creator => {
-      if (isCreatorIDType(creator)) {
-        names.push(nameMap[creator.id] || creator.id);
-      } else if (typeof creator === 'string') {
-        names.push(nameMap[creator] || creator);
-      }
-    });
-    return names.length > 0 ? names.join(', ') : '无';
-  }
+  const names = creators.map(creator => nameMap[creator.id] || creator.id).filter(name => name);
+  return names.length > 0 ? names.join(', ') : '无';
 };
 
 // 处理传统的字符串数组格式的创作者列表
@@ -176,22 +151,16 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
   // 存储ID到名称的映射
   const [nameMap, setNameMap] = useState<{ [key: string]: string }>({});
 
-  // 获取所有相关的艺术家和乐队ID - 更新以处理新的数据结构
+  // 获取所有相关的艺术家和乐队ID
   const getAllCreatorIds = (songs: Song[]) => {
     const allIds = new Set<string>();
     
     songs.forEach(song => {
-      // 处理新的 creators 结构（混合 CreatorID_Type 和 string）
+      // 处理 creators 结构（CreatorID_Type[]）
       if (song.creators) {
-        song.creators.forEach((creator: CreatorID_Type | string) => {
-          if (isCreatorIDType(creator)) {
-            // 新结构：CreatorID_Type
-            if (creator.id && creator.id.trim()) {
-              allIds.add(creator.id);
-            }
-          } else if (typeof creator === 'string' && creator.trim()) {
-            // 旧结构：直接是字符串
-            allIds.add(creator);
+        song.creators.forEach(creator => {
+          if (creator.id && creator.id.trim()) {
+            allIds.add(creator.id);
           }
         });
       }

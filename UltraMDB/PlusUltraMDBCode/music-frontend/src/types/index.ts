@@ -28,12 +28,12 @@ export interface CreatorID_Type {
   id: string;
 }
 
-// 更新 Song 接口以匹配后端新结构
+// 更新 Song 接口以匹配后端新结构（只支持新格式）
 export interface Song {
   songID: string;
   name: string;
   releaseTime: number;
-  creators: CreatorID_Type[];  // 现在是 CreatorID_Type 对象数组
+  creators: CreatorID_Type[];  // 只支持新的 CreatorID_Type 格式
   performers: string[];
   genres: string[];
   lyricists?: string[];
