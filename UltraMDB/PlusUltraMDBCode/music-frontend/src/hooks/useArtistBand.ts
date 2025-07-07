@@ -218,7 +218,7 @@ export const useArtistBand = () => {
     return results;
   }, [getArtistById, getBandById, searchArtistBand]);
 
-  // 专门处理 CreatorID_Type[] 到 ArtistBandItem[] 的转换
+// 专门处理 CreatorID_Type[] 到 ArtistBandItem[] 的转换
   const convertCreatorsToSelectedItems = useCallback(async (creators: CreatorID_Type[]): Promise<ArtistBandItem[]> => {
     if (!creators || creators.length === 0) return [];
     
@@ -226,33 +226,90 @@ export const useArtistBand = () => {
     
     for (const creator of creators) {
       try {
-        // 直接使用 creator.creatorType，它已经是类型安全的
+        // 尝试根据 ID 前缀推断真实类型（如果 ID 格式为 "artist_xxx" 或 "band_xxx"）
+        let inferredType: 'artist' | 'band' = creator.creatorType;
+        if (creator.id.startsWith('artist_')) {
+          inferredType = 'artist';
+        } else if (creator.id.startsWith('band_')) {
+          inferredType = 'band';
+        }
+        
+        // 如果推断的类型与原始类型不同，记录警告
+        if (inferredType !== creator.creatorType) {
+          console.warn(`Type mismatch for creator ${creator.id}: original type "${creator.creatorType}", inferred type "${inferredType}"`);
+        }
+        
+        // 使用推断的类型来获取创作者信息
         const creatorItem = await getArtistBandsByIds([{
           id: creator.id, 
-          type: creator.creatorType // 直接使用，无需转换
+          type: inferredType
         }]);
         
         if (creatorItem.length > 0) {
           results.push(creatorItem[0]);
         } else {
-          // 如果找不到，创建警告项目
-          const displayName = creator.creatorType === 'artist' ? '艺术家' : '乐队';
-          results.push({
-            id: `not-found-${creator.id}`,
-            name: creator.id,
-            bio: `警告：无法找到ID为"${creator.id}"的${displayName}，可能是已删除的项目。请重新搜索选择。`,
-            type: creator.creatorType
-          });
+          // 如果还是找不到，尝试两种类型
+          console.warn(`Failed to find ${inferredType} with ID ${creator.id}, trying both types...`);
+          
+          let found = false;
+          
+          // 尝试作为艺术家
+          if (inferredType !== 'artist') {
+            const artistItem = await getArtistBandsByIds([{id: creator.id, type: 'artist'}]);
+            if (artistItem.length > 0) {
+              results.push(artistItem[0]);
+              found = true;
+              console.log(`Found as artist: ${creator.id}`);
+            }
+          }
+          
+          // 尝试作为乐队
+          if (!found && inferredType !== 'band') {
+            const bandItem = await getArtistBandsByIds([{id: creator.id, type: 'band'}]);
+            if (bandItem.length > 0) {
+              results.push(bandItem[0]);
+              found = true;
+              console.log(`Found as band: ${creator.id}`);
+            }
+          }
+          
+          // 如果仍然找不到，创建警告项目
+          if (!found) {
+            const displayName = inferredType === 'artist' ? '艺术家' : '乐队';
+            const warningItem: ArtistBandItem = {
+              id: creator.id, // 保持原始 ID，不添加前缀
+              name: `未知${displayName} (${creator.id})`, // 更友好的显示
+              bio: `警告：无法找到ID为"${creator.id}"的${displayName}。这可能是因为：\n1. 该${displayName}已被删除\n2. 您没有查看权限\n3. 数据同步问题\n\n请尝试重新搜索并选择正确的${displayName}。`,
+              type: inferredType // 使用推断的类型
+            };
+            results.push(warningItem);
+            
+            // 记录详细的错误信息以便调试
+            console.error(`Creator not found:`, {
+              id: creator.id,
+              originalType: creator.creatorType,
+              inferredType: inferredType,
+              tried: ['artist', 'band']
+            });
+          }
         }
       } catch (error) {
-        console.warn(`Failed to convert creator to item:`, creator, error);
-        // 创建一个错误项目
-        const displayName = creator.creatorType === 'artist' ? '艺术家' : '乐队';
+        console.error(`Failed to convert creator to item:`, creator, error);
+        
+        // 推断类型
+        let inferredType: 'artist' | 'band' = creator.creatorType;
+        if (creator.id.startsWith('artist_')) {
+          inferredType = 'artist';
+        } else if (creator.id.startsWith('band_')) {
+          inferredType = 'band';
+        }
+        
+        const displayName = inferredType === 'artist' ? '艺术家' : '乐队';
         results.push({
-          id: `error-${creator.id}`,
-          name: creator.id,
-          bio: `错误：处理"${creator.id}"的${displayName}时发生错误，请重新搜索选择`,
-          type: creator.creatorType
+          id: creator.id,
+          name: `错误：${displayName} (${creator.id})`,
+          bio: `错误：处理"${creator.id}"的${displayName}时发生错误。错误信息：${error}\n\n请重新搜索并选择正确的${displayName}。`,
+          type: inferredType
         });
       }
     }
