@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { bandService } from '../services/band.service';
-import { Band } from '../types';
+import { musicService } from '../services/music.service';
+import { Band, Song } from '../types';
 import { useBandPermission } from '../hooks/usePermissions';
 import { useArtistBand, ArtistBandItem } from '../hooks/useArtistBand';
+import SongList from '../components/SongList';
 
 const BandDetail: React.FC = () => {
   const { bandID } = useParams<{ bandID: string }>();
@@ -12,6 +14,9 @@ const BandDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [memberDetails, setMemberDetails] = useState<ArtistBandItem[]>([]);
+  const [bandSongs, setBandSongs] = useState<Song[]>([]);
+  const [songsLoading, setSongsLoading] = useState(false);
+  const [showSongs, setShowSongs] = useState(false);
 
   // 检查编辑权限
   const { canEdit, loading: permissionLoading } = useBandPermission(bandID || '');
@@ -39,7 +44,6 @@ const BandDetail: React.FC = () => {
             setMemberDetails(memberItems);
           } catch (error) {
             console.error('Failed to load member details:', error);
-            // 如果转换失败，创建基础项目
             const basicMembers: ArtistBandItem[] = (bandData.members || []).map(memberId => ({
               id: memberId,
               name: memberId,
@@ -61,8 +65,50 @@ const BandDetail: React.FC = () => {
     fetchBand();
   }, [bandID, convertIdsToArtistBandItems]);
 
+  // 获取乐队的歌曲
+  const fetchBandSongs = async () => {
+    if (!bandID) return;
+
+    setSongsLoading(true);
+    try {
+      // 使用 filterSongsByEntity 获取该乐队的所有歌曲
+      const [songIds, message] = await musicService.filterSongsByEntity(
+        { id: bandID, type: 'band' },
+        undefined
+      );
+
+      if (songIds && songIds.length > 0) {
+        // 获取歌曲详情
+        const songs = await musicService.getSongsByIds(songIds);
+        setBandSongs(songs);
+      } else {
+        setBandSongs([]);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch band songs:', error);
+      setError('获取乐队歌曲失败');
+    } finally {
+      setSongsLoading(false);
+    }
+  };
+
+  const handleShowSongs = () => {
+    if (!showSongs && bandSongs.length === 0) {
+      fetchBandSongs();
+    }
+    setShowSongs(!showSongs);
+  };
+
   const handleEdit = () => {
     navigate('/bands', { state: { editBand: band } });
+  };
+
+  const handleEditSong = (song: Song) => {
+    navigate('/songs', { state: { editSong: song } });
+  };
+
+  const handleDeleteSong = async (songID: string) => {
+    navigate('/songs');
   };
 
   if (loading) {
@@ -156,7 +202,6 @@ const BandDetail: React.FC = () => {
             </h4>
             <div className="members-grid">
               {memberDetails.map((member, index) => {
-                // 检查是否是有效的艺术家ID（不是占位符或错误项目）
                 const isValidArtist = !member.id.startsWith('not-found-') && 
                                     !member.id.startsWith('error-') && 
                                     !member.id.startsWith('placeholder-') &&
@@ -285,14 +330,42 @@ const BandDetail: React.FC = () => {
           >
             查看所有乐队
           </Link>
-          <Link 
-            to="/songs" 
+          <button 
             className="btn btn-primary"
+            onClick={handleShowSongs}
+            disabled={songsLoading}
           >
-            查看歌曲
-          </Link>
+            {songsLoading ? '加载中...' : (showSongs ? '隐藏歌曲' : '查看该乐队的歌曲')}
+          </button>
         </div>
       </div>
+
+      {/* 乐队的歌曲列表 */}
+      {showSongs && (
+        <div style={{ marginTop: '30px' }}>
+          <h3 style={{ marginBottom: '20px' }}>
+            {band.name} 的歌曲 
+            {!songsLoading && `(${bandSongs.length} 首)`}
+          </h3>
+          
+          {songsLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <div className="loading-spinner"></div>
+              正在加载歌曲...
+            </div>
+          ) : bandSongs.length > 0 ? (
+            <SongList 
+              songs={bandSongs} 
+              onEdit={handleEditSong} 
+              onDelete={handleDeleteSong} 
+            />
+          ) : (
+            <div className="empty-state">
+              <p>该乐队暂无歌曲</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 提示信息 */}
       <div style={{ 
@@ -305,7 +378,7 @@ const BandDetail: React.FC = () => {
         <h4 style={{ marginBottom: '10px', color: '#495057' }}>💡 乐队信息</h4>
         <p style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6', margin: 0 }}>
           这里显示了乐队的详细信息，包括乐队成员列表。如果您是该乐队的管理者，可以点击"编辑信息"按钮来修改乐队的基本信息和成员。
-          点击成员名称可以查看对应艺术家的详细信息。
+          点击成员名称可以查看对应艺术家的详细信息。点击"查看该乐队的歌曲"可以查看所有由该乐队创作或参与的歌曲。
         </p>
       </div>
     </div>

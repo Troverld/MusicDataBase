@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { artistService } from '../services/artist.service';
-import { Artist } from '../types';
+import { musicService } from '../services/music.service';
+import { Artist, Song } from '../types';
 import { useArtistPermission } from '../hooks/usePermissions';
+import SongList from '../components/SongList';
 
 const ArtistDetail: React.FC = () => {
   const { artistID } = useParams<{ artistID: string }>();
@@ -10,6 +12,9 @@ const ArtistDetail: React.FC = () => {
   const [artist, setArtist] = useState<Artist | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [artistSongs, setArtistSongs] = useState<Song[]>([]);
+  const [songsLoading, setSongsLoading] = useState(false);
+  const [showSongs, setShowSongs] = useState(false);
 
   // 检查编辑权限
   const { canEdit, loading: permissionLoading } = useArtistPermission(artistID || '');
@@ -42,8 +47,51 @@ const ArtistDetail: React.FC = () => {
     fetchArtist();
   }, [artistID]);
 
+  // 获取艺术家的歌曲
+  const fetchArtistSongs = async () => {
+    if (!artistID) return;
+
+    setSongsLoading(true);
+    try {
+      // 使用 filterSongsByEntity 获取该艺术家的所有歌曲
+      const [songIds, message] = await musicService.filterSongsByEntity(
+        { id: artistID, type: 'artist' },
+        undefined
+      );
+
+      if (songIds && songIds.length > 0) {
+        // 获取歌曲详情
+        const songs = await musicService.getSongsByIds(songIds);
+        setArtistSongs(songs);
+      } else {
+        setArtistSongs([]);
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch artist songs:', error);
+      setError('获取艺术家歌曲失败');
+    } finally {
+      setSongsLoading(false);
+    }
+  };
+
+  const handleShowSongs = () => {
+    if (!showSongs && artistSongs.length === 0) {
+      fetchArtistSongs();
+    }
+    setShowSongs(!showSongs);
+  };
+
   const handleEdit = () => {
     navigate('/artists', { state: { editArtist: artist } });
+  };
+
+  const handleEditSong = (song: Song) => {
+    navigate('/songs', { state: { editSong: song } });
+  };
+
+  const handleDeleteSong = async (songID: string) => {
+    // 这里可以实现删除功能，或者导航到歌曲管理页面
+    navigate('/songs');
   };
 
   if (loading) {
@@ -164,14 +212,42 @@ const ArtistDetail: React.FC = () => {
           >
             查看所有艺术家
           </Link>
-          <Link 
-            to="/songs" 
+          <button 
             className="btn btn-primary"
+            onClick={handleShowSongs}
+            disabled={songsLoading}
           >
-            查看歌曲
-          </Link>
+            {songsLoading ? '加载中...' : (showSongs ? '隐藏歌曲' : '查看该艺术家的歌曲')}
+          </button>
         </div>
       </div>
+
+      {/* 艺术家的歌曲列表 */}
+      {showSongs && (
+        <div style={{ marginTop: '30px' }}>
+          <h3 style={{ marginBottom: '20px' }}>
+            {artist.name} 的歌曲 
+            {!songsLoading && `(${artistSongs.length} 首)`}
+          </h3>
+          
+          {songsLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <div className="loading-spinner"></div>
+              正在加载歌曲...
+            </div>
+          ) : artistSongs.length > 0 ? (
+            <SongList 
+              songs={artistSongs} 
+              onEdit={handleEditSong} 
+              onDelete={handleDeleteSong} 
+            />
+          ) : (
+            <div className="empty-state">
+              <p>该艺术家暂无歌曲</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 提示信息 */}
       <div style={{ 
@@ -184,7 +260,7 @@ const ArtistDetail: React.FC = () => {
         <h4 style={{ marginBottom: '10px', color: '#495057' }}>💡 艺术家信息</h4>
         <p style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6', margin: 0 }}>
           这里显示了艺术家的详细信息。如果您是该艺术家的管理者，可以点击"编辑信息"按钮来修改艺术家的基本信息。
-          您也可以通过导航栏访问其他功能页面。
+          点击"查看该艺术家的歌曲"可以查看所有由该艺术家创作或参与的歌曲。
         </p>
       </div>
     </div>
