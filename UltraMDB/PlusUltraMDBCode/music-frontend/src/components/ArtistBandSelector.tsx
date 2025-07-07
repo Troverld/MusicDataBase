@@ -25,10 +25,44 @@ const ArtistBandSelector: React.FC<ArtistBandSelectorProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [memberNamesMap, setMemberNamesMap] = useState<{ [key: string]: string }>({});
   
-  const { searchArtistBand, loading, error } = useArtistBand();
+  const { searchArtistBand, loading, error, convertIdsToArtistBandItems } = useArtistBand();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // 加载乐队成员名称
+  useEffect(() => {
+    const loadMemberNames = async () => {
+      const bandItems = selectedItems.filter(item => item.type === 'band' && item.members && item.members.length > 0);
+      
+      if (bandItems.length === 0) return;
+      
+      const allMemberIds = new Set<string>();
+      bandItems.forEach(band => {
+        band.members?.forEach(memberId => allMemberIds.add(memberId));
+      });
+      
+      if (allMemberIds.size === 0) return;
+      
+      try {
+        // 将成员ID转换为名称
+        const memberIds = Array.from(allMemberIds);
+        const memberItems = await convertIdsToArtistBandItems(memberIds);
+        
+        const namesMap: { [key: string]: string } = {};
+        memberItems.forEach(item => {
+          namesMap[item.id] = item.name;
+        });
+        
+        setMemberNamesMap(namesMap);
+      } catch (error) {
+        console.error('Failed to load member names:', error);
+      }
+    };
+    
+    loadMemberNames();
+  }, [selectedItems, convertIdsToArtistBandItems]);
 
   // 点击外部关闭下拉框
   useEffect(() => {
@@ -311,7 +345,7 @@ const ArtistBandSelector: React.FC<ArtistBandSelectorProps> = ({
                     marginLeft: '22px',
                     marginTop: '5px'
                   }}>
-                    成员: {item.members.join(', ')}
+                    成员: {item.members.map(memberId => memberNamesMap[memberId] || memberId).join(', ')}
                   </div>
                 )}
               </div>

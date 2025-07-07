@@ -186,10 +186,13 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
         song.creators.forEach(creator => {
           console.log('Processing creator in getAllCreatorInfo:', creator);
           if (creator.id && creator.id.trim()) {
-            // 直接使用 creatorType，它应该是正确的类型
+            // 添加带类型前缀的key
             const key = `${creator.creatorType}-${creator.id}`;
             console.log('Adding typed creator key:', key);
             typedCreators.add(key);
+            
+            // 同时添加不带前缀的ID，以便后续查找
+            untypedIds.add(creator.id);
           }
         });
       }
@@ -227,17 +230,17 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
       try {
         // 处理有类型信息的创作者
         for (const typedCreator of typedCreators) {
-          const [creatorType, id] = typedCreator.split('-', 2);
+          const [creatorType, ...idParts] = typedCreator.split('-');
+          const id = idParts.join('-'); // 处理ID中可能包含的连字符
+          
           if (!id || !creatorType) {
             console.warn('Invalid typed creator format:', typedCreator);
             continue;
           }
           
           try {
-            // creatorType 应该是 'artist' 或 'band'
             const type = creatorType as 'artist' | 'band';
             
-            // 验证类型是否有效
             if (type !== 'artist' && type !== 'band') {
               console.warn(`Invalid creator type: ${creatorType} for ${typedCreator}`);
               continue;
@@ -252,14 +255,27 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
               newNameMap[id] = result[0].name; // 也存储不带类型前缀的版本
               console.log(`Mapped ${typedCreator} -> ${result[0].name}`);
             } else {
-              console.warn(`No result for typed creator ${typedCreator}`);
-              newNameMap[typedCreator] = id;
-              newNameMap[id] = id;
+              // 如果找不到，尝试另一种类型
+              const alternativeType = type === 'artist' ? 'band' : 'artist';
+              const altResult = await getArtistBandsByIds([{ id, type: alternativeType }]);
+              
+              if (altResult.length > 0) {
+                newNameMap[typedCreator] = altResult[0].name;
+                newNameMap[id] = altResult[0].name;
+                console.log(`Found ${id} as ${alternativeType}: ${altResult[0].name}`);
+              } else {
+                console.warn(`No result for typed creator ${typedCreator}`);
+                // 尝试从ID中提取显示名称
+                const displayName = id.split('_')[1] || id;
+                newNameMap[typedCreator] = displayName;
+                newNameMap[id] = displayName;
+              }
             }
           } catch (error) {
             console.warn(`Failed to resolve typed creator ${typedCreator}:`, error);
-            newNameMap[typedCreator] = id;
-            newNameMap[id] = id;
+            const displayName = id.split('_')[1] || id;
+            newNameMap[typedCreator] = displayName;
+            newNameMap[id] = displayName;
           }
         }
 
@@ -282,12 +298,14 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
               continue;
             }
             
-            // 如果都不是，返回ID本身（可能已经是名称）
+            // 如果都不是，尝试从ID中提取显示名称
             console.warn(`No result for untyped creator ${id}`);
-            newNameMap[id] = id;
+            const displayName = id.split('_')[1] || id;
+            newNameMap[id] = displayName;
           } catch (error) {
             console.warn(`Failed to resolve untyped creator ${id}:`, error);
-            newNameMap[id] = id;
+            const displayName = id.split('_')[1] || id;
+            newNameMap[id] = displayName;
           }
         }
         
