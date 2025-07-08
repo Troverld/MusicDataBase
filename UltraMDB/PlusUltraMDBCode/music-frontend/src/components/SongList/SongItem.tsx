@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Song } from '../../types';
 import { usePermissions, useSongPermission } from '../../hooks/usePermissions';
 import { formatCreatorList, formatStringCreatorList } from './utils';
-import SongRating from '../SongRating';
+import SongRating, { SongRatingRef } from '../SongRating';
+import PlayButton from '../PlayButton';
 
 interface SongItemProps {
   song: Song;
@@ -21,6 +22,7 @@ const SongItem: React.FC<SongItemProps> = ({
 }) => {
   const { isAdmin } = usePermissions();
   const { canEdit, loading: permissionLoading } = useSongPermission(song.songID);
+  const songRatingRef = useRef<SongRatingRef>(null);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('zh-CN');
@@ -34,12 +36,39 @@ const SongItem: React.FC<SongItemProps> = ({
   const showEditButton = !permissionLoading && (canEdit || isAdmin);
   const showDeleteButton = !permissionLoading && isAdmin;
 
+  // 播放成功回调 - 刷新热度显示
+  const handlePlayStart = () => {
+    console.log(`Started playing: ${song.name}`);
+    
+    // 延迟刷新热度，等待后端数据更新
+    setTimeout(() => {
+      if (songRatingRef.current) {
+        songRatingRef.current.refreshRating();
+        console.log(`Refreshed rating info for: ${song.name}`);
+      }
+    }, 1000); // 1秒后刷新
+  };
+
+  // 播放错误回调
+  const handlePlayError = (error: string) => {
+    console.error(`Play error for ${song.name}:`, error);
+  };
+
   // 添加调试信息
   console.log('SongItem - song:', song.name, 'creators:', song.creators);
 
   return (
     <div className="song-item">
-      <h3>{song.name}</h3>
+      <div className="song-title-row">
+        <h3>{song.name}</h3>
+        <PlayButton
+          songID={song.songID}
+          songName={song.name}
+          size="small"
+          onPlayStart={handlePlayStart}
+          onPlayError={handlePlayError}
+        />
+      </div>
       
       <div style={{ marginBottom: '10px' }}>
         <p><strong>发布时间:</strong> {formatDate(song.releaseTime)}</p>
@@ -76,9 +105,10 @@ const SongItem: React.FC<SongItemProps> = ({
         </div>
       </div>
 
-      {/* 新增：歌曲评分组件 */}
+      {/* 歌曲评分组件 - 添加 ref */}
       <div style={{ marginTop: '15px' }}>
         <SongRating
+          ref={songRatingRef}
           songID={song.songID}
           showUserRating={true}
           showAverageRating={true}
