@@ -23,7 +23,7 @@ const PlayButton: React.FC<PlayButtonProps> = ({
   const [loading, setLoading] = useState(false);
 
   const handlePlay = async () => {
-    if (disabled || loading) {
+    if (disabled || loading || isPlaying) {
       return;
     }
 
@@ -35,12 +35,12 @@ const PlayButton: React.FC<PlayButtonProps> = ({
       
       if (success) {
         setIsPlaying(true);
-        console.log(`Playing: ${songName} (ID: ${songID})`);
+        console.log(`播放记录成功: ${songName} (ID: ${songID})`);
         
-        // 模拟播放3秒后停止（实际项目中这里会是真实的播放逻辑）
+        // 显示播放动画2秒
         setTimeout(() => {
           setIsPlaying(false);
-        }, 3000);
+        }, 2000);
         
         // 调用成功回调
         if (onPlayStart) {
@@ -49,7 +49,7 @@ const PlayButton: React.FC<PlayButtonProps> = ({
       } else {
         console.error('Failed to log playback:', message);
         if (onPlayError) {
-          onPlayError(message || '播放失败');
+          onPlayError(message || '播放记录失败');
         }
       }
     } catch (error: any) {
@@ -62,31 +62,32 @@ const PlayButton: React.FC<PlayButtonProps> = ({
     }
   };
 
-  const handleStop = () => {
-    setIsPlaying(false);
-    console.log(`Stopped: ${songName}`);
-  };
-
   const getButtonIcon = () => {
     if (loading) {
       return '⏳';
     }
-    return isPlaying ? '⏸️' : '▶️';
+    if (isPlaying) {
+      return '🎵';
+    }
+    return '▶️';
   };
 
   const getButtonText = () => {
     if (loading) {
-      return '载入中...';
+      return '记录中...';
     }
-    return isPlaying ? '暂停' : '播放';
+    if (isPlaying) {
+      return '播放中';
+    }
+    return '播放';
   };
 
   return (
     <button
       className={`play-button ${size} ${isPlaying ? 'playing' : ''} ${disabled ? 'disabled' : ''}`}
-      onClick={isPlaying ? handleStop : handlePlay}
-      disabled={disabled || loading}
-      title={`${getButtonText()} ${songName}`}
+      onClick={handlePlay}
+      disabled={disabled || loading || isPlaying}
+      title={`播放 ${songName}`}
     >
       <span className="play-icon">{getButtonIcon()}</span>
       <span className="play-text">{getButtonText()}</span>

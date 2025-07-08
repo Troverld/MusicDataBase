@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { statisticsService } from '../../services/statistics.service';
 import { SongRating } from '../../types';
 import StarRating from './StarRating';
@@ -13,14 +13,18 @@ interface SongRatingProps {
   onRatingChange?: (rating: number) => void;
 }
 
-const SongRatingComponent: React.FC<SongRatingProps> = ({
+export interface SongRatingRef {
+  refreshRating: () => Promise<void>;
+}
+
+const SongRatingComponent = forwardRef<SongRatingRef, SongRatingProps>(({
   songID,
   showUserRating = true,
   showAverageRating = true,
   showPopularity = false,
   compact = false,
   onRatingChange
-}) => {
+}, ref) => {
   const [ratingInfo, setRatingInfo] = useState<SongRating>({
     userRating: 0,
     averageRating: 0,
@@ -47,6 +51,21 @@ const SongRatingComponent: React.FC<SongRatingProps> = ({
     }
   };
 
+  // 刷新评分信息（不显示加载状态）
+  const refreshRatingInfo = async () => {
+    try {
+      const rating = await statisticsService.getSongRatingInfo(songID);
+      setRatingInfo(rating);
+    } catch (err: any) {
+      console.warn('刷新评分信息失败:', err.message);
+    }
+  };
+
+  // 暴露刷新方法给父组件
+  useImperativeHandle(ref, () => ({
+    refreshRating: refreshRatingInfo
+  }));
+
   // 提交用户评分
   const handleRatingSubmit = async (rating: number) => {
     setSubmitting(true);
@@ -60,9 +79,9 @@ const SongRatingComponent: React.FC<SongRatingProps> = ({
         setSuccess('评分成功！');
         setRatingInfo(prev => ({ ...prev, userRating: rating }));
         
-        // 重新加载平均评分
+        // 重新加载平均评分和热度
         setTimeout(() => {
-          loadRatingInfo();
+          refreshRatingInfo();
         }, 500);
         
         // 调用回调函数
@@ -140,6 +159,8 @@ const SongRatingComponent: React.FC<SongRatingProps> = ({
       )}
     </div>
   );
-};
+});
+
+SongRatingComponent.displayName = 'SongRating';
 
 export default SongRatingComponent;
