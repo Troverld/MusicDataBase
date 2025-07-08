@@ -82,19 +82,18 @@ const StarRating: React.FC<StarRatingProps> = ({
     }
   };
 
-  // 生成渐变样式 - 统一使用渐变方式确保所有颜色一致性
-  const getStarGradientStyle = (fillPercentage: number) => {
-    // 所有星星都使用渐变方式，确保灰色部分颜色完全一致
+  // 生成CSS变量和类名，而不是直接的内联样式
+  const getStarStyleProps = (fillPercentage: number) => {
     const gradientBg = fillPercentage === 0 
-      ? `linear-gradient(90deg, #ddd 100%, #ddd 100%)`  // 0%时用渐变确保灰色一致
+      ? `linear-gradient(90deg, #ddd 100%, #ddd 100%)`
       : `linear-gradient(90deg, #ffd700 ${fillPercentage}%, #ddd ${fillPercentage}%)`;
     
     return {
-      background: gradientBg,
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-      backgroundClip: 'text',
-      color: 'transparent'
+      style: {
+        '--star-gradient': gradientBg,
+        cursor: interactive && !disabled ? 'pointer' : 'default'
+      } as React.CSSProperties,
+      className: `star rational-star ${fillPercentage > 0 ? 'has-fill' : 'empty'}`
     };
   };
 
@@ -109,18 +108,17 @@ const StarRating: React.FC<StarRatingProps> = ({
           const fillPercentage = getStarFillPercentage(starIndex);
           const isHovered = hoverRating >= starValue;
           
+          const starStyleProps = getStarStyleProps(fillPercentage);
+          
           return (
             <span
               key={starIndex}
-              className={`star rational-star ${fillPercentage > 0 ? 'has-fill' : 'empty'} ${isHovered ? 'hover' : ''}`}
+              className={`${starStyleProps.className} ${isHovered ? 'hover' : ''}`}
               onClick={() => handleStarClick(starValue)}
               onMouseEnter={() => handleStarHover(starValue)}
               onMouseMove={(e) => handleMouseMove(e, starIndex)}
-              style={{
-                cursor: interactive && !disabled ? 'pointer' : 'default',
-                ...getStarGradientStyle(fillPercentage)
-              }}
-              data-fill={Math.round(fillPercentage / 10) * 10} // 降级方案的data属性，四舍五入到最近的10%
+              style={starStyleProps.style}
+              data-fill={Math.round(fillPercentage / 10) * 10} // 降级方案的data属性
               title={interactive ? `评分 ${starValue}` : `${fillPercentage}% 填充`}
             >
               ★

@@ -1,201 +1,202 @@
 /* 支持有理数的星级评分样式 */
 .star-rating {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  
-  .stars {
-    display: flex;
-    gap: 2px;
-  }
-  
-  .star {
-    transition: all 0.2s ease;
-    user-select: none;
-    font-weight: normal;
-    text-shadow: 0 0 1px rgba(0,0,0,0.1);
-  }
-  
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  transition: all 0.2s ease;
+  user-select: none;
+  font-weight: normal;
+  text-shadow: 0 0 1px rgba(0,0,0,0.1);
+}
+
+.star.rational-star {
+  position: relative;
+  font-family: Arial, sans-serif; /* 确保星星字符显示一致 */
+  /* 使用CSS变量设置背景，确保background-clip正确应用 */
+  background: var(--star-gradient, linear-gradient(90deg, #ddd 100%, #ddd 100%));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* 有填充的星星基础样式 */
+.star.has-fill {
+  filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.3));
+}
+
+/* 空星星样式 - 现在也使用渐变确保颜色一致 */
+.star.empty {
+  /* 移除直接的颜色设置，全部通过渐变处理 */
+}
+
+/* 悬停效果 */
+.star.hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5));
+}
+
+.star-rating.interactive .star:hover {
+  transform: scale(1.2);
+}
+
+.star-rating.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 星星大小 */
+.star-small .star {
+  font-size: 14px;
+}
+
+.star-medium .star {
+  font-size: 18px;
+}
+
+.star-large .star {
+  font-size: 24px;
+}
+
+.rating-number {
+  font-size: 12px;
+  color: #495057;
+  font-weight: 500;
+  margin-left: 3px;
+  white-space: nowrap;
+}
+
+.star-small .rating-number {
+  font-size: 11px;
+}
+
+.star-large .rating-number {
+  font-size: 14px;
+}
+
+/* 浏览器兼容性处理 */
+
+/* 现代浏览器：支持 background-clip: text */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
   .star.rational-star {
-    position: relative;
-    font-family: Arial, sans-serif; /* 确保星星字符显示一致 */
-    /* 所有星星都使用渐变渲染，确保颜色完全一致 */
     background-clip: text;
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
+  }
+}
+
+/* 不支持 background-clip: text 的浏览器的降级方案 */
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+  .star.rational-star {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: initial !important;
+    background-clip: initial !important;
+    /* 统一使用相同的灰色 */
+    color: #ddd !important;
+    overflow: hidden;
+    position: relative;
   }
   
-  /* 有填充的星星基础样式 */
-  .star.has-fill {
-    filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.3));
+  .star.rational-star::before {
+    content: '★';
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* 统一使用相同的金色 */
+    color: #ffd700;
+    width: var(--fill-width, 0%);
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: inherit; /* 确保大小一致 */
+    font-family: inherit; /* 确保字体一致 */
   }
   
-  /* 空星星样式 - 现在也使用渐变确保颜色一致 */
-  .star.empty {
-    /* 移除直接的颜色设置，全部通过渐变处理 */
+  /* 0%填充的星星不显示::before伪元素 */
+  .star.rational-star[data-fill="0"]::before {
+    display: none;
   }
   
-  /* 悬停效果 */
-  .star.hover {
-    transform: scale(1.1);
-    filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5));
-  }
-  
-  .star-rating.interactive .star:hover {
-    transform: scale(1.2);
-  }
-  
-  .star-rating.disabled {
-    opacity: 0.6;
-    pointer-events: none;
-  }
-  
-  /* 星星大小 */
-  .star-small .star {
-    font-size: 14px;
-  }
-  
+  /* 使用CSS变量来控制填充宽度 - 确保所有填充状态的颜色都一致 */
+  .star.rational-star[data-fill="0"] { --fill-width: 0%; }
+  .star.rational-star[data-fill="10"] { --fill-width: 10%; }
+  .star.rational-star[data-fill="20"] { --fill-width: 20%; }
+  .star.rational-star[data-fill="30"] { --fill-width: 30%; }
+  .star.rational-star[data-fill="40"] { --fill-width: 40%; }
+  .star.rational-star[data-fill="50"] { --fill-width: 50%; }
+  .star.rational-star[data-fill="60"] { --fill-width: 60%; }
+  .star.rational-star[data-fill="70"] { --fill-width: 70%; }
+  .star.rational-star[data-fill="80"] { --fill-width: 80%; }
+  .star.rational-star[data-fill="90"] { --fill-width: 90%; }
+  .star.rational-star[data-fill="100"] { --fill-width: 100%; }
+}
+
+/* 高精度显示时的特殊处理 */
+.star-rating.high-precision .star {
+  letter-spacing: 0;
+  font-kerning: none;
+}
+
+/* 交互式星级的额外样式 */
+.star-rating.interactive .star.rational-star {
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.star-rating.interactive .star.rational-star:hover {
+  transform: scale(1.15);
+}
+
+/* 防止文本选择 */
+.star-rating {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
   .star-medium .star {
-    font-size: 18px;
+    font-size: 16px;
   }
   
   .star-large .star {
-    font-size: 24px;
+    font-size: 20px;
   }
   
-  .rating-number {
-    font-size: 12px;
-    color: #495057;
-    font-weight: 500;
-    margin-left: 3px;
-    white-space: nowrap;
+  /* 移动设备上减少悬停效果 */
+  .star-rating.interactive .star:hover {
+    transform: scale(1.1);
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .star.empty {
+    color: #666;
+    opacity: 1;
   }
   
-  .star-small .rating-number {
-    font-size: 11px;
+  .star.has-fill {
+    filter: none;
+  }
+}
+
+/* 减少动画偏好设置 */
+@media (prefers-reduced-motion: reduce) {
+  .star {
+    transition: none;
   }
   
-  .star-large .rating-number {
-    font-size: 14px;
+  .star-rating.interactive .star:hover {
+    transform: none;
   }
-  
-  /* 浏览器兼容性处理 */
-  
-  /* 现代浏览器：支持 background-clip: text */
-  @supports (background-clip: text) or (-webkit-background-clip: text) {
-    .star.rational-star {
-      background-clip: text;
-      -webkit-background-clip: text;
-    }
-  }
-  
-  /* 不支持 background-clip: text 的浏览器的降级方案 */
-  @supports not ((background-clip: text) or (-webkit-background-clip: text)) {
-    .star.rational-star {
-      background: none !important;
-      -webkit-background-clip: initial !important;
-      -webkit-text-fill-color: initial !important;
-      background-clip: initial !important;
-      /* 统一使用相同的灰色 */
-      color: #ddd !important;
-      overflow: hidden;
-      position: relative;
-    }
-    
-    .star.rational-star::before {
-      content: '★';
-      position: absolute;
-      left: 0;
-      top: 0;
-      /* 统一使用相同的金色 */
-      color: #ffd700;
-      width: var(--fill-width, 0%);
-      overflow: hidden;
-      white-space: nowrap;
-      font-size: inherit; /* 确保大小一致 */
-      font-family: inherit; /* 确保字体一致 */
-    }
-    
-    /* 0%填充的星星不显示::before伪元素 */
-    .star.rational-star[data-fill="0"]::before {
-      display: none;
-    }
-    
-    /* 使用CSS变量来控制填充宽度 - 确保所有填充状态的颜色都一致 */
-    .star.rational-star[data-fill="0"] { --fill-width: 0%; }
-    .star.rational-star[data-fill="10"] { --fill-width: 10%; }
-    .star.rational-star[data-fill="20"] { --fill-width: 20%; }
-    .star.rational-star[data-fill="30"] { --fill-width: 30%; }
-    .star.rational-star[data-fill="40"] { --fill-width: 40%; }
-    .star.rational-star[data-fill="50"] { --fill-width: 50%; }
-    .star.rational-star[data-fill="60"] { --fill-width: 60%; }
-    .star.rational-star[data-fill="70"] { --fill-width: 70%; }
-    .star.rational-star[data-fill="80"] { --fill-width: 80%; }
-    .star.rational-star[data-fill="90"] { --fill-width: 90%; }
-    .star.rational-star[data-fill="100"] { --fill-width: 100%; }
-  }
-  
-  /* 高精度显示时的特殊处理 */
-  .star-rating.high-precision .star {
-    letter-spacing: 0;
-    font-kerning: none;
-  }
-  
-  /* 交互式星级的额外样式 */
-  .star-rating.interactive .star.rational-star {
-    cursor: pointer;
-    transition: all 0.15s ease-in-out;
-  }
-  
-  .star-rating.interactive .star.rational-star:hover {
-    transform: scale(1.15);
-  }
-  
-  /* 防止文本选择 */
-  .star-rating {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-  }
-  
-  /* 响应式设计 */
-  @media (max-width: 768px) {
-    .star-medium .star {
-      font-size: 16px;
-    }
-    
-    .star-large .star {
-      font-size: 20px;
-    }
-    
-    /* 移动设备上减少悬停效果 */
-    .star-rating.interactive .star:hover {
-      transform: scale(1.1);
-    }
-  }
-  
-  /* 高对比度模式支持 */
-  @media (prefers-contrast: high) {
-    .star.empty {
-      color: #666;
-      opacity: 1;
-    }
-    
-    .star.has-fill {
-      filter: none;
-    }
-  }
-  
-  /* 减少动画偏好设置 */
-  @media (prefers-reduced-motion: reduce) {
-    .star {
-      transition: none;
-    }
-    
-    .star-rating.interactive .star:hover {
-      transform: none;
-    }
-  }
+}
