@@ -42,6 +42,7 @@ case class UpdateArtistMessage(
 case object UpdateArtistMessage{
     
   import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+  given responseDecoder: Decoder[(Option[List[String]], String)] = deriveDecoder[(Option[List[String]], String)]
 
   // Circe 默认的 Encoder 和 Decoder
   private val circeEncoder: Encoder[UpdateArtistMessage] = deriveEncoder
