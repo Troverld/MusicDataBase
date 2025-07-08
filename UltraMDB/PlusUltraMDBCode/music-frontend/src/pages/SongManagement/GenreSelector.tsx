@@ -3,7 +3,7 @@ import { useGenres } from '../../hooks/useGenres';
 
 interface GenreSelectorProps {
   selectedGenresSet: Set<string>;
-  onGenresChange: (genresSet: Set<string>) => void;
+  onGenresChange: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 const GenreSelector: React.FC<GenreSelectorProps> = ({
@@ -35,7 +35,7 @@ const GenreSelector: React.FC<GenreSelectorProps> = ({
   const handleGenreToggle = (genreId: string) => {
     if (!genreId) return;
     
-    onGenresChange(prevSet => {
+    onGenresChange((prevSet: Set<string>) => {
       const newSet = new Set(prevSet);
       const wasSelected = newSet.has(genreId);
       
@@ -51,7 +51,7 @@ const GenreSelector: React.FC<GenreSelectorProps> = ({
 
   // 移除曲风
   const handleGenreRemove = (genreId: string) => {
-    onGenresChange(prevSet => {
+    onGenresChange((prevSet: Set<string>) => {
       const newSet = new Set(prevSet);
       newSet.delete(genreId);
       return newSet;
