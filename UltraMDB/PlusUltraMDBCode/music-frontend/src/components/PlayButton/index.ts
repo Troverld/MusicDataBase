@@ -1,2 +1,2 @@
 export { default } from './PlayButton';
-export type { PlayButtonProps } from './PlayButton';
+export { default } from './PlayButton';
