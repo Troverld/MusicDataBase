@@ -89,21 +89,20 @@ case class SearchAllBelongingBandsPlanner(
   private def findBandsByMember()(using PlanContext): IO[List[String]] = {
     logInfo(s"正在数据库中搜索包含成员 ${artistID} 的乐队...")
 
-    // 使用 PostgreSQL 的 JSONB 操作符 @> 来高效地查询数组包含关系。
-    // 这要求 `members` 列是 JSONB 类型，或者在查询时进行类型转换。
-    // `members::jsonb @> '["artist_id"]'::jsonb`
     val query = s"""SELECT band_id FROM "${schemaName}"."band_table" WHERE members::jsonb @> ?::jsonb"""
-
-    // 将 artistID 包装成一个单元素的 JSON 数组字符串，以匹配 @> 操作符的需要。
     val artistIdAsJsonArray = s"""["$artistID"]"""
     val params = List(SqlParameter("String", artistIdAsJsonArray))
 
     readDBRows(query, params).flatMap { rows =>
-      // 安全地遍历和解码返回的行
+      // 参照 SearchBandByNamePlanner 的正确实现进行修正。
+      // 我们的数据库服务层会将 snake_case (band_id) 转换为 camelCase (bandID)。
+      // 因此，我们必须使用 "bandID" 来解码 JSON。
       rows.traverse { row =>
-        row.hcursor.get[String]("band_id")
-          .leftMap(err => new Exception(s"解码 band_id 失败: ${err.getMessage}"))
-          .liftTo[IO] // 将 Either[Throwable, A] 转换为 IO[A]
+        // 使用 IO.fromEither 可以使代码更简洁，它直接将 Either[Throwable, A] 转换为 IO[A]。
+        IO.fromEither(row.hcursor.get[String]("bandID"))
+      }.handleErrorWith { error =>
+        // 提供一个更清晰的错误上下文。
+        IO.raiseError(new Exception(s"从数据库行解码 bandID 失败: ${error.getMessage}", error))
       }
     }
   }
