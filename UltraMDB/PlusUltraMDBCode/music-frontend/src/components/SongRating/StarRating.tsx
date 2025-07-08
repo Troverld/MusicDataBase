@@ -82,9 +82,10 @@ const StarRating: React.FC<StarRatingProps> = ({
     }
   };
 
-  // 生成渐变样式
+  // 生成渐变样式 - 统一使用渐变方式确保颜色一致性
   const getStarGradientStyle = (fillPercentage: number) => {
     if (fillPercentage === 0) {
+      // 完全空的星星
       return {
         background: 'transparent',
         WebkitBackgroundClip: 'initial',
@@ -92,17 +93,14 @@ const StarRating: React.FC<StarRatingProps> = ({
         backgroundClip: 'initial',
         color: '#ddd'
       };
-    } else if (fillPercentage === 100) {
-      return {
-        background: 'transparent',
-        WebkitBackgroundClip: 'initial',
-        WebkitTextFillColor: 'initial',
-        backgroundClip: 'initial',
-        color: '#ffd700'
-      };
     } else {
+      // 所有有填充的星星都使用渐变，确保颜色一致
+      const gradientBg = fillPercentage === 100 
+        ? `linear-gradient(90deg, #ffd700 100%, #ffd700 100%)`  // 100%时仍用渐变保持一致性
+        : `linear-gradient(90deg, #ffd700 ${fillPercentage}%, #ddd ${fillPercentage}%)`;
+      
       return {
-        background: `linear-gradient(90deg, #ffd700 ${fillPercentage}%, #ddd ${fillPercentage}%)`,
+        background: gradientBg,
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text',
@@ -133,6 +131,7 @@ const StarRating: React.FC<StarRatingProps> = ({
                 cursor: interactive && !disabled ? 'pointer' : 'default',
                 ...getStarGradientStyle(fillPercentage)
               }}
+              data-fill={Math.round(fillPercentage / 10) * 10} // 降级方案的data属性，四舍五入到最近的10%
               title={interactive ? `评分 ${starValue}` : `${fillPercentage}% 填充`}
             >
               ★

@@ -108,9 +108,16 @@
       width: var(--fill-width, 0%);
       overflow: hidden;
       white-space: nowrap;
+      font-size: inherit; /* 确保大小一致 */
+      font-family: inherit; /* 确保字体一致 */
     }
     
-    /* 使用CSS变量来控制填充宽度 */
+    /* 空星星特殊处理 */
+    .star.rational-star.empty::before {
+      display: none;
+    }
+    
+    /* 使用CSS变量来控制填充宽度 - 确保所有填充状态的颜色都一致 */
     .star.rational-star[data-fill="0"] { --fill-width: 0%; }
     .star.rational-star[data-fill="10"] { --fill-width: 10%; }
     .star.rational-star[data-fill="20"] { --fill-width: 20%; }
