@@ -1,6 +1,7 @@
 package Impl
 
 
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
 import Objects.CreatorService.{Artist, Band, CreatorID_Type, CreatorType}
 import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
@@ -69,22 +70,34 @@ case class FilterSongsByEntityPlanner(
   }
 
   private def validateArtistID(artistID: String)(using PlanContext): IO[Unit] = {
-    readDBJsonOptional(
-      s"SELECT 1 FROM ${schemaName}.artist WHERE artist_id = ? LIMIT 1",
-      List(SqlParameter("String", artistID))
-    ).flatMap {
-      case Some(_) => IO.unit
-      case None    => IO.raiseError(new IllegalArgumentException(s"Invalid artistID: $artistID"))
+    GetArtistByID(userID, userToken, artistID).send.flatMap {
+      case (Some(_), _) => IO.unit
+      case (None, _) => IO.raiseError(new IllegalArgumentException(s"Invalid Artist ID: $artistID not found."))
     }
   }
 
   private def validateBandID(bandID: String)(using PlanContext): IO[Unit] = {
-    readDBJsonOptional(
-      s"SELECT 1 FROM ${schemaName}.band WHERE band_id = ? LIMIT 1",
-      List(SqlParameter("String", bandID))
-    ).flatMap {
-      case Some(_) => IO.unit
-      case None    => IO.raiseError(new IllegalArgumentException(s"Invalid bandID: $bandID"))
+    GetBandByID(userID, userToken, bandID).send.flatMap {
+      case (Some(_), _) => IO.unit
+      case (None, _)    => IO.raiseError(new IllegalArgumentException(s"Invalid Band ID: $bandID not found."))
+    }
+  }
+
+  private def validateCreatorsExist(creators: List[CreatorID_Type])(using PlanContext): IO[Unit] = {
+    creators.traverse_ {
+      case CreatorID_Type(creatorType, id) =>
+        creatorType match {
+          case CreatorType.Artist =>
+            GetArtistByID(userID, userToken, id).send.flatMap {
+              case (None, _) => IO.raiseError(new IllegalArgumentException(s"Invalid creator ID: $id (Artist not found)"))
+              case _ => IO.unit
+            }
+          case CreatorType.Band =>
+            GetBandByID(userID, userToken, id).send.flatMap {
+              case (None, _) => IO.raiseError(new IllegalArgumentException(s"Invalid creator ID: $id (Band not found)"))
+              case _ => IO.unit
+            }
+        }
     }
   }
 
