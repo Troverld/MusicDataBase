@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { musicService } from '../../services/music.service';
 import { Song } from '../../types';
 import SongList from '../../components/SongList';
@@ -7,6 +8,8 @@ import SongForm from './SongForm';
 import { usePermissions } from '../../hooks/usePermissions';
 
 const SongManagement: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [songs, setSongs] = useState<Song[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -14,9 +17,30 @@ const SongManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [returnInfo, setReturnInfo] = useState<{type: string, id: string} | null>(null);
   
   // 权限检查
   const { isUser, isAdmin } = usePermissions();
+
+  // 检查是否从其他页面传递了编辑歌曲的数据
+  useEffect(() => {
+    if (location.state?.editSong) {
+      const songToEdit = location.state.editSong as Song;
+      const returnTo = location.state.returnTo;
+      const returnId = location.state.returnId;
+      
+      setEditingSong(songToEdit);
+      setShowModal(true);
+      
+      // 保存返回信息
+      if (returnTo && returnId) {
+        setReturnInfo({ type: returnTo, id: returnId });
+      }
+      
+      // 清除 location state 以避免重复处理
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const handleSearch = async () => {
     if (!searchKeyword.trim()) {
@@ -74,6 +98,24 @@ const SongManagement: React.FC = () => {
     setSuccess(message);
     setShowModal(false);
     setEditingSong(null);
+    
+    // 如果有返回信息，提供返回选项
+    if (returnInfo) {
+      const entityName = returnInfo.type === 'artist' ? '艺术家' : '乐队';
+      const enhancedMessage = `${message} 是否返回到${entityName}详情页面？`;
+      
+      if (window.confirm(enhancedMessage)) {
+        const returnPath = returnInfo.type === 'artist' 
+          ? `/artists/${returnInfo.id}` 
+          : `/bands/${returnInfo.id}`;
+        navigate(returnPath);
+        return;
+      }
+      
+      // 清除返回信息
+      setReturnInfo(null);
+    }
+    
     // 如果当前有搜索，刷新搜索结果
     if (searchKeyword.trim()) {
       handleSearch();
@@ -84,6 +126,27 @@ const SongManagement: React.FC = () => {
     setError(message);
   };
 
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingSong(null);
+    
+    // 如果有返回信息且是编辑模式，询问是否返回
+    if (returnInfo && editingSong) {
+      const entityName = returnInfo.type === 'artist' ? '艺术家' : '乐队';
+      
+      if (window.confirm(`是否返回到${entityName}详情页面？`)) {
+        const returnPath = returnInfo.type === 'artist' 
+          ? `/artists/${returnInfo.id}` 
+          : `/bands/${returnInfo.id}`;
+        navigate(returnPath);
+        return;
+      }
+      
+      // 清除返回信息
+      setReturnInfo(null);
+    }
+  };
+
   const clearMessages = () => {
     setError('');
     setSuccess('');
@@ -91,6 +154,7 @@ const SongManagement: React.FC = () => {
 
   const resetForm = () => {
     setEditingSong(null);
+    setReturnInfo(null); // 重置时也清除返回信息
   };
 
   // 当搜索关键词变化时清除消息
@@ -108,6 +172,21 @@ const SongManagement: React.FC = () => {
         管理系统中的歌曲信息，搜索现有歌曲，查看详细信息。
         {canUploadSongs ? '您可以上传新歌曲并编辑您有权限的歌曲。' : '您可以搜索和查看歌曲信息。'}
       </p>
+      
+      {/* 显示来源提示 */}
+      {returnInfo && editingSong && (
+        <div style={{
+          background: '#e3f2fd',
+          border: '1px solid #bbdefb',
+          color: '#1976d2',
+          padding: '10px 15px',
+          borderRadius: '4px',
+          marginBottom: '15px',
+          fontSize: '14px'
+        }}>
+          📍 您正在编辑来自{returnInfo.type === 'artist' ? '艺术家' : '乐队'}详情页面的歌曲《{editingSong.name}》
+        </div>
+      )}
       
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
@@ -147,7 +226,7 @@ const SongManagement: React.FC = () => {
           editingSong={editingSong}
           onSuccess={handleFormSuccess}
           onError={handleFormError}
-          onClose={() => setShowModal(false)}
+          onClose={handleCloseModal}
         />
       )}
 
@@ -167,6 +246,7 @@ const SongManagement: React.FC = () => {
           <p><strong>创作者与演唱者:</strong> 支持选择艺术家或乐队，系统会显示类型和简介供您参考。</p>
           <p><strong>专业角色:</strong> 作词、作曲、编曲、演奏等角色通常由个人艺术家担任，因此只能选择艺术家。</p>
           <p><strong>编辑模式:</strong> 编辑现有歌曲时，系统会智能识别ID并转换为对应的名称显示。</p>
+          <p><strong>跨页面编辑:</strong> 从艺术家或乐队详情页面点击编辑歌曲，会跳转到此页面进行编辑，编辑完成后可选择返回来源页面。</p>
           <p><strong>数据一致性:</strong> 系统使用 ID 而不是名称传递数据，确保与后端 API 的完美对接。</p>
         </div>
       </div>

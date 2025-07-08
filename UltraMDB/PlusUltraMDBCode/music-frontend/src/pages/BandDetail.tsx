@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { bandService } from '../services/band.service';
 import { musicService } from '../services/music.service';
 import { Band, Song } from '../types';
-import { useBandPermission } from '../hooks/usePermissions';
+import { useBandPermission, usePermissions } from '../hooks/usePermissions';
 import { useArtistBand, ArtistBandItem } from '../hooks/useArtistBand';
 import SongList from '../components/SongList';
 
@@ -17,9 +17,11 @@ const BandDetail: React.FC = () => {
   const [bandSongs, setBandSongs] = useState<Song[]>([]);
   const [songsLoading, setSongsLoading] = useState(false);
   const [showSongs, setShowSongs] = useState(false);
+  const [success, setSuccess] = useState('');
 
   // 检查编辑权限
   const { canEdit, loading: permissionLoading } = useBandPermission(bandID || '');
+  const { isAdmin } = usePermissions();
   const { convertIdsToArtistBandItems } = useArtistBand();
 
   useEffect(() => {
@@ -104,11 +106,56 @@ const BandDetail: React.FC = () => {
   };
 
   const handleEditSong = (song: Song) => {
-    navigate('/songs', { state: { editSong: song } });
+    // 传递歌曲数据到歌曲管理页面进行编辑
+    navigate('/songs', { 
+      state: { 
+        editSong: song,
+        returnTo: 'band',
+        returnId: bandID 
+      } 
+    });
   };
 
   const handleDeleteSong = async (songID: string) => {
-    navigate('/songs');
+    // 确认删除操作
+    const songToDelete = bandSongs.find(song => song.songID === songID);
+    if (!songToDelete) {
+      setError('未找到要删除的歌曲');
+      return;
+    }
+
+    const confirmMessage = `确定要删除歌曲《${songToDelete.name}》吗？此操作不可撤销。`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setError('');
+      setSuccess('');
+      
+      // 调用删除API
+      const [deleteSuccess, message] = await musicService.deleteSong(songID);
+      
+      if (deleteSuccess) {
+        // 从本地状态中移除删除的歌曲
+        setBandSongs(prevSongs => prevSongs.filter(song => song.songID !== songID));
+        setSuccess(`歌曲《${songToDelete.name}》删除成功`);
+        
+        // 3秒后清除成功消息
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(message || '删除歌曲失败');
+      }
+    } catch (err: any) {
+      console.error('Delete song error:', err);
+      setError(err.message || '删除歌曲时发生错误');
+    }
+  };
+
+  // 清除消息
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
   };
 
   if (loading) {
@@ -122,7 +169,7 @@ const BandDetail: React.FC = () => {
     );
   }
 
-  if (error || !band) {
+  if (error && !band) {
     return (
       <div className="container">
         <div className="back-button">
@@ -132,7 +179,7 @@ const BandDetail: React.FC = () => {
         </div>
         <div className="empty-state">
           <h3>乐队信息获取失败</h3>
-          <p>{error || '未找到乐队信息'}</p>
+          <p>{error}</p>
           <Link to="/bands" className="btn btn-primary" style={{ marginTop: '20px' }}>
             前往乐队管理
           </Link>
@@ -149,8 +196,47 @@ const BandDetail: React.FC = () => {
         </button>
       </div>
 
+      {/* 显示错误和成功消息 */}
+      {error && (
+        <div className="error-message" style={{ marginBottom: '20px' }}>
+          {error}
+          <button 
+            onClick={clearMessages}
+            style={{ 
+              marginLeft: '10px', 
+              background: 'none', 
+              border: 'none', 
+              color: 'inherit', 
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      
+      {success && (
+        <div className="success-message" style={{ marginBottom: '20px' }}>
+          {success}
+          <button 
+            onClick={clearMessages}
+            style={{ 
+              marginLeft: '10px', 
+              background: 'none', 
+              border: 'none', 
+              color: 'inherit', 
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <div className="detail-header">
-        <div className="detail-title">{band.name}</div>
+        <div className="detail-title">{band?.name}</div>
         <div className="detail-subtitle">🎸 乐队</div>
       </div>
 
@@ -172,7 +258,7 @@ const BandDetail: React.FC = () => {
                 marginLeft: '8px',
                 fontSize: '12px'
               }}>
-                {band.bandID}
+                {band?.bandID}
               </span>
             </p>
           </div>
@@ -191,7 +277,7 @@ const BandDetail: React.FC = () => {
         <div>
           <h4 style={{ marginBottom: '15px' }}>乐队简介</h4>
           <div className="detail-bio">
-            {band.bio || '暂无简介信息'}
+            {band?.bio || '暂无简介信息'}
           </div>
         </div>
 
@@ -296,7 +382,7 @@ const BandDetail: React.FC = () => {
           </div>
         )}
 
-        {band.managers && band.managers.length > 0 && (
+        {band?.managers && band.managers.length > 0 && (
           <div style={{ 
             borderTop: '1px solid #eee', 
             paddingTop: '20px', 
@@ -344,7 +430,7 @@ const BandDetail: React.FC = () => {
       {showSongs && (
         <div style={{ marginTop: '30px' }}>
           <h3 style={{ marginBottom: '20px' }}>
-            {band.name} 的歌曲 
+            {band?.name} 的歌曲 
             {!songsLoading && `(${bandSongs.length} 首)`}
           </h3>
           
@@ -354,14 +440,30 @@ const BandDetail: React.FC = () => {
               正在加载歌曲...
             </div>
           ) : bandSongs.length > 0 ? (
-            <SongList 
-              songs={bandSongs} 
-              onEdit={handleEditSong} 
-              onDelete={handleDeleteSong} 
-            />
+            <>
+              {/* 权限提示 */}
+              {!isAdmin && (
+                <div className="permission-warning" style={{ marginBottom: '15px' }}>
+                  💡 提示：您可以编辑自己上传的歌曲，删除操作需要管理员权限。点击"编辑"将跳转到歌曲管理页面。
+                </div>
+              )}
+              
+              <SongList 
+                songs={bandSongs} 
+                onEdit={handleEditSong} 
+                onDelete={handleDeleteSong} 
+              />
+            </>
           ) : (
             <div className="empty-state">
               <p>该乐队暂无歌曲</p>
+              <Link 
+                to="/songs" 
+                className="btn btn-primary"
+                style={{ marginTop: '15px' }}
+              >
+                去上传歌曲
+              </Link>
             </div>
           )}
         </div>
@@ -379,6 +481,7 @@ const BandDetail: React.FC = () => {
         <p style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6', margin: 0 }}>
           这里显示了乐队的详细信息，包括乐队成员列表。如果您是该乐队的管理者，可以点击"编辑信息"按钮来修改乐队的基本信息和成员。
           点击成员名称可以查看对应艺术家的详细信息。点击"查看该乐队的歌曲"可以查看所有由该乐队创作或参与的歌曲。
+          您可以编辑自己有权限的歌曲，删除操作需要管理员权限。
         </p>
       </div>
     </div>
