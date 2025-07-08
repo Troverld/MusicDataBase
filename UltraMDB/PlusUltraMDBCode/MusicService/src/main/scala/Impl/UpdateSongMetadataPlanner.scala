@@ -61,9 +61,6 @@ case class UpdateSongMetadataPlanner(
 
         _ <- IO(logger.info(s"Updating metadata for songID=${songID}..."))
         _ <- updateSongMetadata
-
-        _ <- IO(logger.info(s"Validating updated song data for songID=${songID}..."))
-        _ <- validateUpdatedData
       } yield (true, "")
       ).handleErrorWith { e =>
       IO(logger.error(s"更新歌曲元数据失败: ${e.getMessage}")) *>
@@ -79,7 +76,7 @@ case class UpdateSongMetadataPlanner(
   }
 
   private def updateSongMetadata(using PlanContext): IO[Unit] = {
-    val updateFutures = List(
+    val updateFutures: List[IO[Unit]] = List(
       name.map(updateName),
       releaseTime.map(updateReleaseTime),
       Some(updateCreatorListField("creators", creators)),
@@ -174,10 +171,5 @@ case class UpdateSongMetadataPlanner(
         case None    => IO.raiseError(new Exception(s"Genre with ID ${genreID} does not exist"))
       }
     }.sequence_.void
-  }
-
-  private def validateUpdatedData(using PlanContext): IO[Unit] = {
-    IO(logger.info(s"Running integrity checks for songID=${songID}...")) >>
-      IO.unit
   }
 }
