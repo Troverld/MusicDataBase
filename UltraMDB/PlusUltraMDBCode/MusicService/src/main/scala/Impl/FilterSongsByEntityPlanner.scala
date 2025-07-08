@@ -84,7 +84,7 @@ case class FilterSongsByEntityPlanner(
   }
 
   private def validateCreatorsExist(creators: List[CreatorID_Type])(using PlanContext): IO[Unit] = {
-    creators.traverse_ {
+    creator.traverse_ {
       case CreatorID_Type(creatorType, id) =>
         creatorType match {
           case CreatorType.Artist =>
@@ -105,23 +105,33 @@ case class FilterSongsByEntityPlanner(
     val sqlBuilder = new StringBuilder(s"SELECT song_id FROM ${schemaName}.song_table WHERE 1=1")
     val parameters = scala.collection.mutable.ListBuffer.empty[SqlParameter]
 
-    // Filter by creator (creators or performers contain the full encoded CreatorID_Type)
+    // 条件 1：creator 匹配任一字段
     creator.foreach { creatorID =>
-      val jsonStr = List(creatorID).asJson.noSpaces
-      sqlBuilder.append(" AND (creators @> ?::jsonb OR performers @> ?::jsonb)")
-      parameters += SqlParameter("String", jsonStr)
-      parameters += SqlParameter("String", jsonStr)
+      val idPattern = s"%${creatorID.id}%"
+      sqlBuilder.append(
+        s"""
+           | AND (
+           |   creators::text ILIKE ? OR
+           |   performers::text ILIKE ? OR
+           |   lyricists::text ILIKE ? OR
+           |   composers::text ILIKE ? OR
+           |   arrangers::text ILIKE ? OR
+           |   instrumentalists::text ILIKE ?
+           | )
+         """.stripMargin
+      )
+      for (_ <- 1 to 6) parameters += SqlParameter("String", idPattern)
     }
 
-    // Filter by genres
-    genres.foreach { genreID =>
-      val genreJsonStr = List(genreID).asJson.noSpaces
-      sqlBuilder.append(" AND genres @> ?::jsonb")
-      parameters += SqlParameter("String", genreJsonStr)
+    // 条件 2：genres 模糊匹配
+    genres.foreach { genre =>
+      val genrePattern = s"%$genre%"
+      sqlBuilder.append(" AND genres::text ILIKE ?")
+      parameters += SqlParameter("String", genrePattern)
     }
 
     val sql = sqlBuilder.toString()
-    logger.info(s"Executing SQL: $sql with parameters: ${parameters.mkString(", ")}")
+    logger.info(s"Executing SQL: $sql with parameters: ${parameters.map(_.value).mkString(", ")}")
 
     readDBRows(sql, parameters.toList).map(_.map(decodeField[String](_, "song_id")))
   }
