@@ -182,4 +182,27 @@ object SearchUtils {
       ))
     } yield ()
   }
+
+
+  /**
+   * (新增方法)
+   * 从数据库获取用户最近播放的歌曲ID集合。
+   *
+   * @param userID 目标用户的ID。
+   * @param limit  要获取的歌曲数量。
+   * @return 一个包含最近播放歌曲ID的Set的IO。
+   */
+  def fetchRecentPlayedSongs(userID: String, limit: Int)(using planContext: PlanContext): IO[Set[String]] = {
+    val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ? ORDER BY play_time DESC LIMIT ?"
+    readDBRows(sql, List(SqlParameter("String", userID), SqlParameter("Int", limit.toString)))
+      .flatMap { rows =>
+        rows.traverse { row =>
+          IO.fromEither(
+            row.hcursor.get[String]("songId")
+              .leftMap(err => new Exception(s"解码 playback_log.songId 失败: ${err.getMessage}", err))
+          )
+        }
+      }.map(_.toSet)
+  }
+
 }
