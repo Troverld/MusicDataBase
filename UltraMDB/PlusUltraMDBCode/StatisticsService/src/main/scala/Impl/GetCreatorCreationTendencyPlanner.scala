@@ -1,22 +1,19 @@
 package Impl
 
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
-import Common.Object.SqlParameter
-import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
 import APIs.CreatorService.{GetArtistByID, GetBandByID}
-import APIs.MusicService.{FilterSongsByEntity, GetSongProfile}
-import Objects.CreatorService.{CreatorID_Type, CreatorType}
-import Objects.StatisticsService.{Dim, Profile}
-import Utils.StatisticsUtils
+import Objects.CreatorService.{CreatorID_Type,CreatorType}
+import Objects.StatisticsService.Profile
+import Utils.GetCreatorCreationTendencyUtils // 导入新的业务逻辑层
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
 
 /**
- * Planner for GetCreatorCreationTendency: 获取创作者的创作倾向
+ * Planner for GetCreatorCreationTendency: 获取创作者的创作倾向。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心业务逻辑已移至 GetCreatorCreationTendencyUtils。
  *
  * @param userID      请求用户的ID
  * @param userToken   用户认证令牌
@@ -24,22 +21,31 @@ import org.slf4j.LoggerFactory
  * @param planContext 执行上下文
  */
 case class GetCreatorCreationTendencyPlanner(
-                                              userID: String,
-                                              userToken: String,
-                                              creator: CreatorID_Type,
-                                              override val planContext: PlanContext
-                                            ) extends Planner[(Option[Profile], String)] {
+  userID: String,
+  userToken: String,
+  creator: CreatorID_Type,
+  override val planContext: PlanContext
+) extends Planner[(Option[Profile], String)] {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
   override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
     val logic: IO[Profile] = for {
-      _ <- logInfo(s"开始获取创作者 ${creator.id} (${creator.creatorType}) 的创作倾向")
+      _ <- logInfo(s"开始处理获取创作者 ${creator.id} (${creator.creatorType}) 创作倾向的请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
       _ <- validateUser()
       _ <- validateCreator()
-      tendency <- calculateTendency()
+
+      // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
+      _ <- logInfo(s"验证通过，正在调用 GetCreatorCreationTendencyUtils.generateTendencyProfile")
+      // 将所有需要的参数传递给业务逻辑层
+      tendency <- GetCreatorCreationTendencyUtils.generateTendencyProfile(creator, userID, userToken)
+      _ <- logInfo(s"倾向计算完成，包含 ${tendency.vector.length} 个维度")
+
     } yield tendency
 
+    // 步骤 3: 格式化最终的成功或失败响应
     logic.map { tendency =>
       (Some(tendency), "获取创作倾向成功")
     }.handleErrorWith { error =>
@@ -49,22 +55,18 @@ case class GetCreatorCreationTendencyPlanner(
   }
 
   /**
-   * 步骤1: 验证用户身份
+   * 验证发起请求的用户身份是否有效。
    */
   private def validateUser()(using PlanContext): IO[Unit] = {
-    logInfo("正在验证用户身份") >> {
-      validateUserMapping(userID, userToken).send.flatMap { case (isValid, message) =>
-        if (isValid) {
-          logInfo("用户身份验证通过")
-        } else {
-          IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
-        }
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
       }
-    }
   }
 
   /**
-   * 步骤3: 验证创作者存在性
+   * 验证目标创作者是否存在。
    */
   private def validateCreator()(using PlanContext): IO[Unit] = {
     logInfo(s"正在验证创作者 ${creator.id} 是否存在") >> {
@@ -83,67 +85,7 @@ case class GetCreatorCreationTendencyPlanner(
     }
   }
 
-  /**
-   * 步骤4: 实时计算创作倾向
-   */
-  private def calculateTendency()(using PlanContext): IO[Profile] = {
-    for {
-      _ <- logInfo("开始实时计算创作倾向")
-      songs <- getCreatorSongs()
-      _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
-
-      profile <- if (songs.isEmpty) {
-        logInfo("创作者暂无作品，返回空倾向")
-        IO.pure(Profile(List.empty, norm = true))
-      } else {
-        for {
-          unnormalizedProfile <- calculateGenreDistribution(songs)
-          _ <- logInfo(s"计算出未归一化的曲风分布: ${unnormalizedProfile.vector}")
-          normalizedProfile = StatisticsUtils.normalizeVector(unnormalizedProfile)
-        } yield normalizedProfile
-      }
-    } yield profile
-  }
-
-  /**
-   * 获取创作者的所有作品
-   * (已使用最新版本的 FilterSongsByEntity API)
-   */
-  private def getCreatorSongs()(using PlanContext): IO[List[String]] = {
-    // **修正点**: 使用更新后的 FilterSongsByEntity API
-    FilterSongsByEntity(
-      userID = userID,
-      userToken = userToken,
-      creator = Some(creator) // 直接传递 creator 对象
-    ).send.flatMap {
-      case (Some(songs), _) => IO.pure(songs)
-      case (None, message) =>
-        logInfo(s"获取创作者作品失败: $message. 将视为空列表处理。") >> IO.pure(List.empty)
-    }
-  }
-
-  /**
-   * 使用 GetSongProfile API 计算曲风分布，并返回一个未归一化的 Profile
-   */
-  private def calculateGenreDistribution(songs: List[String])(using PlanContext): IO[Profile] = {
-    songs.traverse { songId =>
-      GetSongProfile(userID, userToken, songId).send.map {
-        case (Some(profile), _) => profile.vector
-        case (None, message) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 ${songId} 的Profile失败: $message. 将跳过此歌曲.")
-          List.empty[Dim]
-      }
-    }.map { listOfVectors =>
-      val allDims = listOfVectors.flatten
-      val genreCounts = allDims
-        .groupBy(_.GenreID)
-        .view.mapValues(dims => dims.map(_.value).sum)
-        .toList
-        .map { case (genreId, count) => Dim(genreId, count) }
-      Profile(genreCounts, norm = false)
-    }
-  }
-
+  // 日志记录的辅助方法
   private def logInfo(message: String): IO[Unit] =
     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
 

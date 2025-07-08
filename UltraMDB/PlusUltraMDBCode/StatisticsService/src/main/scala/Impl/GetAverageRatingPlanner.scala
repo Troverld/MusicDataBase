@@ -6,7 +6,7 @@ import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
 import APIs.MusicService.GetSongByID // 导入用于验证歌曲的API
-import APIs.StatisticsService.GetAverageRating // 导入我们正在实现的API
+import Utils.SearchUtils.fetchAverageRating // 导入用于查询平均评分的工具函数
 import cats.effect.IO
 import cats.implicits._
 import org.slf4j.LoggerFactory
@@ -80,29 +80,8 @@ case class GetAverageRatingPlanner(
    * 从 song_rating 表中查询平均评分和评分总数。
    */
   private def fetchAverageRatingFromDB()(using PlanContext): IO[(Double, Int)] = {
-    logInfo(s"正在数据库中聚合查询歌曲 ${songID} 的评分数据")
-    // 使用别名 (avg_rating, rating_count) 使结果解析更清晰
-    val sql = s"SELECT AVG(rating) AS avg_rating, COUNT(rating) AS rating_count FROM ${schemaName}.song_rating WHERE song_id = ?"
-    val params = List(SqlParameter("String", songID))
-
-    readDBRows(sql, params).flatMap {
-      // 这个聚合查询总是返回一行
-      case row :: Nil =>
-        // 安全地解码结果。如果AVG(rating)为NULL，hcursor.get[Option[Double]]会返回Right(None)
-        val avgResult = row.hcursor.get[Option[Double]]("avgRating").getOrElse(None)
-        val countResult = row.hcursor.get[Int]("ratingCount").getOrElse(0)
-
-        // 如果avgResult是None（即数据库返回NULL），我们将其视为0.0
-        val averageRating = avgResult.getOrElse(0.0)
-
-        logInfo(s"数据库查询结果: 平均分=${averageRating}, 评分数=${countResult}")
-        IO.pure((averageRating, countResult))
-
-      // 作为一个安全的兜底，理论上不应该发生
-      case _ =>
-        logInfo("数据库未返回预期的单行结果，这不应该发生。视为无评分。")
-        IO.pure((0.0, 0))
-    }
+    logInfo(s"正在调用 SearchUtils 查询歌曲 ${songID} 的评分数据")
+    fetchAverageRating(songID)
   }
 
   private def logInfo(message: String): IO[Unit] =
