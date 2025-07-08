@@ -97,3 +97,22 @@ export interface Genre {
   name: string;
   description: string;
 }
+
+// 新增：统计服务相关类型定义
+export interface Dim {
+  GenreID: string;
+  value: number;
+}
+
+export interface Profile {
+  vector: Dim[];
+  norm: boolean;
+}
+
+// 歌曲评分相关类型
+export interface SongRating {
+  userRating: number;      // 当前用户的评分 (0表示未评分, 1-5表示评分)
+  averageRating: number;   // 平均评分
+  ratingCount: number;     // 评分总数
+  popularity?: number;     // 歌曲热度（可选）
+}

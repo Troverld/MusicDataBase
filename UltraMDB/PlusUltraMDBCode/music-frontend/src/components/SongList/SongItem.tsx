@@ -2,6 +2,7 @@ import React from 'react';
 import { Song } from '../../types';
 import { usePermissions, useSongPermission } from '../../hooks/usePermissions';
 import { formatCreatorList, formatStringCreatorList } from './utils';
+import SongRating from '../SongRating';
 
 interface SongItemProps {
   song: Song;
@@ -73,6 +74,17 @@ const SongItem: React.FC<SongItemProps> = ({
             <span className="chip" style={{ backgroundColor: '#f8f9fa', color: '#6c757d' }}>无</span>
           )}
         </div>
+      </div>
+
+      {/* 新增：歌曲评分组件 */}
+      <div style={{ marginTop: '15px' }}>
+        <SongRating
+          songID={song.songID}
+          showUserRating={true}
+          showAverageRating={true}
+          showPopularity={true}
+          compact={false}
+        />
       </div>
 
       {song.uploadTime && (

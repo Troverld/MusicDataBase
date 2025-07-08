@@ -4,17 +4,12 @@ import { PlanContext } from '../types';
 
 // 服务端口映射，根据后端ServiceUtils.portMap配置
 const SERVICE_PORTS = {
-  organize: 10011,   // OrganizeService
-  music: 10010,      // MusicService
-  creator: 10012,    // CreatorService
-  track: 10013       // TrackService
+  organize: 10011,     // OrganizeService
+  music: 10010,        // MusicService
+  creator: 10012,      // CreatorService
+  track: 10013,        // TrackService
+  statistics: 10013    // StatisticsService
 };
-// const SERVICE_PORTS = {
-//   organize: 10011,   // OrganizeService
-//   music: 10011,      // MusicService
-//   creator: 10011,    // CreatorService
-//   track: 10011       // TrackService
-// };
 
 // API到服务的映射
 const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
@@ -35,6 +30,8 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'DeleteSong': 'music',
   'SearchSongsByName': 'music',
   'GetSongByID': 'music',
+  'GetSongList': 'music',
+  'GetSongProfile': 'music',
   'CreateNewGenre': 'music',
   'DeleteGenre': 'music',
   'GetGenreList': 'music',
@@ -47,6 +44,8 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'DeleteArtistMessage': 'creator',
   'GetArtistByID': 'creator',
   'SearchArtistByName': 'creator',
+  'GetAllCreators': 'creator',
+  'SearchAllBelongingBands': 'creator',
   'CreateBandMessage': 'creator',
   'UpdateBandMessage': 'creator',
   'DeleteBandMessage': 'creator',
@@ -54,8 +53,8 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'SearchBandByName': 'creator',
   'AddArtistManager': 'creator',
   'AddBandManager': 'creator',
-  'validArtistOwnership': 'creator',
-  'validBandOwnership': 'creator',
+  'validArtistOwnership': 'creator',    // 更正：保持小写开头
+  'validBandOwnership': 'creator',      // 更正：保持小写开头
   
   // TrackService APIs
   'CreateAlbum': 'track',
@@ -67,7 +66,21 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'AddToPlaylist': 'track',
   'InviteMaintainerToCollection': 'track',
   'validateAlbumOwnership': 'track',
-  'validateCollectionOwnership': 'track'
+  'validateCollectionOwnership': 'track',
+
+  // StatisticsService APIs
+  'RateSong': 'statistics',
+  'GetSongRate': 'statistics',
+  'GetAverageRating': 'statistics',
+  'GetSongPopularity': 'statistics',
+  'LogPlayback': 'statistics',
+  'GetUserPortrait': 'statistics',
+  'GetUserSongRecommendations': 'statistics',
+  'GetNextSongRecommendation': 'statistics',
+  'GetSimilarSongs': 'statistics',
+  'GetSimilarCreators': 'statistics',
+  'GetCreatorCreationTendency': 'statistics',
+  'GetCreatorGenreStrength': 'statistics'
 };
 
 // 为每个服务创建axios实例
