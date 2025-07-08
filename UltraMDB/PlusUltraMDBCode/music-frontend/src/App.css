@@ -7,3 +7,4 @@
 @import './styles/modal.css';
 @import './components/SongRating/SongRating.css';
 @import './components/PlayButton/PlayButton.css';
+@import './pages/UserProfile/UserProfile.css';

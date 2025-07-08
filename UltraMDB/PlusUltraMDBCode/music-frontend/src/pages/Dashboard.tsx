@@ -52,6 +52,15 @@ const Dashboard: React.FC = () => {
         link: '/genres',
         available: true
       });
+
+      // 添加用户画像功能 - 所有已认证用户都可以访问
+      features.push({
+        title: '🎨 音乐画像',
+        description: '查看您的个性化音乐偏好分析',
+        link: '/profile',
+        available: true,
+        special: true // 标记为特殊功能，使用不同样式
+      });
     }
 
     // 管理员专属权限调整
@@ -62,12 +71,18 @@ const Dashboard: React.FC = () => {
       features[0].description = '完整的歌曲管理，包括删除权限';
     }
 
-    // 如果用户未认证，显示受限的曲风功能
+    // 如果用户未认证，显示受限的功能
     if (!isUser && !isAdmin && !permissionLoading) {
       features.push({
         title: '🎼 曲风管理',
         description: '需要用户权限',
         link: '/genres',
+        available: false
+      });
+      features.push({
+        title: '🎨 音乐画像',
+        description: '需要用户权限',
+        link: '/profile',
         available: false
       });
     }
@@ -107,40 +122,45 @@ const Dashboard: React.FC = () => {
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
           gap: '20px',
-          maxWidth: '1000px'
+          maxWidth: '1200px'
         }}>
           {features.map((feature, index) => (
             <div
               key={index}
               style={{
-                background: 'white',
+                background: feature.special ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
                 borderRadius: '8px',
                 padding: '20px',
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #e9ecef',
+                boxShadow: feature.special ? '0 4px 20px rgba(102, 126, 234, 0.3)' : '0 2px 10px rgba(0, 0, 0, 0.1)',
+                border: feature.special ? 'none' : '1px solid #e9ecef',
                 transition: 'all 0.3s ease',
-                opacity: feature.available ? 1 : 0.6
+                opacity: feature.available ? 1 : 0.6,
+                color: feature.special ? 'white' : 'inherit'
               }}
               onMouseEnter={(e) => {
                 if (feature.available) {
                   e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+                  e.currentTarget.style.boxShadow = feature.special 
+                    ? '0 8px 30px rgba(102, 126, 234, 0.4)' 
+                    : '0 8px 25px rgba(0, 0, 0, 0.15)';
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.boxShadow = feature.special 
+                  ? '0 4px 20px rgba(102, 126, 234, 0.3)' 
+                  : '0 2px 10px rgba(0, 0, 0, 0.1)';
               }}
             >
               <h3 style={{ 
                 margin: '0 0 10px 0', 
-                color: feature.available ? '#333' : '#999'
+                color: feature.special ? 'white' : (feature.available ? '#333' : '#999')
               }}>
                 {feature.title}
               </h3>
               <p style={{ 
                 margin: '0 0 20px 0', 
-                color: feature.available ? '#666' : '#999',
+                color: feature.special ? 'rgba(255,255,255,0.9)' : (feature.available ? '#666' : '#999'),
                 fontSize: '14px',
                 lineHeight: '1.5'
               }}>
@@ -156,10 +176,19 @@ const Dashboard: React.FC = () => {
                     width: '100%',
                     textAlign: 'center',
                     display: 'block',
-                    padding: '12px'
+                    padding: '12px',
+                    background: feature.special ? 'rgba(255,255,255,0.2)' : undefined,
+                    color: feature.special ? 'white' : undefined,
+                    border: feature.special ? '1px solid rgba(255,255,255,0.3)' : undefined
                   }}
+                  onMouseEnter={feature.special ? (e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
+                  } : undefined}
+                  onMouseLeave={feature.special ? (e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+                  } : undefined}
                 >
-                  进入管理
+                  {feature.special ? '查看我的画像' : '进入管理'}
                 </Link>
               ) : (
                 <div 
@@ -235,9 +264,12 @@ const Dashboard: React.FC = () => {
         </div>
         
         <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
-          <p><strong>系统功能:</strong> 本系统支持音乐作品管理、艺术家档案管理、乐队信息管理和曲风分类管理。</p>
+          <p><strong>系统功能:</strong> 本系统支持音乐作品管理、艺术家档案管理、乐队信息管理、曲风分类管理和个性化音乐画像分析。</p>
           <p><strong>权限说明:</strong> 不同用户角色拥有不同的操作权限，管理员拥有完整权限，普通用户可管理自己的内容并查看公共信息。</p>
           <p><strong>数据安全:</strong> 所有操作都经过权限验证，确保数据安全和用户隐私。</p>
+          {(isUser || isAdmin) && (
+            <p><strong>音乐画像:</strong> 基于您的播放历史和评分行为，系统会生成个性化的音乐偏好分析，帮助您更好地了解自己的音乐品味。</p>
+          )}
         </div>
       </div>
     </div>

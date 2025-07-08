@@ -99,6 +99,21 @@ export const statisticsService = {
     return callAPI<[boolean, string]>('LogPlayback', data);
   },
 
+  // 获取用户画像 - 新增方法
+  async getUserPortrait(userID?: string): Promise<[Profile | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: userID || user.userID,  // 支持查看其他用户画像
+      userToken: user.userToken
+    };
+
+    return callAPI<[Profile | null, string]>('GetUserPortrait', data);
+  },
+
   // 综合获取歌曲评分信息
   async getSongRatingInfo(songID: string): Promise<SongRating> {
     try {

@@ -9,6 +9,7 @@ import ArtistManagement from './pages/ArtistManagement';
 import BandManagement from './pages/BandManagement';
 import ArtistDetail from './pages/ArtistDetail';
 import BandDetail from './pages/BandDetail';
+import UserProfile from './pages/UserProfile';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
@@ -27,6 +28,7 @@ function App() {
           <Route path="artists/:artistID" element={<ArtistDetail />} />
           <Route path="bands" element={<BandManagement />} />
           <Route path="bands/:bandID" element={<BandDetail />} />
+          <Route path="profile" element={<UserProfile />} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

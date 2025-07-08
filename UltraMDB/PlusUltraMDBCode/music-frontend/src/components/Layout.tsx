@@ -1,13 +1,13 @@
 import React from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
-import { clearAuth, getUser } from '../utils/storage';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth.service';
+import { clearAuth, getUser } from '../utils/storage';
 import { usePermissions } from '../hooks/usePermissions';
 
 const Layout: React.FC = () => {
   const navigate = useNavigate();
   const user = getUser();
-  const { isAdmin, isUser, loading: permissionLoading } = usePermissions();
+  const { isUser, isAdmin, loading: permissionLoading } = usePermissions();
 
   const handleLogout = async () => {
     if (user && user.userToken) {
@@ -77,6 +77,34 @@ const Layout: React.FC = () => {
             
             {/* 所有已认证用户都可以查看曲风 */}
             {(isUser || isAdmin) && <Link to="/genres">Genres</Link>}
+            
+            {/* 用户画像链接 - 只有已认证用户可以访问 */}
+            {(isUser || isAdmin) && (
+              <Link 
+                to="/profile" 
+                style={{ 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  padding: '6px 12px',
+                  borderRadius: '16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  textDecoration: 'none',
+                  color: 'white !important',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                🎼 我的画像
+              </Link>
+            )}
             
             {/* 权限加载中时显示加载状态 */}
             {permissionLoading && (
