@@ -114,6 +114,14 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
 
+      // 获取平均评分
+      case "GetAverageRating" =>
+        IO(
+          decode[GetAverageRatingPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetAverageRating[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
       // 测试接口
       case "test" =>
         for {
