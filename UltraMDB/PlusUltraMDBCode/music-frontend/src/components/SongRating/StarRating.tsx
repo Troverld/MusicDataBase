@@ -7,6 +7,7 @@ interface StarRatingProps {
   interactive?: boolean;
   size?: 'small' | 'medium' | 'large';
   showNumber?: boolean;
+  precision?: number; // 交互时的精度，默认为1（整数），可设置为0.5或0.1等
 }
 
 const StarRating: React.FC<StarRatingProps> = ({
@@ -15,7 +16,8 @@ const StarRating: React.FC<StarRatingProps> = ({
   disabled = false,
   interactive = false,
   size = 'medium',
-  showNumber = true
+  showNumber = true,
+  precision = 1
 }) => {
   const [hoverRating, setHoverRating] = useState(0);
 
@@ -27,15 +29,34 @@ const StarRating: React.FC<StarRatingProps> = ({
     }
   };
 
-  const handleStarClick = (starRating: number) => {
+  // 根据精度四舍五入评分值
+  const roundToPrecision = (value: number): number => {
+    return Math.round(value / precision) * precision;
+  };
+
+  const handleStarClick = (starValue: number) => {
     if (!disabled && interactive && onRatingChange) {
-      onRatingChange(starRating);
+      const roundedRating = roundToPrecision(starValue);
+      onRatingChange(Math.max(0, Math.min(5, roundedRating)));
     }
   };
 
-  const handleStarHover = (starRating: number) => {
+  const handleStarHover = (starValue: number) => {
     if (!disabled && interactive) {
-      setHoverRating(starRating);
+      const roundedRating = roundToPrecision(starValue);
+      setHoverRating(Math.max(0, Math.min(5, roundedRating)));
+    }
+  };
+
+  // 处理鼠标在星星内的精确位置（用于更精细的交互）
+  const handleMouseMove = (event: React.MouseEvent<HTMLSpanElement>, starIndex: number) => {
+    if (!disabled && interactive && precision < 1) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const percentage = x / rect.width;
+      const starValue = starIndex + Math.max(0.1, Math.min(1, percentage));
+      const roundedRating = roundToPrecision(starValue);
+      setHoverRating(Math.max(0, Math.min(5, roundedRating)));
     }
   };
 
@@ -47,27 +68,81 @@ const StarRating: React.FC<StarRatingProps> = ({
 
   const displayRating = hoverRating || rating;
 
+  // 获取星星的填充百分比 (0-100)
+  const getStarFillPercentage = (starIndex: number): number => {
+    const starValue = starIndex + 1;
+    const remainingRating = displayRating - starIndex;
+    
+    if (remainingRating <= 0) {
+      return 0; // 完全空
+    } else if (remainingRating >= 1) {
+      return 100; // 完全填充
+    } else {
+      return Math.round(remainingRating * 100); // 部分填充
+    }
+  };
+
+  // 生成渐变样式
+  const getStarGradientStyle = (fillPercentage: number) => {
+    if (fillPercentage === 0) {
+      return {
+        background: 'transparent',
+        WebkitBackgroundClip: 'initial',
+        WebkitTextFillColor: 'initial',
+        backgroundClip: 'initial',
+        color: '#ddd'
+      };
+    } else if (fillPercentage === 100) {
+      return {
+        background: 'transparent',
+        WebkitBackgroundClip: 'initial',
+        WebkitTextFillColor: 'initial',
+        backgroundClip: 'initial',
+        color: '#ffd700'
+      };
+    } else {
+      return {
+        background: `linear-gradient(90deg, #ffd700 ${fillPercentage}%, #ddd ${fillPercentage}%)`,
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+        color: 'transparent'
+      };
+    }
+  };
+
   return (
     <div 
       className={`star-rating ${getSizeClass()} ${interactive ? 'interactive' : ''} ${disabled ? 'disabled' : ''}`}
       onMouseLeave={handleMouseLeave}
     >
       <div className="stars">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <span
-            key={star}
-            className={`star ${star <= displayRating ? 'filled' : ''} ${hoverRating >= star ? 'hover' : ''}`}
-            onClick={() => handleStarClick(star)}
-            onMouseEnter={() => handleStarHover(star)}
-            style={{ cursor: interactive && !disabled ? 'pointer' : 'default' }}
-          >
-            ⭐
-          </span>
-        ))}
+        {[0, 1, 2, 3, 4].map((starIndex) => {
+          const starValue = starIndex + 1;
+          const fillPercentage = getStarFillPercentage(starIndex);
+          const isHovered = hoverRating >= starValue;
+          
+          return (
+            <span
+              key={starIndex}
+              className={`star rational-star ${fillPercentage > 0 ? 'has-fill' : 'empty'} ${isHovered ? 'hover' : ''}`}
+              onClick={() => handleStarClick(starValue)}
+              onMouseEnter={() => handleStarHover(starValue)}
+              onMouseMove={(e) => handleMouseMove(e, starIndex)}
+              style={{
+                cursor: interactive && !disabled ? 'pointer' : 'default',
+                ...getStarGradientStyle(fillPercentage)
+              }}
+              title={interactive ? `评分 ${starValue}` : `${fillPercentage}% 填充`}
+            >
+              ★
+            </span>
+          );
+        })}
       </div>
       {showNumber && rating > 0 && (
         <span className="rating-number">
-          {rating.toFixed(1)}
+          {rating.toFixed(rating % 1 === 0 ? 0 : 1)}
         </span>
       )}
     </div>
