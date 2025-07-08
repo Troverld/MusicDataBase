@@ -1,20 +1,16 @@
 package Impl
 
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._ // 导入 writeDB 和我们假设的 readDBRows
-import Common.Object.SqlParameter
-import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import APIs.StatisticsService.GetSongRate
+import Utils.SearchUtils // 导入 SearchUtils 以复用其数据库访问方法
 import cats.effect.IO
 import cats.implicits._
-import org.slf4j.LoggerFactory
-import io.circe.Json
-
 import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
 
 /**
  * Planner for GetSongRate: 查询指定用户对某首歌曲的评分。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心的数据库查询操作已委托给 SearchUtils。
  *
  * @param userID       发起请求的用户ID
  * @param userToken    发起请求的用户令牌
@@ -34,21 +30,28 @@ case class GetSongRatePlanner(
 
   override def plan(using planContext: PlanContext): IO[(Int, String)] = {
     val logic: IO[Int] = for {
-      _ <- logInfo(s"开始查询用户 ${targetUserID} 对歌曲 ${songID} 的评分，请求由用户 ${userID} 发起")
+      _ <- logInfo(s"开始处理查询用户 ${targetUserID} 对歌曲 ${songID} 评分的请求")
 
-      // 步骤1: 验证API调用者的身份
+      // 步骤 1: 执行 API 入口层的验证工作
       _ <- validateUser()
 
-      // 步骤2: 从数据库中获取评分
-      rating <- fetchRatingFromDB()
+      // 步骤 2: 调用集中的数据访问服务来执行核心的查询操作
+      _ <- logInfo(s"验证通过，正在调用 SearchUtils.fetchUserSongRating")
+      ratingOpt <- SearchUtils.fetchUserSongRating(targetUserID, songID)
+
+      // 步骤 3: 处理查询结果
+      rating = ratingOpt.getOrElse(0) // 如果未找到(None)，则评分为0
+      _ <- logInfo(s"查询完成，评分为: $rating")
 
     } yield rating
 
+    // 步骤 4: 格式化最终的成功或失败响应
     logic.map { rating =>
-      (rating, if (rating > 0) "查询评分成功" else "用户未对该歌曲评分")
+      val message = if (rating > 0) "查询评分成功" else "用户未对该歌曲评分"
+      (rating, message)
     }.handleErrorWith { error =>
-      logError(s"查询评分失败", error) >>
-        IO.pure((-1, error.getMessage))
+      logError(s"查询用户 ${targetUserID} 对歌曲 ${songID} 的评分失败", error) >>
+        IO.pure((-1, error.getMessage)) // -1 表示查询过程中发生错误
     }
   }
 
@@ -60,30 +63,6 @@ case class GetSongRatePlanner(
       validateUserMapping(userID, userToken).send.flatMap {
         case (true, _) => logInfo("调用者身份验证通过")
         case (false, message) => IO.raiseError(new IllegalArgumentException(s"调用者身份验证失败: $message"))
-      }
-  }
-
-  /**
-   * 从 song_rating 表中查询评分。
-   * 如果找到记录，返回评分 (1-5)。
-   * 如果未找到记录，返回 0。
-   */
-  private def fetchRatingFromDB()(using PlanContext): IO[Int] = {
-    logInfo(s"正在数据库中查询 user_id=${targetUserID} 和 song_id=${songID} 的评分")
-    val sql = s"SELECT rating FROM ${schemaName}.song_rating WHERE user_id = ? AND song_id = ?"
-    val params = List(SqlParameter("String", targetUserID), SqlParameter("String", songID))
-
-    // **修正点**: 遵循项目实践，使用 readDBRows 辅助函数
-    // 这个函数返回 IO[List[Json]]，非常适合处理可能返回0行或1行结果的查询
-    readDBRows(sql, params)
-      .map(_.headOption) // 安全地获取第一个结果（如果有的话），返回 IO[Option[Json]]
-      .flatMap {
-        case Some(json) =>
-          val rating = decodeField[Int](json, "rating")
-          logInfo(s"查询成功，找到评分为: $rating") >> IO.pure(rating)
-
-        case None =>
-          logInfo("未找到评分记录，按规定返回 0") >> IO.pure(0)
       }
   }
 
