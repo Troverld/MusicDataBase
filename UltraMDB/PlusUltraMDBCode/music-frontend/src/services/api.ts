@@ -8,7 +8,7 @@ const SERVICE_PORTS = {
   music: 10010,        // MusicService
   creator: 10012,      // CreatorService
   track: 10013,        // TrackService
-  statistics: 10014    // StatisticsService
+  statistics: 10013    // StatisticsService
 };
 
 // API到服务的映射
