@@ -1,0 +1,2875 @@
+ 
+ 
+// ===== src\main\scala\Impl\GetAverageRatingPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import APIs.OrganizeService.validateUserMapping
+import APIs.MusicService.GetSongByID // 导入用于验证歌曲的API
+import Utils.SearchUtils.fetchAverageRating // 导入用于查询平均评分的工具函数
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.Json
+import io.circe.generic.auto._
+
+/**
+ * Planner for GetAverageRating: 查询一首歌的平均评分和评分数量。
+ *
+ * @param userID    发起请求的用户ID
+ * @param userToken 用户认证令牌
+ * @param songID    被查询评分的歌曲ID
+ * @param planContext 执行上下文
+ */
+case class GetAverageRatingPlanner(
+                                    userID: String,
+                                    userToken: String,
+                                    songID: String,
+                                    override val planContext: PlanContext
+                                  ) extends Planner[((Double, Int), String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[((Double, Int), String)] = {
+    val logic: IO[(Double, Int)] = for {
+      _ <- logInfo(s"开始查询歌曲 ${songID} 的平均评分，由用户 ${userID} 发起")
+
+      // 步骤 1: 验证API调用者的身份
+      _ <- validateUser()
+
+      // 步骤 2: 验证歌曲是否存在
+      _ <- validateSong()
+
+      // 步骤 3: 从数据库中获取平均评分和数量
+      result <- fetchAverageRatingFromDB()
+
+    } yield result
+
+    logic.map { case (avg, count) =>
+      ((avg, count), "查询成功")
+    }.handleErrorWith { error =>
+      logError(s"查询歌曲 ${songID} 的平均分失败", error) >>
+        // 对于系统性错误，返回(-1.0, -1)以区别于“未评分”的(0.0, 0)
+        IO.pure(((-1.0, -1), error.getMessage))
+    }
+  }
+
+  /**
+   * 验证发起请求的用户身份是否有效。
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证调用者 ${userID} 的身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("调用者身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"调用者身份验证失败: $message"))
+      }
+  }
+
+  /**
+   * 验证目标歌曲是否存在。
+   */
+  private def validateSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证歌曲 ${songID} 是否存在") >>
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
+      }
+  }
+
+  /**
+   * 从 song_rating 表中查询平均评分和评分总数。
+   */
+  private def fetchAverageRatingFromDB()(using PlanContext): IO[(Double, Int)] = {
+    logInfo(s"正在调用 SearchUtils 查询歌曲 ${songID} 的评分数据")
+    fetchAverageRating(songID)
+  }
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetAverageRatingPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetCreatorCreationTendencyPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
+import Objects.CreatorService.{CreatorID_Type,CreatorType}
+import Objects.StatisticsService.Profile
+import Utils.GetCreatorCreationTendencyUtils // 导入新的业务逻辑层
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetCreatorCreationTendency: 获取创作者的创作倾向。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心业务逻辑已移至 GetCreatorCreationTendencyUtils。
+ *
+ * @param userID      请求用户的ID
+ * @param userToken   用户认证令牌
+ * @param creator     创作者的智能ID对象，封装了ID和类型
+ * @param planContext 执行上下文
+ */
+case class GetCreatorCreationTendencyPlanner(
+  userID: String,
+  userToken: String,
+  creator: CreatorID_Type,
+  override val planContext: PlanContext
+) extends Planner[(Option[Profile], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
+    val logic: IO[Profile] = for {
+      _ <- logInfo(s"开始处理获取创作者 ${creator.id} (${creator.creatorType}) 创作倾向的请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateUser()
+      _ <- validateCreator()
+
+      // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
+      _ <- logInfo(s"验证通过，正在调用 GetCreatorCreationTendencyUtils.generateTendencyProfile")
+      // 将所有需要的参数传递给业务逻辑层
+      tendency <- GetCreatorCreationTendencyUtils.generateTendencyProfile(creator, userID, userToken)
+      _ <- logInfo(s"倾向计算完成，包含 ${tendency.vector.length} 个维度")
+
+    } yield tendency
+
+    // 步骤 3: 格式化最终的成功或失败响应
+    logic.map { tendency =>
+      (Some(tendency), "获取创作倾向成功")
+    }.handleErrorWith { error =>
+      logError(s"获取创作者 ${creator.id} (${creator.creatorType}) 创作倾向失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * 验证发起请求的用户身份是否有效。
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  /**
+   * 验证目标创作者是否存在。
+   */
+  private def validateCreator()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证创作者 ${creator.id} 是否存在") >> {
+      creator.creatorType match {
+        case CreatorType.Artist =>
+          GetArtistByID(userID, userToken, creator.id).send.flatMap {
+            case (Some(_), _) => logInfo("艺术家存在性验证通过")
+            case (None, message) => IO.raiseError(new IllegalStateException(s"艺术家不存在: $message"))
+          }
+        case CreatorType.Band =>
+          GetBandByID(userID, userToken, creator.id).send.flatMap {
+            case (Some(_), _) => logInfo("乐队存在性验证通过")
+            case (None, message) => IO.raiseError(new IllegalStateException(s"乐队不存在: $message"))
+          }
+      }
+    }
+  }
+
+  // 日志记录的辅助方法
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetCreatorCreationTendencyPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetCreatorGenreStrengthPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
+import Objects.CreatorService.{CreatorID_Type, CreatorType}
+import Objects.StatisticsService.Profile
+import Utils.GetCreatorGenreStrengthUtils // 导入新的业务逻辑层
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetCreatorGenreStrength: 获取创作者在各曲风下的创作实力。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心业务逻辑已移至 GetCreatorGenreStrengthUtils。
+ *
+ * @param userID      请求用户的ID
+ * @param userToken   用户认证令牌
+ * @param creator     创作者的智能ID对象
+ * @param planContext 执行上下文
+ */
+case class GetCreatorGenreStrengthPlanner(
+  userID: String,
+  userToken: String,
+  creator: CreatorID_Type,
+  override val planContext: PlanContext
+) extends Planner[(Option[Profile], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
+    val logic: IO[Profile] = for {
+      _ <- logInfo(s"开始处理获取创作者 ${creator.id} (${creator.creatorType}) 曲风实力的请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateUser()
+      _ <- validateCreator()
+
+      // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
+      _ <- logInfo("验证通过，正在调用 GetCreatorGenreStrengthUtils.generateStrengthProfile")
+      strength <- GetCreatorGenreStrengthUtils.generateStrengthProfile(creator, userID, userToken)
+      _ <- logInfo(s"实力计算完成，包含 ${strength.vector.length} 个维度")
+
+    } yield strength
+
+    // 步骤 3: 格式化最终的成功或失败响应
+    logic.map { strength =>
+      (Some(strength), "获取创作实力成功")
+    }.handleErrorWith { error =>
+      logError(s"获取创作者 ${creator.id} (${creator.creatorType}) 创作实力失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  // --- Validation Methods (Planner's Responsibility) ---
+
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => IO.unit
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  private def validateCreator()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证创作者 ${creator.id} 是否存在") >> {
+      val validationIO = creator.creatorType match {
+        case CreatorType.Artist => GetArtistByID(userID, userToken, creator.id).send
+        case CreatorType.Band   => GetBandByID(userID, userToken, creator.id).send
+      }
+      validationIO.flatMap {
+        case (Some(_), _) => logInfo(s"${creator.creatorType}存在性验证通过")
+        case (None, msg)  => IO.raiseError(new IllegalStateException(s"${creator.creatorType}不存在: $msg"))
+      }
+    }
+  }
+
+  // --- Logging Helper Methods ---
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetCreatorGenreStrengthPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetNextSongRecommendationPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import APIs.OrganizeService.validateUserMapping
+import APIs.MusicService.{GetSongByID, GetSongProfile, FilterSongsByEntity}
+import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity, GetUserSongRecommendations}
+import Objects.StatisticsService.{Dim, Profile}
+import Utils.StatisticsUtils
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+case class GetNextSongRecommendationPlanner(
+                                             userID: String,
+                                             userToken: String,
+                                             currentSongID: String,
+                                             override val planContext: PlanContext
+                                           ) extends Planner[(Option[String], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  // 超参数常量
+  private val RECENT_SONGS_LIMIT = 10
+  private val CANDIDATE_SONGS_LIMIT = 5
+  private val TOP_N_SONGS_FOR_SAMPLING = 5
+  private val FALLBACK_PAGE_SIZE = 20
+  private val PREFERENCE_THRESHOLD = 0.05
+  private val SOFTMAX_PREFERENCE_THRESHOLD = 0.2
+
+  private type RecommendationStrategy = Set[String] => IO[Option[String]]
+
+  override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
+    val logic: IO[String] = for {
+      _ <- logInfo(s"开始为用户 ${userID} 基于当前歌曲 ${currentSongID} 推荐下一首歌")
+      _ <- validateUser()
+      _ <- validateCurrentSong()
+
+      recommendationData <- (getUserPortrait(), getSongGenres(currentSongID), getRecentPlayedSongs()).parTupled
+      (userPortrait, currentSongGenres, recentPlayedSongs) = recommendationData
+      _ <- logInfo(s"获取到用户画像，当前歌曲曲风: [${currentSongGenres.mkString(", ")}], 最近播放: ${recentPlayedSongs.size}首")
+
+      strategies = List(
+        recommendSameGenre(currentSongGenres, userPortrait),
+        recommendByUserTopGenre(userPortrait),
+        fallbackRecommendation()
+      )
+
+      nextSongId <- tryStrategies(strategies, recentPlayedSongs + currentSongID)
+    } yield nextSongId
+
+    logic.map { songId =>
+      (Some(songId), "下一首歌推荐成功")
+    }.handleErrorWith { error =>
+      logError(s"为用户 ${userID} 推荐下一首歌失败", error) >> IO.pure((None, error.getMessage))
+    }
+  }
+
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  private def validateCurrentSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证当前歌曲 ${currentSongID} 是否存在") >>
+      GetSongByID(userID, userToken, currentSongID).send.flatMap {
+        case (Some(_), _) => logInfo("当前歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalStateException(s"当前歌曲不存在: $message"))
+      }
+  }
+
+  private def getUserPortrait()(using PlanContext): IO[Profile] = {
+    logInfo("正在通过API获取用户画像") >>
+      GetUserPortrait(userID, userToken).send.flatMap {
+        case (Some(portrait), _) => IO.pure(portrait)
+        case (None, msg) =>
+          logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >>
+            IO.pure(Profile(List.empty, norm = true))
+      }
+  }
+
+  private def getSongGenres(songId: String)(using PlanContext): IO[List[String]] = {
+    logInfo(s"正在通过API获取歌曲 ${songId} 的曲风") >>
+      GetSongProfile(userID, userToken, songId).send.map {
+        case (Some(profile), _) => profile.vector.map(_.GenreID)
+        case (None, msg) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg. 将视为空曲风列表。")
+          List.empty[String]
+      }
+  }
+
+  private def getRecentPlayedSongs()(using PlanContext): IO[Set[String]] = {
+    logInfo(s"正在查询用户最近播放的 ${RECENT_SONGS_LIMIT} 首歌曲")
+    val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ? ORDER BY play_time DESC LIMIT ?"
+    readDBRows(sql, List(SqlParameter("String", userID), SqlParameter("Int", RECENT_SONGS_LIMIT.toString)))
+      .map(_.map(decodeField[String](_, "song_id")).toSet)
+  }
+
+  private def tryStrategies(strategies: List[RecommendationStrategy], excludeSongs: Set[String])(using PlanContext): IO[String] = {
+    strategies.foldLeft(IO.pure(None: Option[String])) { (acc, strategy) =>
+      acc.flatMap {
+        case Some(songId) => IO.pure(Some(songId))
+        case None         => strategy(excludeSongs)
+      }
+    }.flatMap {
+      case Some(songId) => IO.pure(songId)
+      case None => IO.raiseError(new RuntimeException("所有推荐策略均失败，无法找到合适的歌曲"))
+    }
+  }
+
+  private def recommendSameGenre(currentGenres: List[String], userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
+    val genresWithPreference = currentGenres.flatMap(g => userPortrait.vector.find(_.GenreID == g))
+    if (genresWithPreference.isEmpty) {
+      logInfo("策略1: 用户对当前曲风无偏好记录，跳过") >> IO.pure(None)
+    } else {
+      val avgPreference = genresWithPreference.map(_.value).sum / genresWithPreference.length
+      logInfo(s"策略1: 用户对当前曲风的平均偏好度为: $avgPreference")
+
+      if (avgPreference >= PREFERENCE_THRESHOLD) {
+        logInfo(s"偏好度高于阈值 $PREFERENCE_THRESHOLD, 准备从当前曲风中采样")
+        val genreProfileToSample = Profile(vector = genresWithPreference, norm = false)
+        StatisticsUtils.softmaxSample(genreProfileToSample) match {
+          case Some(sampledGenre) =>
+            logInfo(s"从当前歌曲曲风中采样选中: '$sampledGenre'")
+            findSongInGenreByPopularity(sampledGenre, excludeSongs)
+          case None => IO.pure(None)
+        }
+      } else {
+        logInfo(s"偏好度低于阈值 $PREFERENCE_THRESHOLD, 跳过") >> IO.pure(None)
+      }
+    }
+  }
+
+  private def recommendByUserTopGenre(userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
+    val highlyLikedGenres = userPortrait.vector.filter(_.value > SOFTMAX_PREFERENCE_THRESHOLD)
+    if (highlyLikedGenres.isEmpty) {
+      logInfo(s"策略2: 用户没有偏好度高于 ${SOFTMAX_PREFERENCE_THRESHOLD} 的曲风，跳过") >> IO.pure(None)
+    } else {
+      val likedGenresProfile = Profile(vector = highlyLikedGenres, norm = false)
+      StatisticsUtils.softmaxSample(likedGenresProfile) match {
+        case Some(sampledGenre) =>
+          logInfo(s"策略2: 从 ${highlyLikedGenres.length} 个高偏好曲风中采样选中: '$sampledGenre'")
+          findSongInGenreByPopularity(sampledGenre, excludeSongs)
+        case None => IO.pure(None)
+      }
+    }
+  }
+
+  private def fallbackRecommendation()(using PlanContext): RecommendationStrategy = excludeSongs => {
+    logInfo("策略3: 启动后备推荐策略")
+    GetUserSongRecommendations(userID, userToken, pageSize = FALLBACK_PAGE_SIZE).send.flatMap {
+      case (Some(recommendedIds), _) =>
+        IO.pure(recommendedIds.find(id => !excludeSongs.contains(id)))
+      case (None, msg) =>
+        logInfo(s"后备推荐API调用失败: $msg").as(None)
+    }
+  }
+
+  private def findSongInGenreByPopularity(genre: String, excludeSongs: Set[String])(using PlanContext): IO[Option[String]] = {
+    for {
+      candidateIds <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send.map(_._1.getOrElse(List.empty))
+
+      candidates = candidateIds
+        .filterNot(excludeSongs.contains)
+        .take(CANDIDATE_SONGS_LIMIT)
+
+      songsWithPopularity <- candidates.parTraverse { songId =>
+        GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0)))
+      }
+
+      topSongs = songsWithPopularity.sortBy(-_._2).take(TOP_N_SONGS_FOR_SAMPLING)
+
+      sampledSong <- if (topSongs.isEmpty) {
+        IO.pure(None)
+      } else {
+        val songDims = topSongs.map { case (id, popularity) => Dim(id, popularity) }
+        val songsProfile = Profile(vector = songDims, norm = false)
+        IO.pure(StatisticsUtils.softmaxSample(songsProfile))
+      }
+
+    } yield sampledSong
+  }
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetNextSongRecommendationPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetSimilarCreatorsPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._ // Assuming readDBRows is available
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import APIs.OrganizeService.validateUserMapping
+import APIs.CreatorService.GetAllCreators // 1. 导入新的API
+import APIs.StatisticsService.{GetCreatorCreationTendency, GetCreatorGenreStrength} // 1. 导入新的API
+import Objects.CreatorService.{CreatorID_Type, CreatorType}
+import Objects.StatisticsService.{Profile, Dim}
+import Utils.StatisticsUtils
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetSimilarCreators: 获取与指定创作者相似的其他创作者 (重构版)
+ *
+ * @param userID      用户ID
+ * @param userToken   用户认证令牌
+ * @param creator     目标创作者的智能ID对象
+ * @param limit       返回的相似创作者数量
+ * @param planContext 执行上下文
+ */
+case class GetSimilarCreatorsPlanner(
+                                      userID: String,
+                                      userToken: String,
+                                      creator: CreatorID_Type, // 2. 使用类型安全的 CreatorID_Type
+                                      limit: Int,
+                                      override val planContext: PlanContext
+                                    ) extends Planner[(Option[List[CreatorID_Type]], String)] { // 3. 更新返回类型
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  // -- 辅助数据结构 --
+  case class CreatorMetrics(creator: CreatorID_Type, tendency: Profile, strength: Profile)
+  case class RankedCreator(creator: CreatorID_Type, score: Double)
+
+  override def plan(using planContext: PlanContext): IO[(Option[List[CreatorID_Type]], String)] = {
+    val logic: IO[List[CreatorID_Type]] = for {
+      _ <- logInfo(s"开始查找与创作者 ${creator.id} (${creator.creatorType}) 相似的创作者，限制数量: ${limit}")
+      _ <- validateUser()
+      _ <- validateLimit()
+
+      // 步骤 1: 并行获取目标创作者的统计数据和其他所有创作者的列表
+      _ <- logInfo("正在并行获取目标数据和所有候选创作者列表...")
+      initialData <- (
+        fetchCreatorMetrics(creator), // 获取目标创作者的倾向和实力
+        fetchAllOtherCreators()       // 获取所有其他创作者
+      ).parTupled
+
+      (targetMetrics, allOtherCreators) = initialData
+      _ <- logInfo(s"目标数据获取成功。找到 ${allOtherCreators.length} 位其他创作者。")
+
+      // 步骤 2: 并行获取所有候选创作者的统计数据
+      _ <- logInfo("正在并行获取所有候选创作者的统计数据 (此操作可能耗时较长)...")
+      candidateMetrics <- fetchAllCandidateMetrics(allOtherCreators)
+      _ <- logInfo(s"成功获取了 ${candidateMetrics.length} 位候选创作者的数据。")
+
+      // 步骤 3: 计算综合评分并排序
+      _ <- logInfo("正在计算综合评分并排序...")
+      rankedCreators = rankCreators(targetMetrics, candidateMetrics)
+
+      // 步骤 4: 提取最终结果
+      finalResult = rankedCreators.take(limit)
+      _ <- logInfo(s"查找完成，返回前 ${finalResult.length} 位最相似的创作者。")
+
+    } yield finalResult.map(_.creator)
+
+    logic.map { creators =>
+      (Some(creators), "相似创作者查找成功")
+    }.handleErrorWith { error =>
+      logError(s"查找创作者 ${creator.id} 的相似创作者失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  // --- 验证逻辑 ---
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >> validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户身份验证通过")
+      case (false, msg) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $msg"))
+    }
+  }
+
+  private def validateLimit()(using PlanContext): IO[Unit] = {
+    logInfo(s"验证参数: limit=${limit}") >> {
+      if (limit <= 0 || limit > 50) {
+        IO.raiseError(new IllegalArgumentException("相似创作者数量限制必须在1-50之间"))
+      } else IO.unit
+    }
+  }
+
+  // --- 数据获取逻辑 ---
+
+  /** 获取单个创作者的倾向和实力数据 */
+  private def fetchCreatorMetrics(c: CreatorID_Type)(using PlanContext): IO[CreatorMetrics] = {
+    (
+      GetCreatorCreationTendency(userID, userToken, c).send,
+      GetCreatorGenreStrength(userID, userToken, c).send
+    ).parTupled.flatMap {
+      case ((Some(tendency), _), (Some(strength), _)) =>
+        IO.pure(CreatorMetrics(c, tendency, strength))
+      case ((tendencyOpt, tendencyMsg), (strengthOpt, strengthMsg)) =>
+        val errorDetails = s"Tendency: ${tendencyOpt.isDefined} ($tendencyMsg), Strength: ${strengthOpt.isDefined} ($strengthMsg)"
+        IO.raiseError(new Exception(s"获取创作者 ${c.id} 的核心数据失败: $errorDetails"))
+    }
+  }
+
+  /** 使用 GetAllCreators API 获取除目标外的所有创作者 */
+  private def fetchAllOtherCreators()(using PlanContext): IO[List[CreatorID_Type]] = {
+    GetAllCreators(userID, userToken).send.flatMap {
+      case (Some(all), _) => IO.pure(all.filterNot(_.id == creator.id))
+      case (None, msg)    => IO.raiseError(new Exception(s"无法获取所有创作者列表: $msg"))
+    }
+  }
+
+  /** 并行获取所有候选创作者的统计数据，并优雅地处理失败 */
+  private def fetchAllCandidateMetrics(candidates: List[CreatorID_Type])(using PlanContext): IO[List[CreatorMetrics]] = {
+    candidates.parTraverse { c =>
+      fetchCreatorMetrics(c).attempt.map {
+        case Right(metrics) => Some(metrics)
+        case Left(error) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取候选者 ${c.id} 数据失败，将跳过此创作者: ${error.getMessage}")
+          None
+      }
+    }.map(_.flatten) // 过滤掉所有失败的结果
+  }
+
+  // --- 核心排序逻辑 ---
+
+  /**
+   * 根据综合评分对候选创作者进行排序
+   * @param target    目标创作者的统计数据
+   * @param candidates 候选创作者的统计数据列表
+   * @return 按综合评分降序排列的创作者列表
+   */
+  private def rankCreators(target: CreatorMetrics, candidates: List[CreatorMetrics]): List[RankedCreator] = {
+    candidates.map { candidate =>
+        // 计算余弦相似度
+        val similarity = StatisticsUtils.calculateCosineSimilarity(target.tendency, candidate.tendency)
+
+        // 计算对数实力因子
+        val totalStrength = candidate.strength.vector.map(_.value).sum
+        val strengthFactor = Math.log1p(totalStrength) // log(1 + strength)
+
+        // 最终综合评分
+        val finalScore = similarity * strengthFactor
+
+        RankedCreator(candidate.creator, finalScore)
+      }
+      .filter(_.score > 0) // 过滤掉没有相似性或影响力的
+      .sortBy(-_.score)    // 按分数降序排序
+  }
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetSimilarCreatorsPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetSimilarSongsPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import APIs.OrganizeService.validateUserMapping
+import APIs.MusicService.{GetSongByID, GetSongList, GetSongProfile}
+import APIs.StatisticsService.GetSongPopularity
+import Objects.StatisticsService.{Profile, Dim}
+import Utils.StatisticsUtils
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetSimilarSongs: 获取与指定歌曲相似的歌曲列表 (最终重构版)
+ *
+ * @param userID      用户ID
+ * @param userToken   用户认证令牌
+ * @param songID      目标歌曲ID
+ * @param limit       返回的相似歌曲数量
+ * @param planContext 执行上下文
+ */
+case class GetSimilarSongsPlanner(
+                                   userID: String,
+                                   userToken: String,
+                                   songID: String,
+                                   limit: Int,
+                                   override val planContext: PlanContext
+                                 ) extends Planner[(Option[List[String]], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  // -- 辅助数据结构 --
+  case class SongMetrics(songID: String, profile: Profile, popularity: Double)
+  case class RankedSong(songID: String, score: Double)
+
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
+    val logic: IO[List[String]] = for {
+      _ <- logInfo(s"开始查找与歌曲 ${songID} 相似的歌曲，限制数量: ${limit}")
+      _ <- validateUser()
+      _ <- validateParams()
+      _ <- validateTargetSong() // 验证目标歌曲存在性
+
+      initialData <- (
+        fetchSongMetrics(songID),
+        fetchAllOtherSongs()
+      ).parTupled
+      (targetMetrics, allOtherSongs) = initialData
+      _ <- logInfo(s"目标歌曲数据获取成功。找到 ${allOtherSongs.length} 首其他歌曲作为候选。")
+
+      candidateMetrics <- fetchAllSongMetrics(allOtherSongs)
+      _ <- logInfo(s"成功获取了 ${candidateMetrics.length} 首候选歌曲的数据。")
+
+      _ <- logInfo("正在计算综合推荐分并排序...")
+      rankedSongs = rankSongs(targetMetrics, candidateMetrics)
+
+      finalResult = rankedSongs.take(limit).map(_.songID)
+      _ <- logInfo(s"查找完成，返回前 ${finalResult.length} 首最相似的歌曲。")
+
+    } yield finalResult
+
+    logic.map { similarSongs =>
+      (Some(similarSongs), "相似歌曲查找成功")
+    }.handleErrorWith { error =>
+      logError(s"查找歌曲 ${songID} 的相似歌曲失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  // --- 验证逻辑 ---
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >> validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户身份验证通过")
+      case (false, msg) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $msg"))
+    }
+  }
+
+  private def validateParams()(using PlanContext): IO[Unit] = {
+    logInfo(s"验证参数: limit=${limit}") >> {
+      if (limit <= 0 || limit > 100) IO.raiseError(new IllegalArgumentException("相似歌曲数量限制必须在1-100之间"))
+      else IO.unit
+    }
+  }
+
+  private def validateTargetSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证目标歌曲 ${songID} 是否存在") >>
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("目标歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalArgumentException(s"目标歌曲不存在: $message"))
+      }
+  }
+
+  // --- 数据获取逻辑 ---
+
+  private def fetchSongMetrics(sID: String)(using PlanContext): IO[SongMetrics] = {
+    (
+      GetSongProfile(userID, userToken, sID).send,
+      GetSongPopularity(userID, userToken, sID).send
+    ).parTupled.flatMap {
+      case ((Some(profile), _), (Some(popularity), _)) =>
+        IO.pure(SongMetrics(sID, profile, popularity))
+      case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
+        val errorDetails = s"Profile: ${profileOpt.isDefined} ($profileMsg), Popularity: ${popOpt.isDefined} ($popMsg)"
+        IO.raiseError(new Exception(s"获取歌曲 ${sID} 的核心数据失败: $errorDetails"))
+    }
+  }
+
+  private def fetchAllOtherSongs()(using PlanContext): IO[List[String]] = {
+    GetSongList(userID, userToken).send.flatMap {
+      // **核心修正点**: GetSongList 返回的是 List[String]，直接使用即可
+      case (Some(songIDs), _) => IO.pure(songIDs.filterNot(_ == songID))
+      case (None, msg)         => IO.raiseError(new Exception(s"无法获取所有歌曲列表: $msg"))
+    }
+  }
+
+  private def fetchAllSongMetrics(songIDs: List[String])(using PlanContext): IO[List[SongMetrics]] = {
+    songIDs.parTraverse { sID =>
+      fetchSongMetrics(sID).attempt.map {
+        case Right(metrics) => Some(metrics)
+        case Left(error) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取候选歌曲 ${sID} 数据失败，将跳过此歌曲: ${error.getMessage}")
+          None
+      }
+    }.map(_.flatten)
+  }
+
+  // --- 核心排序逻辑 ---
+
+  private def rankSongs(target: SongMetrics, candidates: List[SongMetrics]): List[RankedSong] = {
+    candidates.map { candidate =>
+        val matchScore = StatisticsUtils.calculateCosineSimilarity(target.profile, candidate.profile)
+        val popularityFactor = Math.log1p(candidate.popularity)
+        val finalScore = matchScore * popularityFactor
+        RankedSong(candidate.songID, finalScore)
+      }
+      .filter(_.score > 0)
+      .sortBy(-_.score)
+  }
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetSimilarSongsPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetSongPopularityPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import APIs.MusicService.GetSongByID
+import Utils.GetSongPopularityUtils // 导入新的业务逻辑层工具
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetSongPopularity: 获取歌曲的热度分数。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心业务逻辑已移至 GetSongPopularityUtils。
+ *
+ * @param userID      请求用户的ID
+ * @param userToken   用户认证令牌
+ * @param songID      要查询热度的歌曲ID
+ * @param planContext 执行上下文
+ */
+case class GetSongPopularityPlanner(
+  userID: String,
+  userToken: String,
+  songID: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[Double], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[Double], String)] = {
+    val logic: IO[Double] = for {
+      _ <- logInfo(s"开始处理获取歌曲 ${songID} 热度的请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateUser()
+      _ <- validateSong()
+
+      // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
+      _ <- logInfo("验证通过，正在调用 ProcessUtils.calculatePopularity")
+      popularity <- GetSongPopularityUtils.calculatePopularity(songID)
+      _ <- logInfo(s"计算完成，热度为: $popularity")
+
+    } yield popularity
+
+    // 步骤 3: 格式化最终的成功或失败响应
+    logic.map { popularity =>
+      (Some(popularity), "获取歌曲热度成功")
+    }.handleErrorWith { error =>
+      logError(s"获取歌曲 ${songID} 热度失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * 验证发起请求的用户身份是否有效。
+   * 这是 Planner 的职责之一，确保只有授权用户可以访问。
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  /**
+   * 验证目标歌曲是否存在。
+   * 这是 Planner 的职责之一，用于快速失败，避免对无效ID执行昂贵操作。
+   */
+  private def validateSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证歌曲 ${songID} 是否存在") >>
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalStateException(s"目标歌曲不存在: $message"))
+      }
+  }
+
+  // 日志记录的辅助方法
+  private def logInfo(message: String): IO[Unit] = 
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+    
+  private def logError(message: String, cause: Throwable): IO[Unit] = 
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetSongPopularityPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetSongRatePlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import Utils.SearchUtils // 导入 SearchUtils 以复用其数据库访问方法
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetSongRate: 查询指定用户对某首歌曲的评分。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心的数据库查询操作已委托给 SearchUtils。
+ *
+ * @param userID       发起请求的用户ID
+ * @param userToken    发起请求的用户令牌
+ * @param targetUserID 被查询评分的目标用户ID
+ * @param songID       被查询评分的歌曲ID
+ * @param planContext  执行上下文
+ */
+case class GetSongRatePlanner(
+                               userID: String,
+                               userToken: String,
+                               targetUserID: String,
+                               songID: String,
+                               override val planContext: PlanContext
+                             ) extends Planner[(Int, String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Int, String)] = {
+    val logic: IO[Int] = for {
+      _ <- logInfo(s"开始处理查询用户 ${targetUserID} 对歌曲 ${songID} 评分的请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateUser()
+
+      // 步骤 2: 调用集中的数据访问服务来执行核心的查询操作
+      _ <- logInfo(s"验证通过，正在调用 SearchUtils.fetchUserSongRating")
+      ratingOpt <- SearchUtils.fetchUserSongRating(targetUserID, songID)
+
+      // 步骤 3: 处理查询结果
+      rating = ratingOpt.getOrElse(0) // 如果未找到(None)，则评分为0
+      _ <- logInfo(s"查询完成，评分为: $rating")
+
+    } yield rating
+
+    // 步骤 4: 格式化最终的成功或失败响应
+    logic.map { rating =>
+      val message = if (rating > 0) "查询评分成功" else "用户未对该歌曲评分"
+      (rating, message)
+    }.handleErrorWith { error =>
+      logError(s"查询用户 ${targetUserID} 对歌曲 ${songID} 的评分失败", error) >>
+        IO.pure((-1, error.getMessage)) // -1 表示查询过程中发生错误
+    }
+  }
+
+  /**
+   * 验证发起请求的用户身份是否有效。
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证调用者 ${userID} 的身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("调用者身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"调用者身份验证失败: $message"))
+      }
+  }
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetSongRatePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetUserPortraitPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import Objects.StatisticsService.Profile
+import Utils.GetUserPortraitUtils // 导入新的业务逻辑层
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetUserPortrait: 获取用户的音乐偏好画像。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心业务逻辑已移至 PortraitUtils。
+ *
+ * @param userID      目标用户的ID
+ * @param userToken   用户认证令牌
+ * @param planContext 执行上下文
+ */
+case class GetUserPortraitPlanner(
+  userID: String,
+  userToken: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[Profile], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
+    val logic: IO[Profile] = for {
+      _ <- logInfo(s"开始处理获取用户 ${userID} 画像的请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateUser()
+
+      // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
+      _ <- logInfo(s"验证通过，正在调用 PortraitUtils.generateUserProfile for user ${userID}")
+      // 将 userToken 传递给业务逻辑层，因为它内部需要调用需要认证的API
+      profile <- GetUserPortraitUtils.generateUserProfile(userID, userToken)
+      _ <- logInfo(s"画像计算完成，包含 ${profile.vector.length} 个维度")
+
+    } yield profile
+
+    // 步骤 3: 格式化最终的成功或失败响应
+    logic.map { profile =>
+      (Some(profile), "获取用户画像成功")
+    }.handleErrorWith { error =>
+      logError(s"获取用户 ${userID} 画像失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * 验证发起请求的用户身份是否有效。
+   * 这是 Planner 的职责，确保只有授权用户可以访问。
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  // 日志记录的辅助方法
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetUserPortraitPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetUserSongRecommendationsPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import Utils.GetUserSongRecommendationsUtils // 导入新的业务逻辑层
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetUserSongRecommendations: 根据用户画像推荐歌曲 (重构版)
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心业务逻辑已移至 GetUserSongRecommendationsUtils。
+ *
+ * @param userID     目标用户的ID
+ * @param userToken  用户认证令牌
+ * @param pageNumber 页码，从1开始
+ * @param pageSize   每页返回的歌曲数量
+ * @param planContext 执行上下文
+ */
+case class GetUserSongRecommendationsPlanner(
+                                              userID: String,
+                                              userToken: String,
+                                              pageNumber: Int = 1,
+                                              pageSize: Int = 20,
+                                              override val planContext: PlanContext
+                                            ) extends Planner[(Option[List[String]], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
+    val logic: IO[List[String]] = for {
+      _ <- logInfo(s"开始处理为用户 ${userID} 推荐歌曲的请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateUser()
+      _ <- validatePaginationParams()
+
+      // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
+      _ <- logInfo("验证通过，正在调用 GetUserSongRecommendationsUtils.generateRecommendations")
+      recommendations <- GetUserSongRecommendationsUtils.generateRecommendations(userID, userToken, pageNumber, pageSize)
+      _ <- logInfo(s"推荐列表生成完毕，返回 ${recommendations.length} 首歌曲。")
+
+    } yield recommendations
+
+    // 步骤 3: 格式化最终的成功或失败响应
+    logic.map { recommendations =>
+      (Some(recommendations), "歌曲推荐成功")
+    }.handleErrorWith { error =>
+      logError(s"为用户 ${userID} 推荐歌曲失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * 验证发起请求的用户身份是否有效。
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >> validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户身份验证通过")
+      case (false, msg) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $msg"))
+    }
+  }
+
+  /**
+   * 验证分页参数的有效性。
+   */
+  private def validatePaginationParams()(using PlanContext): IO[Unit] = {
+    logInfo(s"验证分页参数: pageNumber=${pageNumber}, pageSize=${pageSize}") >> {
+      if (pageNumber <= 0) IO.raiseError(new IllegalArgumentException("页码必须大于0"))
+      else if (pageSize <= 0 || pageSize > 100) IO.raiseError(new IllegalArgumentException("每页数量必须在1-100之间"))
+      else IO.unit
+    }
+  }
+
+  // 日志记录的辅助方法
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetUserSongRecommendationsPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\LogPlaybackPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import APIs.MusicService.GetSongByID
+import Utils.SearchUtils // 导入 SearchUtils
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for LogPlayback: 记录用户播放歌曲的行为。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心的数据库写入操作已移至 SearchUtils。
+ *
+ * @param userID      播放用户的ID
+ * @param userToken   用户认证令牌
+ * @param songID      播放的歌曲ID
+ * @param planContext 执行上下文
+ */
+case class LogPlaybackPlanner(
+                               userID: String,
+                               userToken: String,
+                               songID: String,
+                               override val planContext: PlanContext
+                             ) extends Planner[(Boolean, String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    val logic: IO[Unit] = for {
+      _ <- logInfo(s"开始处理用户 ${userID} 播放歌曲 ${songID} 的记录请求")
+
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateUser()
+      _ <- validateSong()
+
+      // 步骤 2: 调用集中的数据访问服务来执行核心的写操作
+      _ <- logInfo(s"验证通过，正在调用 SearchUtils.logPlayback")
+      _ <- SearchUtils.logPlayback(userID, songID)
+      _ <- logInfo("播放记录写入操作已委托给 SearchUtils")
+
+    } yield ()
+
+    // 步骤 3: 格式化最终的成功或失败响应
+    logic.map { _ =>
+      (true, "播放记录成功")
+    }.handleErrorWith { error =>
+      logError(s"用户 ${userID} 播放歌曲 ${songID} 记录失败", error) >>
+        IO.pure((false, error.getMessage))
+    }
+  }
+
+  /**
+   * 验证发起请求的用户身份是否有效。
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  /**
+   * 验证目标歌曲是否存在。
+   */
+  private def validateSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证歌曲 ${songID} 是否存在") >>
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
+      }
+  }
+
+  // 日志记录的辅助方法
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\LogPlaybackPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\RateSongPlanner.scala ===== 
+ 
+package Impl
+
+import Common.API.{PlanContext, Planner}
+import APIs.OrganizeService.validateUserMapping
+import APIs.MusicService.GetSongByID
+import Utils.RateSongUtils // 导入新的业务逻辑层
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for RateSong: 记录用户对歌曲的评分。
+ * 此 Planner 作为 API 的入口，负责验证和协调，核心的“读后写”业务逻辑已移至 RateSongUtils。
+ *
+ * @param userID      评分用户的ID
+ * @param userToken   用户认证令牌
+ * @param songID      被评分的歌曲ID
+ * @param rating      用户给出的评分(1-5)
+ * @param planContext 执行上下文
+ */
+case class RateSongPlanner(
+  userID: String,
+  userToken: String,
+  songID: String,
+  rating: Int,
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    val logic: IO[Unit] = for {
+      _ <- logInfo(s"开始处理用户 ${userID} 对歌曲 ${songID} 的评分: ${rating}")
+      
+      // 步骤 1: 执行 API 入口层的验证工作
+      _ <- validateRating()
+      _ <- validateUser()
+      _ <- validateSong()
+      
+      // 步骤 2: 调用集中的业务逻辑服务来执行核心的“读后写”操作
+      _ <- logInfo("验证通过，正在调用 RateSongUtils.rateSong")
+      _ <- RateSongUtils.rateSong(userID, songID, rating)
+      _ <- logInfo("评分操作已委托给 RateSongUtils 完成")
+
+    } yield ()
+
+    // 步骤 3: 格式化最终的成功或失败响应
+    logic.map { _ =>
+      (true, "评分成功")
+    }.handleErrorWith { error =>
+      logError(s"用户 ${userID} 对歌曲 ${songID} 评分失败", error) >>
+        IO.pure((false, error.getMessage))
+    }
+  }
+
+  private def validateRating()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证评分值: ${rating}") >> {
+      if (rating >= 1 && rating <= 5) IO.unit
+      else IO.raiseError(new IllegalArgumentException(s"评分必须在1-5范围内，当前值: ${rating}"))
+    }
+  }
+
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证用户身份") >>
+      validateUserMapping(userID, userToken).send.flatMap {
+        case (true, _) => logInfo("用户身份验证通过")
+        case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  private def validateSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证歌曲 ${songID} 是否存在") >>
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
+      }
+  }
+
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\RateSongPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\CreatorService\Artist.scala ===== 
+ 
+package Objects.CreatorService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Artist
+ * desc: 艺术家信息
+ * @param artistID: String (艺术家的唯一ID)
+ * @param name: String (艺术家的名字)
+ * @param bio: String (艺术家的简介)
+//  * @param managedBy: String (管理艺术家的用户ID的列表)
+ */
+
+case class Artist(
+  artistID: String,
+  name: String,
+  bio: String,
+  // managedBy: List[String]
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Artist{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Artist] = deriveEncoder
+  private val circeDecoder: Decoder[Artist] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Artist] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Artist] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Artist]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given artistEncoder: Encoder[Artist] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given artistDecoder: Decoder[Artist] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\CreatorService\Artist.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\CreatorService\Band.scala ===== 
+ 
+package Objects.CreatorService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Band
+ * desc: 表示一个音乐组合的信息
+ * @param bandID: String (乐队的唯一标识)
+ * @param name: String (乐队名称)
+ * @param members: String (乐队成员的ID列表)
+ * @param bio: String (乐队的简介)
+//  * @param managedBy: String (负责管理该乐队的管理者ID列表)
+ */
+
+case class Band(
+  bandID: String,
+  name: String,
+  members: List[String],
+  bio: String,
+  // managedBy: List[String]
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Band{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Band] = deriveEncoder
+  private val circeDecoder: Decoder[Band] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Band] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Band] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Band]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given bandEncoder: Encoder[Band] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given bandDecoder: Decoder[Band] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\CreatorService\Band.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\CreatorService\CreatorID_Type.scala ===== 
+ 
+package Objects.CreatorService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+// --- 核心定义部分 ---
+
+/**
+ * CreatorType
+ * desc: 代表创作者的类型。这是一个封闭的类型集（ADT），只能是 Artist 或 Band。
+ */
+sealed trait CreatorType
+object CreatorType {
+  case object Artist extends CreatorType
+  case object Band extends CreatorType
+
+  def fromString(typeStr: String): Option[CreatorType] = typeStr.toLowerCase match {
+    case "artist" => Some(Artist)
+    case "band"   => Some(Band)
+    case _        => None
+  }
+  
+  def toString(creatorType: CreatorType): String = creatorType match {
+    case Artist => "artist"
+    case Band => "band"
+  }
+  
+  // 为 CreatorType 提供一致的小写编解码器
+  // 强制使用自定义编码器，确保始终返回小写
+  private val customEncoder: Encoder[CreatorType] = Encoder.instance { creatorType =>
+    Json.fromString(toString(creatorType)) // 始终使用 toString 方法，确保小写
+  }
+
+  private val customDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
+    cursor.as[String].flatMap { typeStr =>
+      fromString(typeStr) match {
+        case Some(creatorType) => Right(creatorType)
+        case None => Left(io.circe.DecodingFailure(s"Invalid CreatorType: $typeStr", cursor.history))
+      }
+    }
+  }
+
+  // 使用统一的编解码器，不再使用 Circe 的自动派生
+  given creatorTypeEncoder: Encoder[CreatorType] = customEncoder
+  given creatorTypeDecoder: Decoder[CreatorType] = customDecoder
+}
+
+/**
+ * CreatorID_Type
+ * desc: 创作者ID的智能包装器，封装了创作者类型和其原始String ID。
+ * @param creatorType CreatorType (创作者的类型，Artist 或 Band)
+ * @param id String (原始ID字符串)
+ */
+case class CreatorID_Type (creatorType: CreatorType, id: String) {
+  def isArtist: Boolean = creatorType == CreatorType.Artist
+  def isBand: Boolean = creatorType == CreatorType.Band
+
+  def asArtistId: Option[String] = if (isArtist) Some(id) else None
+  def asBandId: Option[String] = if (isBand) Some(id) else None
+  
+  //process class code 预留标志位，不要删除
+}
+
+case object CreatorID_Type {
+  // --- 工厂方法，用于安全创建 ---
+  def apply(idType: String, id: String): Try[CreatorID_Type] =
+    CreatorType.fromString(idType)
+      .map(t => new CreatorID_Type(t, id))
+      .toRight(new IllegalArgumentException(s"无效的 CreatorType: '$idType'. 只接受 'Artist' 或 'Band'。"))
+      .toTry
+
+  def artist(id: String): CreatorID_Type = new CreatorID_Type(CreatorType.Artist, id)
+  def band(id: String): CreatorID_Type = new CreatorID_Type(CreatorType.Band, id)
+
+  // --- 使用统一的编解码策略，确保一致性 ---
+
+  // 使用自定义编解码器，确保 creatorType 字段始终是小写
+  private val customEncoder: Encoder[CreatorID_Type] = Encoder.instance { creatorIdType =>
+    Json.obj(
+      "creatorType" -> Json.fromString(CreatorType.toString(creatorIdType.creatorType)),
+      "id" -> Json.fromString(creatorIdType.id)
+    )
+  }
+
+  private val customDecoder: Decoder[CreatorID_Type] = Decoder.instance { cursor =>
+    for {
+      creatorTypeStr <- cursor.downField("creatorType").as[String]
+      id <- cursor.downField("id").as[String]
+      creatorType <- CreatorType.fromString(creatorTypeStr) match {
+        case Some(ct) => Right(ct)
+        case None => Left(io.circe.DecodingFailure(s"Invalid CreatorType: $creatorTypeStr", cursor.history))
+      }
+    } yield CreatorID_Type(creatorType, id)
+  }
+  
+  // 使用统一的编解码器，不再提供后备方案
+  given CreatorID_TypeEncoder: Encoder[CreatorID_Type] = customEncoder
+  given CreatorID_TypeDecoder: Decoder[CreatorID_Type] = customDecoder
+  
+  //process object code 预留标志位，不要删除
+} 
+// ===== End of src\main\scala\Objects\CreatorService\CreatorID_Type.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\MusicService\Genre.scala ===== 
+ 
+package Objects.MusicService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Genre
+ * desc: 音乐流派信息，包括ID、名称以及描述
+ * @param genreID: String (流派的唯一标识符)
+ * @param name: String (流派的名称)
+ * @param description: String (流派的描述与相关信息)
+ */
+
+case class Genre(
+  genreID: String,
+  name: String,
+  description: String
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Genre{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Genre] = deriveEncoder
+  private val circeDecoder: Decoder[Genre] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Genre] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Genre] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Genre]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given genreEncoder: Encoder[Genre] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given genreDecoder: Decoder[Genre] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\MusicService\Genre.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\MusicService\Song.scala ===== 
+ 
+package Objects.MusicService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+import Objects.CreatorService.CreatorID_Type
+
+import scala.util.Try
+import org.joda.time.DateTime
+
+import java.util.UUID
+
+
+case class Song(
+                 songID: String,
+                 name: String,
+                 releaseTime: DateTime,
+                 creators: List[CreatorID_Type],
+                 performers: List[String],
+                 lyricists: List[String],
+                 arrangers: List[String],
+                 instrumentalists: List[String],
+                 composers: List[String],
+                 genres: List[String],
+                 uploaderID: String
+               ){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Song{
+
+
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Song] = deriveEncoder
+  private val circeDecoder: Decoder[Song] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Song] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Song] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Song]() {})) }
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+
+  // Circe + Jackson 兜底的 Encoder
+  given songEncoder: Encoder[Song] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given songDecoder: Decoder[Song] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\MusicService\Song.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\OrganizeService\AuthRequest.scala ===== 
+ 
+package Objects.OrganizeService
+
+import Objects.CreatorService.CreatorID_Type // Import our new CreatorId type
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+import org.joda.time.DateTime
+import scala.util.Try
+
+// --- Define the new RequestStatus ADT first ---
+
+/**
+ * RequestStatus
+ * desc: 表示授权申请的当前状态。
+ */
+sealed trait RequestStatus
+object RequestStatus {
+  case object Pending extends RequestStatus
+  case object Approved extends RequestStatus
+  case object Rejected extends RequestStatus
+
+  // Provide Encoder/Decoder so it can be serialized with AuthRequest
+  // Circe will automatically handle case objects as strings ("Pending", "Approved", etc.)
+  implicit val encoder: Encoder[RequestStatus] = deriveEncoder
+  implicit val decoder: Decoder[RequestStatus] = deriveDecoder
+}
+
+
+// --- Define the unified AuthRequest object ---
+
+/**
+ * AuthRequest
+ * desc: 一个统一的授权申请记录，用于用户申请成为艺术家或乐队的管理者。
+ * @param requestID 唯一的申请ID。
+ * @param userID 提交申请的用户ID。
+ * @param targetID 申请绑定的目标，使用 CreatorID_Type 来区分是艺术家还是乐队。
+ * @param certification 用户提供的认证材料。
+ * @param status 申请的当前状态 (Pending, Approved, Rejected)。
+ * @param createdAt 申请创建的时间戳。
+ * @param processedBy 处理该申请的管理员ID，在处理前为None。
+ * @param processedAt 处理该申请的时间戳，在处理前为None。
+ */
+case class AuthRequest(
+  requestID: String,
+  userID: String,
+  targetID: CreatorID_Type,
+  certification: String,
+  status: RequestStatus,
+  createdAt: DateTime,
+  processedBy: Option[String],
+  processedAt: Option[DateTime]
+) {
+  //process class code 预留标志位，不要删除
+}
+
+object AuthRequest {
+
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+
+  // --- Replicating your standard Circe + Jackson fallback serialization logic ---
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[AuthRequest] = deriveEncoder
+  private val circeDecoder: Decoder[AuthRequest] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[AuthRequest] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[AuthRequest] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[AuthRequest]() {})) }
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+
+  // Circe + Jackson 兜底的 Encoder
+  given authRequestEncoder: Encoder[AuthRequest] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given authRequestDecoder: Decoder[AuthRequest] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+  //process object code 预留标志位，不要删除
+} 
+// ===== End of src\main\scala\Objects\OrganizeService\AuthRequest.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\OrganizeService\User.scala ===== 
+ 
+package Objects.OrganizeService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * User
+ * desc: 用户信息，包含用户的账号信息与密码
+ * @param userID: String (用户的唯一标识)
+ * @param account: String (用户登录账号)
+ * @param password: String (用户登录密码)
+ */
+
+case class User(
+  userID: String,
+  account: String,
+  password: String
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object User{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[User] = deriveEncoder
+  private val circeDecoder: Decoder[User] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[User] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[User] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[User]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given userEncoder: Encoder[User] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given userDecoder: Decoder[User] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\OrganizeService\User.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\StatisticsService\Dim.scala ===== 
+ 
+package Objects.StatisticsService
+
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+import Common.Serialize.JacksonSerializeUtils
+import com.fasterxml.jackson.core.`type`.TypeReference
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.parser.*
+import io.circe.syntax.*
+import io.circe.{Decoder, Encoder, Json}
+import org.joda.time.DateTime
+
+import java.util.UUID
+import scala.util.Try
+
+
+case class Dim(
+  GenreID: String,
+  value: Double
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Dim{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Dim] = deriveEncoder
+  private val circeDecoder: Decoder[Dim] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Dim] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Dim] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Dim]() {})) }
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given dimEncoder: Encoder[Dim] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given dimDecoder: Decoder[Dim] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+} 
+// ===== End of src\main\scala\Objects\StatisticsService\Dim.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\StatisticsService\Profile.scala ===== 
+ 
+package Objects.StatisticsService
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Profile
+ * desc: 一个通用的统计画像/向量对象。它由一个(键, 值)对的列表组成，用于表示用户画像、创作倾向或曲风实力等统计数据。
+ * @param vector: List[Dim] (一个由 Dim 构成的列表。)\
+ * @param norm: Boolean (可选参数，表示该向量是否已进行归一化。)
+ */
+
+case class Profile(
+  vector: List[Dim],
+  norm: Boolean
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Profile{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Profile] = deriveEncoder
+  private val circeDecoder: Decoder[Profile] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Profile] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Profile] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Profile]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given profileEncoder: Encoder[Profile] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given profileDecoder: Decoder[Profile] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+} 
+// ===== End of src\main\scala\Objects\StatisticsService\Profile.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\GetCreatorCreationTendencyUtils.scala ===== 
+ 
+package Utils
+
+import Common.API.PlanContext
+import APIs.MusicService.{FilterSongsByEntity, GetSongProfile}
+import Objects.CreatorService.CreatorID_Type
+import Objects.StatisticsService.{Dim, Profile}
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto._
+
+object GetCreatorCreationTendencyUtils {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  /**
+   * 生成创作者的创作倾向画像。
+   * 这是核心业务逻辑，封装了获取作品、分析曲风和聚合计算的全过程。
+   */
+  def generateTendencyProfile(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+    for {
+      _ <- logInfo(s"在Utils层开始计算创作者 ${creator.id} 的创作倾向")
+      
+      // 步骤1: 获取创作者的所有作品ID
+      songs <- getCreatorSongs(creator, userID, userToken)
+      _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
+
+      profile <- if (songs.isEmpty) {
+        logInfo("创作者暂无作品，返回空倾向") >>
+          IO.pure(Profile(List.empty, norm = true))
+      } else {
+        // 步骤2 & 3: 计算曲风分布并归一化
+        for {
+          unnormalizedProfile <- calculateGenreDistribution(songs, userID, userToken)
+          _ <- logInfo(s"计算出未归一化的曲风分布: ${unnormalizedProfile.vector}")
+          normalizedProfile = StatisticsUtils.normalizeVector(unnormalizedProfile)
+        } yield normalizedProfile
+      }
+    } yield profile
+  }
+
+  /**
+   * 内部辅助方法：调用API获取创作者的所有作品ID。
+   */
+  private def getCreatorSongs(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] = {
+    FilterSongsByEntity(userID, userToken, Some(creator)).send.flatMap {
+      case (Some(songs), _) => IO.pure(songs)
+      case (None, message) =>
+        logInfo(s"获取创作者作品失败: $message. 将视为空列表处理。") >> IO.pure(List.empty)
+    }
+  }
+
+  /**
+   * 内部辅助方法：并行获取所有歌曲的曲风并聚合成一个未归一化的Profile。
+   */
+  private def calculateGenreDistribution(songs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+    // 并行获取每首歌的曲风向量
+    songs.parTraverse { songId =>
+      GetSongProfile(userID, userToken, songId).send.map {
+        case (Some(profile), _) => profile.vector
+        case (None, message) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 ${songId} 的Profile失败: $message. 将跳过此歌曲.")
+          List.empty[Dim]
+      }
+    }.map { listOfVectors =>
+      // 聚合所有曲风
+      val allDims = listOfVectors.flatten
+      val genreCounts = allDims
+        .groupBy(_.GenreID)
+        .view.mapValues(dims => dims.map(_.value).sum)
+        .toList
+        .map { case (genreId, count) => Dim(genreId, count) }
+      Profile(genreCounts, norm = false)
+    }
+  }
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
+    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\GetCreatorCreationTendencyUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\GetCreatorGenreStrengthUtils.scala ===== 
+ 
+package Utils
+
+import Common.API.PlanContext
+import APIs.MusicService.{FilterSongsByEntity, GetSongProfile}
+import APIs.StatisticsService.GetSongPopularity
+import Objects.CreatorService.CreatorID_Type
+import Objects.StatisticsService.{Dim, Profile}
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto._
+
+object GetCreatorGenreStrengthUtils {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  /**
+   * 生成创作者的曲风实力画像。
+   * 封装了获取作品、并行分析每首作品的属性、并聚合计算实力的全过程。
+   */
+  def generateStrengthProfile(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+    for {
+      _ <- logInfo(s"在Utils层开始计算创作者 ${creator.id} 的曲风实力")
+
+      // **修正点**: 将 planContext 显式传递给辅助方法
+      songs <- getCreatorSongs(creator, userID, userToken)(using planContext)
+      _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
+
+      strengthProfile <- if (songs.isEmpty) {
+        logInfo("创作者暂无作品，返回空实力")(using planContext) >> // logInfo 也需要上下文
+          IO.pure(Profile(List.empty, norm = false))
+      } else {
+        for {
+          // **修正点**: 将 planContext 显式传递给辅助方法
+          genreStrengthDims <- calculateGenreStrengths(songs, userID, userToken)(using planContext)
+          _ <- logInfo(s"计算出曲风实力: ${genreStrengthDims}")(using planContext)
+        } yield Profile(genreStrengthDims, norm = false)
+      }
+    } yield strengthProfile
+  }
+
+  /**
+   * 内部辅助方法：获取创作者的所有作品ID列表。
+   */
+  private def getCreatorSongs(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] = {
+    FilterSongsByEntity(userID, userToken, Some(creator)).send.flatMap {
+      case (Some(songs), _) => IO.pure(songs)
+      case (None, message) =>
+        logInfo(s"获取创作者作品失败: $message. 将视为空列表处理。")(using planContext) >> IO.pure(List.empty)
+    }
+  }
+
+  /**
+   * 内部辅助方法：计算各曲风的实力分数。
+   */
+  private def calculateGenreStrengths(songs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[List[Dim]] = {
+    for {
+      // **修正点**: 将 planContext 显式传递给辅助方法
+      songData <- songs.parTraverse(fetchSongData(_, userID, userToken)(using planContext))
+      genreStrengths = calculateAveragePopularityByGenre(songData)
+    } yield genreStrengths
+  }
+
+  /**
+   * 内部辅助方法：并行获取单首歌曲的曲风和热度。
+   */
+  private def fetchSongData(songId: String, userID: String, userToken: String)(using planContext: PlanContext): IO[(List[String], Double)] = {
+    (
+      GetSongProfile(userID, userToken, songId).send,
+      GetSongPopularity(userID, userToken, songId).send
+    ).parTupled.map { case (profileResult, popularityResult) =>
+
+      val genres = profileResult match {
+        case (Some(profile), _) => profile.vector.map(_.GenreID)
+        case (None, msg) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg")
+          List.empty[String]
+      }
+
+      val popularity = popularityResult match {
+        case (Some(score), _) => score
+        case (None, msg) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Popularity失败: $msg")
+          0.0
+      }
+
+      (genres, popularity)
+    }
+  }
+
+  /**
+   * 内部辅助方法：按曲风计算平均热度（纯函数）。
+   * **注意**: 此方法是纯函数，不执行任何IO或日志记录，因此它不需要 PlanContext。
+   */
+  private def calculateAveragePopularityByGenre(songData: List[(List[String], Double)]): List[Dim] = {
+    val genrePopularities: List[(String, Double)] = for {
+      (genres, popularity) <- songData if genres.nonEmpty && popularity > 0
+      genre <- genres
+    } yield (genre, popularity)
+
+    genrePopularities
+      .groupBy(_._1)
+      .view
+      .mapValues { popularities =>
+        val scores = popularities.map(_._2)
+        if (scores.isEmpty) 0.0 else scores.sum / scores.length
+      }
+      .toList
+      .map { case (genreId, avgPopularity) => Dim(genreId, avgPopularity) }
+  }
+
+  // **修正点**: logInfo 的签名保持不变，但在调用时需要提供上下文
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
+    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\GetCreatorGenreStrengthUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\GetSongPopularityUtils.scala ===== 
+ 
+// file: Utils/GetSongPopularityUtils.scala
+package Utils
+
+import Common.API.PlanContext
+import cats.effect.IO
+import cats.implicits._
+
+object GetSongPopularityUtils {
+
+  /**
+   * 计算一首歌的综合热度分数。
+   * 这是一个核心业务逻辑，封装了热度的计算公式。
+   *
+   * @param songID 要计算热度的歌曲ID。
+   * @param planContext 执行上下文。
+   * @return 一个包含热度分数的IO。
+   */
+  def calculatePopularity(songID: String)(using planContext: PlanContext): IO[Double] = {
+    // 这里的 for-comprehension 就是从 GetSongPopularityPlanner 中移动过来的
+    for {
+      // 步骤1: 调用数据访问层获取播放统计
+      playCount <- SearchUtils.fetchPlayCount(songID)
+
+      // 步骤2: 调用数据访问层获取评分统计
+      (avgRating, ratingCount) <- SearchUtils.fetchAverageRating(songID)
+      
+      // 步骤3: 执行业务逻辑计算
+      popularity = playCount * 0.7 + avgRating * ratingCount * 0.3
+      
+    } yield popularity
+  }
+
+  // 未来可以添加更多类似的可复用业务流程...
+  // def recommendSimilarSongs(songID: String): IO[List[Song]] = { ... }
+} 
+// ===== End of src\main\scala\Utils\GetSongPopularityUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\GetUserPortraitUtils.scala ===== 
+ 
+package Utils
+
+import Common.API.PlanContext
+import APIs.MusicService.GetSongProfile
+import Objects.StatisticsService.{Dim, Profile}
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto._
+
+object GetUserPortraitUtils {
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  def generateUserProfile(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+    // 权重系数，方便调整
+    val ratingWeightCoefficient = 10.0
+
+    for {
+      _ <- logInfo("开始实时计算用户画像")
+
+      // 1. 调用数据访问层获取历史记录
+      histories <- (SearchUtils.fetchUserPlaybackHistory(userID), SearchUtils.fetchUserRatingHistory(userID)).parTupled
+      (playedSongs, ratedSongsMap) = histories
+
+      allInteractedSongIds = (playedSongs ++ ratedSongsMap.keys).toSet
+      _ <- logInfo(s"用户总共交互过 ${allInteractedSongIds.size} 首歌曲")
+
+      profile <- if (allInteractedSongIds.isEmpty) {
+        logInfo("用户暂无交互记录，返回空画像") >>
+          IO.pure(Profile(List.empty, norm = true))
+      } else {
+        // 2. 计算每首歌的交互分数
+        val songInteractionScores = allInteractedSongIds.map { songId =>
+          val ratingBonus = ratedSongsMap.get(songId).map(rating => (rating - 3.0) * ratingWeightCoefficient).getOrElse(0.0)
+          val interactionScore = 1.0 + ratingBonus
+          (songId, interactionScore)
+        }.toMap
+
+        for {
+          // 3. 并行获取所有歌曲的曲风
+          genresForSongsMap <- fetchGenresForSongs(allInteractedSongIds, userID, userToken)
+
+          // 4. Map-Reduce 计算曲风偏好
+          rawGenrePreferences = mapReduceGenreScores(songInteractionScores, genresForSongsMap)
+
+          // 5. 过滤并格式化结果
+          positivePreferences = rawGenrePreferences.toList.filter(_._2 > 0)
+          preferenceDims = positivePreferences.map { case (genreId, score) => Dim(genreId, score) }
+
+          // 6. 归一化
+          rawProfile = Profile(vector = preferenceDims, norm = false)
+          finalProfile = StatisticsUtils.normalizeVector(rawProfile)
+
+          _ <- logInfo(s"计算出用户画像，包含 ${finalProfile.vector.length} 个曲风偏好")
+        } yield finalProfile
+      }
+    } yield profile
+  }
+
+  private def mapReduceGenreScores(
+    songScores: Map[String, Double],
+    genreMap: Map[String, List[String]]
+  ): Map[String, Double] = {
+    val genreScorePairs = songScores.toList.flatMap {
+      case (songId, score) =>
+        val genres = genreMap.getOrElse(songId, List.empty)
+        genres.map(genreId => (genreId, score))
+    }
+
+    genreScorePairs
+      .groupBy { case (genreId, _) => genreId }
+      .view
+      .mapValues(_.map { case (_, score) => score }.sum)
+      .toMap
+  }
+
+  private def fetchGenresForSongs(songIds: Set[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Map[String, List[String]]] = {
+    if (songIds.isEmpty) return IO.pure(Map.empty)
+
+    logInfo(s"准备为 ${songIds.size} 首歌曲并行获取曲风Profile")
+
+    songIds.toList.parTraverse { songId =>
+      GetSongProfile(userID, userToken, songId).send.map {
+        case (Some(profile), _) => songId -> profile.vector.map(_.GenreID)
+        case (None, message) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
+          songId -> List.empty[String]
+      }
+    }.map(_.toMap)
+  }
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
+    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\GetUserPortraitUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\GetUserSongRecommendationsUtils.scala ===== 
+ 
+package Utils
+
+import Common.API.PlanContext
+import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity}
+import APIs.MusicService.{GetSongList, GetSongProfile}
+import Objects.StatisticsService.Profile
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+object GetUserSongRecommendationsUtils {
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  // -- 辅助数据结构 --
+  private case class SongMetrics(songID: String, profile: Profile, popularity: Double)
+  private case class RankedSong(songID: String, score: Double)
+
+  def generateRecommendations(userID: String, userToken: String, pageNumber: Int, pageSize: Int)(using planContext: PlanContext): IO[List[String]] = {
+    for {
+      _ <- logInfo(s"在Utils层开始为用户 ${userID} 生成推荐，页码: ${pageNumber}，每页: ${pageSize}")
+
+      initialData <- (fetchUserPortrait(userID, userToken), fetchAllCandidateSongs(userID, userToken)).parTupled
+      (userPortrait, allSongs) = initialData
+
+      rankedSongs <- if (userPortrait.vector.isEmpty) {
+        logInfo("用户暂无画像数据，将推荐热门歌曲。") >> rankSongsByPopularity(allSongs, userID, userToken)
+      } else {
+        for {
+          _ <- logInfo(s"用户画像获取成功。找到 ${allSongs.length} 首候选歌曲，开始计算个性化推荐...")
+          candidateMetrics <- fetchAllSongMetrics(allSongs, userID, userToken)
+          _ <- logInfo(s"成功获取了 ${candidateMetrics.length} 首候选歌曲的数据。")
+          ranked = rankSongsBySimilarity(userPortrait, candidateMetrics)
+        } yield ranked
+      }
+
+      paginatedResults = paginate(rankedSongs.map(_.songID), pageNumber, pageSize)
+    } yield paginatedResults
+  }
+
+  private def fetchUserPortrait(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] =
+    GetUserPortrait(userID, userToken).send.flatMap {
+      case (Some(portrait), _) => IO.pure(portrait)
+      case (None, msg) => logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >> IO.pure(Profile(List.empty, norm = true))
+    }
+
+  private def fetchAllCandidateSongs(userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] =
+    GetSongList(userID, userToken).send.flatMap {
+      case (Some(songs), _) => IO.pure(songs)
+      case (None, msg) => IO.raiseError(new Exception(s"无法获取所有歌曲列表: $msg"))
+    }
+
+  private def fetchAllSongMetrics(songIDs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[List[SongMetrics]] =
+    SearchUtils.fetchUserPlayedSongIds(userID).flatMap { playedSongs =>
+      val songsToFetch = songIDs.filterNot(playedSongs.contains)
+      logInfo(s"用户已听过 ${playedSongs.size} 首歌，将从 ${songsToFetch.length} 首未听过的歌曲中获取数据。")
+
+      songsToFetch.parTraverse { songID =>
+        fetchSongMetrics(songID, userID, userToken).attempt.map {
+          case Right(metrics) => Some(metrics)
+          case Left(error) =>
+            logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 ${songID} 数据失败，跳过: ${error.getMessage}")
+            None
+        }
+      }.map(_.flatten)
+    }
+
+  private def fetchSongMetrics(songID: String, userID: String, userToken: String)(using planContext: PlanContext): IO[SongMetrics] =
+    (
+      GetSongProfile(userID, userToken, songID).send,
+      GetSongPopularity(userID, userToken, songID).send
+    ).parTupled.flatMap {
+      case ((Some(profile), _), (Some(popularity), _)) => IO.pure(SongMetrics(songID, profile, popularity))
+      case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
+        val errorDetails = s"Profile: ${profileOpt.isDefined} ('$profileMsg'), Popularity: ${popOpt.isDefined} ('$popMsg')"
+        IO.raiseError(new Exception(s"获取歌曲 ${songID} 的核心数据失败: $errorDetails"))
+    }
+
+  private def rankSongsBySimilarity(userPortrait: Profile, candidates: List[SongMetrics]): List[RankedSong] = {
+    candidates.map { song =>
+      val matchScore = StatisticsUtils.calculateCosineSimilarity(userPortrait, song.profile)
+      val popularityFactor = Math.log1p(song.popularity)
+      val finalScore = matchScore * popularityFactor
+      RankedSong(song.songID, finalScore)
+    }.filter(_.score > 0).sortBy(-_.score)
+  }
+
+  private def rankSongsByPopularity(songIDs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[List[RankedSong]] = {
+    logInfo("正在并行获取所有歌曲的热度以进行热门推荐...")
+    songIDs.parTraverse { songID =>
+      GetSongPopularity(userID, userToken, songID).send
+        .map(r => RankedSong(songID, r._1.getOrElse(0.0)))
+        .attempt // Use attempt to prevent one failure from failing all
+    }.map { results =>
+      results.collect { case Right(rankedSong) if rankedSong.score > 0 => rankedSong }.sortBy(-_.score)
+    }
+  }
+
+  private def paginate(recommendations: List[String], pageNumber: Int, pageSize: Int): List[String] = {
+    val startIndex = (pageNumber - 1) * pageSize
+    recommendations.slice(startIndex, startIndex + pageSize)
+  }
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\GetUserSongRecommendationsUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\RateSongUtils.scala ===== 
+ 
+package Utils
+
+import Common.API.PlanContext
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+
+object RateSongUtils {
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  /**
+   * 核心业务逻辑：保存或更新用户对歌曲的评分。
+   * 封装了“读后写”的完整流程。
+   */
+  def rateSong(userID: String, songID: String, rating: Int)(using planContext: PlanContext): IO[Unit] = {
+    for {
+      _ <- logInfo(s"在Utils层开始处理评分逻辑，用户: ${userID}, 歌曲: ${songID}")
+      
+      // 步骤1: 调用DAO层检查是否存在现有评分
+      existingRatingOpt <- SearchUtils.fetchUserSongRating(userID, songID)
+
+      // 步骤2: 根据是否存在，决定是更新还是插入
+      _ <- existingRatingOpt match {
+        case Some(oldRating) =>
+          logInfo(s"更新现有评分，原评分: ${oldRating}，新评分: ${rating}") >>
+            SearchUtils.updateUserSongRating(userID, songID, rating)
+        case None =>
+          logInfo("插入新的评分记录") >>
+            SearchUtils.insertUserSongRating(userID, songID, rating)
+      }
+      _ <- logInfo("评分记录已在数据库中保存")
+    } yield ()
+  }
+  
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
+    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\RateSongUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\SearchUtils.scala ===== 
+ 
+// file: Utils/SearchUtils.scala
+package Utils
+
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import cats.effect.IO
+import io.circe.generic.auto._
+import Common.API.PlanContext
+import Common.Object.SqlParameter
+import cats.implicits._
+import Common.Object.SqlParameter
+import Common.DBAPI.writeDB
+import org.joda.time.DateTime
+
+object SearchUtils {
+
+  /**
+   * 从数据库获取一首歌的平均评分和评分总数。
+   */
+  def fetchAverageRating(songID: String)(using planContext: PlanContext): IO[(Double, Int)] = {
+    val sql = s"SELECT AVG(rating) AS avg_rating, COUNT(rating) AS rating_count FROM ${schemaName}.song_rating WHERE song_id = ?"
+    val params = List(SqlParameter("String", songID))
+
+    readDBRows(sql, params).flatMap {
+      case row :: Nil =>
+        // 确保使用正确的 camelCase 字段名来解码
+        val avgResult = row.hcursor.get[Option[Double]]("avgRating").getOrElse(None)
+        val countResult = row.hcursor.get[Int]("ratingCount").getOrElse(0)
+        val averageRating = avgResult.getOrElse(0.0)
+        IO.pure((averageRating, countResult))
+      case _ =>
+        IO.pure((0.0, 0))
+    }
+  }
+
+  /**
+   * 从数据库获取一首歌的播放总次数。
+   */
+  def fetchPlayCount(songID: String)(using planContext: PlanContext): IO[Int] = {
+    val sql = s"SELECT COUNT(*) FROM ${schemaName}.playback_log WHERE song_id = ?"
+    readDBInt(sql, List(SqlParameter("String", songID)))
+  }
+
+  /**
+   * 从数据库获取一个用户的所有播放历史记录（仅歌曲ID）。
+   *
+   * @param userID 目标用户的ID。
+   * @return 一个包含所有播放过的歌曲ID的列表的IO。
+   */
+  def fetchUserPlaybackHistory(userID: String)(using planContext: PlanContext): IO[List[String]] = {
+    val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ?"
+    val params = List(SqlParameter("String", userID))
+
+    readDBRows(sql, params).flatMap { rows =>
+      // 遍历每一行，并从JSON中解码 "songId" (camelCase) 字段。
+      rows.traverse { row =>
+        IO.fromEither(
+          row.hcursor.get[String]("songId") // **修正：使用 camelCase "songId"**
+            .leftMap(err => new Exception(s"解码 playback_log.songId 失败: ${err.getMessage}", err))
+        )
+      }
+    }
+  }
+
+  /**
+   * 从数据库获取一个用户的所有评分历史记录。
+   *
+   * @param userID 目标用户的ID。
+   * @return 一个从歌曲ID映射到评分的Map的IO。
+   */
+  def fetchUserRatingHistory(userID: String)(using planContext: PlanContext): IO[Map[String, Int]] = {
+    val sql = s"SELECT song_id, rating FROM ${schemaName}.song_rating WHERE user_id = ?"
+    val params = List(SqlParameter("String", userID))
+
+    readDBRows(sql, params).flatMap { rows =>
+      // 遍历每一行，解码 "songId" 和 "rating" 字段，然后组合成元组。
+      val decodedPairsIO = rows.traverse { row =>
+        for {
+          songId <- IO.fromEither(
+            row.hcursor.get[String]("songId") // **修正：使用 camelCase "songId"**
+              .leftMap(err => new Exception(s"解码 song_rating.songId 失败: ${err.getMessage}", err))
+          )
+          rating <- IO.fromEither(
+            row.hcursor.get[Int]("rating") // `rating` 已经是 camelCase 格式
+              .leftMap(err => new Exception(s"解码 song_rating.rating 失败: ${err.getMessage}", err))
+          )
+        } yield (songId, rating)
+      }
+
+      // 将元组列表转换为Map。
+      decodedPairsIO.map(_.toMap)
+    }
+  }
+
+  def fetchUserPlayedSongIds(userID: String)(using planContext: PlanContext): IO[Set[String]] = {
+    val sql = s"SELECT DISTINCT song_id FROM ${schemaName}.playback_log WHERE user_id = ?"
+    val params = List(SqlParameter("String", userID))
+
+    readDBRows(sql, params).flatMap { rows =>
+      rows.traverse { row =>
+        IO.fromEither(
+          row.hcursor.get[String]("songId") // 确保使用 camelCase
+            .leftMap(err => new Exception(s"解码 playback_log.songId 失败: ${err.getMessage}", err))
+        )
+      }.map(_.toSet)
+    }
+  }
+
+  /**
+   * 向数据库中插入一条新的播放记录。
+   * 封装了ID和时间戳的生成，以及数据库的写操作。
+   *
+   * @param userID 播放用户的ID。
+   * @param songID 播放的歌曲ID。
+   * @return 一个表示操作完成的 IO[Unit]。
+   */
+  def logPlayback(userID: String, songID: String)(using planContext: PlanContext): IO[Unit] = {
+    for {
+      // 在IO中生成业务数据
+      now <- IO(new DateTime())
+      logId <- IO(java.util.UUID.randomUUID().toString)
+
+      // 定义SQL和参数
+      sql = s"INSERT INTO ${schemaName}.playback_log (log_id, user_id, song_id, play_time) VALUES (?, ?, ?, ?)"
+      params = List(
+        SqlParameter("String", logId),
+        SqlParameter("String", userID),
+        SqlParameter("String", songID),
+        SqlParameter("DateTime", now.getMillis.toString)
+      )
+
+      // 执行数据库写操作
+      _ <- writeDB(sql, params)
+    } yield ()
+  }
+
+    /**
+   * 查询特定用户对特定歌曲的评分。
+   * @return IO[Option[Int]]，如果找到评分则为 Some(rating)，否则为 None。
+   */
+  def fetchUserSongRating(userID: String, songID: String)(using planContext: PlanContext): IO[Option[Int]] = {
+    val sql = s"SELECT rating FROM ${schemaName}.song_rating WHERE user_id = ? AND song_id = ?"
+    val params = List(SqlParameter("String", userID), SqlParameter("String", songID))
+    
+    readDBRows(sql, params).flatMap {
+      case row :: _ => // 只关心第一行（理论上也只应该有一行）
+        IO.fromEither(row.hcursor.get[Int]("rating")).map(Some(_))
+      case Nil =>
+        IO.pure(None)
+    }
+  }
+
+  /**
+   * 更新用户对歌曲的评分。
+   */
+  def updateUserSongRating(userID: String, songID: String, rating: Int)(using planContext: PlanContext): IO[Unit] = {
+    val sql = s"UPDATE ${schemaName}.song_rating SET rating = ?, rated_at = ? WHERE user_id = ? AND song_id = ?"
+    for {
+      now <- IO(new DateTime())
+      _ <- writeDB(sql, List(
+        SqlParameter("Int", rating.toString),
+        SqlParameter("DateTime", now.getMillis.toString),
+        SqlParameter("String", userID),
+        SqlParameter("String", songID)
+      ))
+    } yield ()
+  }
+  
+  /**
+   * 插入一条新的用户歌曲评分记录。
+   */
+  def insertUserSongRating(userID: String, songID: String, rating: Int)(using planContext: PlanContext): IO[Unit] = {
+    val sql = s"INSERT INTO ${schemaName}.song_rating (user_id, song_id, rating, rated_at) VALUES (?, ?, ?, ?)"
+    for {
+      now <- IO(new DateTime())
+      _ <- writeDB(sql, List(
+        SqlParameter("String", userID),
+        SqlParameter("String", songID),
+        SqlParameter("Int", rating.toString),
+        SqlParameter("DateTime", now.getMillis.toString)
+      ))
+    } yield ()
+  }
+} 
+// ===== End of src\main\scala\Utils\SearchUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\StatisticsUtils.scala ===== 
+ 
+package Utils
+
+import Objects.StatisticsService.{Dim, Profile} // 确保 Dim 也被导入
+import scala.math.{exp, sqrt}
+import scala.util.Random
+
+object StatisticsUtils {
+
+  /**
+   * 计算两个Profile向量的余弦相似度。
+   * @param profileA Profile A
+   * @param profileB Profile B
+   * @return 余弦相似度值，范围 [0, 1]
+   */
+  def calculateCosineSimilarity(profileA: Profile, profileB: Profile): Double = {
+    // 修正: List[Dim] 不能直接 toMap，需要手动转换为 Map[String, Double]
+    val mapA = profileA.vector.map(dim => (dim.GenreID, dim.value)).toMap
+    val mapB = profileB.vector.map(dim => (dim.GenreID, dim.value)).toMap
+    
+    val commonKeys = mapA.keySet.intersect(mapB.keySet)
+    
+    if (commonKeys.isEmpty) return 0.0
+    
+    val dotProduct = commonKeys.map(key => mapA.getOrElse(key, 0.0) * mapB.getOrElse(key, 0.0)).sum
+    val magnitudeA = sqrt(mapA.values.map(v => v * v).sum)
+    val magnitudeB = sqrt(mapB.values.map(v => v * v).sum)
+    
+    if (magnitudeA == 0.0 || magnitudeB == 0.0) 0.0
+    else dotProduct / (magnitudeA * magnitudeB)
+  }
+
+  /**
+   * 归一化一个Profile的向量，使其所有值的和为1.0。
+   * 如果该Profile已经是归一化的，则直接返回。
+   * @param profile 待归一化的Profile
+   * @return 一个新的、向量被归一化后的Profile
+   */
+  def normalizeVector(profile: Profile): Profile = {
+    if (profile.norm) return profile
+    
+    val vector = profile.vector
+    // 修正: 从元组的 ._2 改为 Dim 对象的 .value
+    val sum = vector.map(_.value).sum
+    
+    val normalizedVector = if (sum == 0.0) {
+      vector
+    } else {
+      // 修正: 不再创建元组，而是创建新的 Dim 对象
+      vector.map { dim => dim.copy(value = dim.value / sum) }
+    }
+    
+    Profile(normalizedVector, norm = true)
+  }
+
+  /**
+   * 内部实现的Softmax加权随机抽样。
+   * 这个方法是私有的，只能在 StatisticsUtils 内部被调用。
+   */
+  private def softmaxSampleInternal[A](itemsWithScores: List[(A, Double)]): Option[A] = {
+    if (itemsWithScores.isEmpty) return None
+    
+    val validItems = itemsWithScores.filter(_._2 > 0)
+    if (validItems.isEmpty) return itemsWithScores.headOption.map(_._1)
+
+    val expScores = validItems.map { case (_, score) => exp(score) }
+    val sumExpScores = expScores.sum
+
+    if (sumExpScores == 0 || sumExpScores.isInfinite || sumExpScores.isNaN) {
+      return validItems.headOption.map(_ => validItems(Random.nextInt(validItems.length))._1)
+    }
+
+    val probabilities = expScores.map(_ / sumExpScores)
+    val cumulativeProbabilities = probabilities.scanLeft(0.0)(_ + _).tail
+    val randomDouble = Random.nextDouble()
+    val chosenIndex = cumulativeProbabilities.indexWhere(_ >= randomDouble)
+
+    if (chosenIndex != -1) Some(validItems(chosenIndex)._1)
+    else validItems.lastOption.map(_._1)
+  }
+
+  /**
+   * 对一个Profile的向量进行Softmax加权随机抽样。
+   * 这是Softmax抽样的唯一公共接口。
+   * @param profile 包含(GenreID, PreferenceScore)向量的Profile。
+   * @return 抽样选中的一个GenreID，如果向量为空则返回None。
+   */
+  def softmaxSample(profile: Profile): Option[String] = {
+    // 修正: 将 List[Dim] 转换为 List[(String, Double)] 以调用内部实现
+    val itemsWithScores = profile.vector.map(dim => (dim.GenreID, dim.value))
+    softmaxSampleInternal(itemsWithScores)
+  }
+} 
+// ===== End of src\main\scala\Utils\StatisticsUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\Test.scala ===== 
+ 
+package Utils
+
+import Common.API.PlanContext
+import cats.effect.IO
+
+object Test:
+  def test(st:String)(using PlanContext):IO[String]=
+    IO("hello world!")
+ 
+// ===== End of src\main\scala\Utils\Test.scala ===== 
+ 
+ 
+// ======================================== 
+// Collection completed 
+// Total .scala files processed: 30 
+// ======================================== 
