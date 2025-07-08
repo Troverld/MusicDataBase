@@ -14,11 +14,44 @@ const UserProfile: React.FC = () => {
   const { getGenreNameById, fetchGenres, loading: genresLoading } = useGenres();
   const user = getUser();
 
-  // 获取用户画像数据
-  const loadUserPortrait = async () => {
+  // 初始化
+  useEffect(() => {
+    const initialize = async () => {
+      if (!user) {
+        setError('用户未登录');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError('');
+        
+        // 先获取曲风列表
+        await fetchGenres();
+        
+        // 然后获取用户画像
+        const [portraitData, message] = await statisticsService.getUserPortrait();
+        
+        if (portraitData) {
+          setProfile(portraitData);
+        } else {
+          setError(message || '获取用户画像失败');
+        }
+      } catch (err: any) {
+        setError(err.message || '获取用户画像失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    initialize();
+  }, [fetchGenres, user]);
+
+  // 重新加载用户画像的函数（用于重试按钮）
+  const reloadUserPortrait = async () => {
     if (!user) {
       setError('用户未登录');
-      setLoading(false);
       return;
     }
 
@@ -30,17 +63,6 @@ const UserProfile: React.FC = () => {
       
       if (portraitData) {
         setProfile(portraitData);
-        
-        // 处理和排序数据
-        const processedData = portraitData.vector
-          .map(dim => ({
-            genreID: dim.GenreID,
-            value: dim.value,
-            name: getGenreNameById(dim.GenreID)
-          }))
-          .sort((a, b) => b.value - a.value); // 按偏好度从大到小排序
-        
-        setSortedData(processedData);
       } else {
         setError(message || '获取用户画像失败');
       }
@@ -51,21 +73,9 @@ const UserProfile: React.FC = () => {
     }
   };
 
-  // 初始化
-  useEffect(() => {
-    const initialize = async () => {
-      // 先获取曲风列表
-      await fetchGenres();
-      // 然后获取用户画像
-      await loadUserPortrait();
-    };
-    
-    initialize();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   // 曲风数据变化后重新处理排序数据
   useEffect(() => {
-    if (profile) {
+    if (profile && profile.vector) {
       const processedData = profile.vector
         .map(dim => ({
           genreID: dim.GenreID,
@@ -109,7 +119,7 @@ const UserProfile: React.FC = () => {
         <h1>用户音乐画像</h1>
         <div className="profile-error">
           <p>❌ {error}</p>
-          <button className="btn btn-primary" onClick={loadUserPortrait}>
+          <button className="btn btn-primary" onClick={reloadUserPortrait}>
             重新加载
           </button>
         </div>
