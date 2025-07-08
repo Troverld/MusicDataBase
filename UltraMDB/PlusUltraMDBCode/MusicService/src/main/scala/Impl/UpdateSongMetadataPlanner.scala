@@ -140,9 +140,8 @@ case class UpdateSongMetadataPlanner(
     ids.traverse_ { id =>
       for {
         (artistOpt, msg1) <- GetArtistByID(userID, userToken, id).send
-        (bandOpt, msg2)   <- GetBandByID(userID, userToken, id).send
-        _ <- if (artistOpt.isEmpty && bandOpt.isEmpty)
-          IO.raiseError(new IllegalArgumentException(s"Invalid ID: $id not found in Artist or Band."))
+        _ <- if (artistOpt.isEmpty)
+          IO.raiseError(new IllegalArgumentException(s"Invalid ID: $id not found in Artist."))
         else IO.unit
       } yield ()
     }

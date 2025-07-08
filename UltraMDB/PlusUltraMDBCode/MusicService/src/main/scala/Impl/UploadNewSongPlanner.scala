@@ -43,15 +43,15 @@ case class UploadNewSongPlanner(
         _ <- IO(logger.info(s"验证歌曲名称是否为空：name=${name}"))
         _ <- if (name.isEmpty) IO.raiseError(new IllegalArgumentException("Song name cannot be empty.")) else IO.unit
 
-        _ <- IO(logger.info("验证creators和performers字段中的每个ID是否存在于Artist或Band"))
+        _ <- IO(logger.info("验证creators字段中的每个ID是否存在于Artist或Band"))
         _ <- validateCreatorsExist(creators)
-        _ <- validateArtistsOrBands("performer", performers)
 
         _ <- IO(logger.info("验证所有字段的格式和存在性"))
-        _ <- validateArtistsOrBands("lyricist", lyricists)
-        _ <- validateArtistsOrBands("composer", composers)
-        _ <- validateArtistsOrBands("arranger", arrangers)
-        _ <- validateArtistsOrBands("instrumentalist", instrumentalists)
+        _ <- validateArtists("performer", performers)
+        _ <- validateArtists("lyricist", lyricists)
+        _ <- validateArtists("composer", composers)
+        _ <- validateArtists("arranger", arrangers)
+        _ <- validateArtists("instrumentalist", instrumentalists)
 
         _ <- IO(logger.info("验证genres字段中的每个曲风ID是否存在"))
         _ <- validateGenres(genres)
@@ -92,13 +92,12 @@ case class UploadNewSongPlanner(
     }
   }
 
-  private def validateArtistsOrBands(fieldName: String, ids: List[String])(using PlanContext): IO[Unit] = {
+  private def validateArtists(fieldName: String, ids: List[String])(using PlanContext): IO[Unit] = {
     ids.traverse_ { id =>
       for {
         (artistOpt, _) <- GetArtistByID(userID, userToken, id).send
-        (bandOpt, _)   <- GetBandByID(userID, userToken, id).send
-        _ <- if (artistOpt.isEmpty && bandOpt.isEmpty)
-          IO.raiseError(new IllegalArgumentException(s"Invalid $fieldName ID: $id not found in Artist or Band."))
+        _ <- if (artistOpt.isEmpty)
+          IO.raiseError(new IllegalArgumentException(s"Invalid $fieldName ID: $id not found in Artist."))
         else IO.unit
       } yield ()
     }

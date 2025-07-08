@@ -1,6 +1,7 @@
 package Impl
 
 
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
 import Objects.CreatorService.{Artist, Band, CreatorID_Type, CreatorType}
 import APIs.OrganizeService.validateUserMapping
 import Common.API.{PlanContext, Planner}
@@ -69,22 +70,34 @@ case class FilterSongsByEntityPlanner(
   }
 
   private def validateArtistID(artistID: String)(using PlanContext): IO[Unit] = {
-    readDBJsonOptional(
-      s"SELECT 1 FROM ${schemaName}.artist WHERE artist_id = ? LIMIT 1",
-      List(SqlParameter("String", artistID))
-    ).flatMap {
-      case Some(_) => IO.unit
-      case None    => IO.raiseError(new IllegalArgumentException(s"Invalid artistID: $artistID"))
+    GetArtistByID(userID, userToken, artistID).send.flatMap {
+      case (Some(_), _) => IO.unit
+      case (None, _) => IO.raiseError(new IllegalArgumentException(s"Invalid Artist ID: $artistID not found."))
     }
   }
 
   private def validateBandID(bandID: String)(using PlanContext): IO[Unit] = {
-    readDBJsonOptional(
-      s"SELECT 1 FROM ${schemaName}.band WHERE band_id = ? LIMIT 1",
-      List(SqlParameter("String", bandID))
-    ).flatMap {
-      case Some(_) => IO.unit
-      case None    => IO.raiseError(new IllegalArgumentException(s"Invalid bandID: $bandID"))
+    GetBandByID(userID, userToken, bandID).send.flatMap {
+      case (Some(_), _) => IO.unit
+      case (None, _)    => IO.raiseError(new IllegalArgumentException(s"Invalid Band ID: $bandID not found."))
+    }
+  }
+
+  private def validateCreatorsExist(creators: List[CreatorID_Type])(using PlanContext): IO[Unit] = {
+    creator.traverse_ {
+      case CreatorID_Type(creatorType, id) =>
+        creatorType match {
+          case CreatorType.Artist =>
+            GetArtistByID(userID, userToken, id).send.flatMap {
+              case (None, _) => IO.raiseError(new IllegalArgumentException(s"Invalid creator ID: $id (Artist not found)"))
+              case _ => IO.unit
+            }
+          case CreatorType.Band =>
+            GetBandByID(userID, userToken, id).send.flatMap {
+              case (None, _) => IO.raiseError(new IllegalArgumentException(s"Invalid creator ID: $id (Band not found)"))
+              case _ => IO.unit
+            }
+        }
     }
   }
 
@@ -92,23 +105,33 @@ case class FilterSongsByEntityPlanner(
     val sqlBuilder = new StringBuilder(s"SELECT song_id FROM ${schemaName}.song_table WHERE 1=1")
     val parameters = scala.collection.mutable.ListBuffer.empty[SqlParameter]
 
-    // Filter by creator (creators or performers contain the full encoded CreatorID_Type)
+    // 条件 1：creator 匹配任一字段
     creator.foreach { creatorID =>
-      val jsonStr = List(creatorID).asJson.noSpaces
-      sqlBuilder.append(" AND (creators @> ?::jsonb OR performers @> ?::jsonb)")
-      parameters += SqlParameter("String", jsonStr)
-      parameters += SqlParameter("String", jsonStr)
+      val idPattern = s"%${creatorID.id}%"
+      sqlBuilder.append(
+        s"""
+           | AND (
+           |   creators::text ILIKE ? OR
+           |   performers::text ILIKE ? OR
+           |   lyricists::text ILIKE ? OR
+           |   composers::text ILIKE ? OR
+           |   arrangers::text ILIKE ? OR
+           |   instrumentalists::text ILIKE ?
+           | )
+         """.stripMargin
+      )
+      for (_ <- 1 to 6) parameters += SqlParameter("String", idPattern)
     }
 
-    // Filter by genres
-    genres.foreach { genreID =>
-      val genreJsonStr = List(genreID).asJson.noSpaces
-      sqlBuilder.append(" AND genres @> ?::jsonb")
-      parameters += SqlParameter("String", genreJsonStr)
+    // 条件 2：genres 模糊匹配
+    genres.foreach { genre =>
+      val genrePattern = s"%$genre%"
+      sqlBuilder.append(" AND genres::text ILIKE ?")
+      parameters += SqlParameter("String", genrePattern)
     }
 
     val sql = sqlBuilder.toString()
-    logger.info(s"Executing SQL: $sql with parameters: ${parameters.mkString(", ")}")
+    logger.info(s"Executing SQL: $sql with parameters: ${parameters.map(_.value).mkString(", ")}")
 
     readDBRows(sql, parameters.toList).map(_.map(decodeField[String](_, "song_id")))
   }
