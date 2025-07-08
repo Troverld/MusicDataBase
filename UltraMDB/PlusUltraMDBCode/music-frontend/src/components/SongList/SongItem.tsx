@@ -1,20 +1,25 @@
 import React from 'react';
 import { Song } from '../../types';
+import { usePermissions, useSongPermission } from '../../hooks/usePermissions';
 import { formatCreatorList, formatStringCreatorList } from './utils';
-import { usePermissions } from '../../hooks/usePermissions';
-import { useSongPermission } from '../../hooks/useSongPermission';
-import { getGenreNamesByIds } from '../../utils/genreMapping';
 import SongRating from '../SongRating';
 import PlayButton from '../PlayButton';
 
 interface SongItemProps {
   song: Song;
+  onEdit: (song: Song) => void;
+  onDelete: (songID: string) => void;
+  getGenreNamesByIds: (ids: string[]) => string[];
   nameMap: { [key: string]: string };
-  onEdit?: (song: Song) => void;
-  onDelete?: (songID: string, songName: string) => void;
 }
 
-const SongItem: React.FC<SongItemProps> = ({ song, nameMap, onEdit, onDelete }) => {
+const SongItem: React.FC<SongItemProps> = ({ 
+  song, 
+  onEdit, 
+  onDelete, 
+  getGenreNamesByIds, 
+  nameMap 
+}) => {
   const { isAdmin } = usePermissions();
   const { canEdit, loading: permissionLoading } = useSongPermission(song.songID);
 
@@ -45,17 +50,15 @@ const SongItem: React.FC<SongItemProps> = ({ song, nameMap, onEdit, onDelete }) 
 
   return (
     <div className="song-item">
-      <div className="song-header">
+      <div className="song-title-row">
         <h3>{song.name}</h3>
-        <div className="song-actions">
-          <PlayButton
-            songID={song.songID}
-            songName={song.name}
-            size="medium"
-            onPlayStart={handlePlayStart}
-            onPlayError={handlePlayError}
-          />
-        </div>
+        <PlayButton
+          songID={song.songID}
+          songName={song.name}
+          size="small"
+          onPlayStart={handlePlayStart}
+          onPlayError={handlePlayError}
+        />
       </div>
       
       <div style={{ marginBottom: '10px' }}>
@@ -93,7 +96,7 @@ const SongItem: React.FC<SongItemProps> = ({ song, nameMap, onEdit, onDelete }) 
         </div>
       </div>
 
-      {/* 歌曲评分组件 */}
+      {/* 新增：歌曲评分组件 */}
       <div style={{ marginTop: '15px' }}>
         <SongRating
           songID={song.songID}
@@ -118,28 +121,34 @@ const SongItem: React.FC<SongItemProps> = ({ song, nameMap, onEdit, onDelete }) 
       )}
 
       {!permissionLoading && !canEdit && !isAdmin && (
-        <div className="permission-warning">
-          <span>⚠️ 您没有编辑此歌曲的权限</span>
+        <div className="permission-denied">
+          ⚠️ 您没有编辑此歌曲的权限
         </div>
       )}
 
-      <div className="song-buttons">
+      <div className="song-actions">
         {showEditButton && (
           <button 
-            className="btn btn-outline" 
-            onClick={() => onEdit && onEdit(song)}
+            className="btn btn-secondary" 
+            onClick={() => onEdit(song)}
+            disabled={permissionLoading}
           >
-            编辑歌曲
+            编辑
           </button>
         )}
-        
         {showDeleteButton && (
           <button 
             className="btn btn-danger" 
-            onClick={() => onDelete && onDelete(song.songID, song.name)}
+            onClick={() => onDelete(song.songID)}
+            disabled={permissionLoading}
           >
-            删除歌曲
+            删除
           </button>
+        )}
+        {!showEditButton && !showDeleteButton && !permissionLoading && (
+          <span style={{ color: '#666', fontSize: '14px' }}>
+            仅查看模式
+          </span>
         )}
       </div>
     </div>
