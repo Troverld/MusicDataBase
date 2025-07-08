@@ -82,31 +82,20 @@ const StarRating: React.FC<StarRatingProps> = ({
     }
   };
 
-  // 生成渐变样式 - 统一使用渐变方式确保颜色一致性
+  // 生成渐变样式 - 统一使用渐变方式确保所有颜色一致性
   const getStarGradientStyle = (fillPercentage: number) => {
-    if (fillPercentage === 0) {
-      // 完全空的星星
-      return {
-        background: 'transparent',
-        WebkitBackgroundClip: 'initial',
-        WebkitTextFillColor: 'initial',
-        backgroundClip: 'initial',
-        color: '#ddd'
-      };
-    } else {
-      // 所有有填充的星星都使用渐变，确保颜色一致
-      const gradientBg = fillPercentage === 100 
-        ? `linear-gradient(90deg, #ffd700 100%, #ffd700 100%)`  // 100%时仍用渐变保持一致性
-        : `linear-gradient(90deg, #ffd700 ${fillPercentage}%, #ddd ${fillPercentage}%)`;
-      
-      return {
-        background: gradientBg,
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        color: 'transparent'
-      };
-    }
+    // 所有星星都使用渐变方式，确保灰色部分颜色完全一致
+    const gradientBg = fillPercentage === 0 
+      ? `linear-gradient(90deg, #ddd 100%, #ddd 100%)`  // 0%时用渐变确保灰色一致
+      : `linear-gradient(90deg, #ffd700 ${fillPercentage}%, #ddd ${fillPercentage}%)`;
+    
+    return {
+      background: gradientBg,
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+      color: 'transparent'
+    };
   };
 
   return (

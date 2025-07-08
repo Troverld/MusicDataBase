@@ -20,6 +20,11 @@
   .star.rational-star {
     position: relative;
     font-family: Arial, sans-serif; /* 确保星星字符显示一致 */
+    /* 所有星星都使用渐变渲染，确保颜色完全一致 */
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
   }
   
   /* 有填充的星星基础样式 */
@@ -27,10 +32,9 @@
     filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.3));
   }
   
-  /* 空星星样式 */
+  /* 空星星样式 - 现在也使用渐变确保颜色一致 */
   .star.empty {
-    color: #ddd;
-    opacity: 0.8;
+    /* 移除直接的颜色设置，全部通过渐变处理 */
   }
   
   /* 悬停效果 */
@@ -94,6 +98,7 @@
       -webkit-background-clip: initial !important;
       -webkit-text-fill-color: initial !important;
       background-clip: initial !important;
+      /* 统一使用相同的灰色 */
       color: #ddd !important;
       overflow: hidden;
       position: relative;
@@ -104,6 +109,7 @@
       position: absolute;
       left: 0;
       top: 0;
+      /* 统一使用相同的金色 */
       color: #ffd700;
       width: var(--fill-width, 0%);
       overflow: hidden;
@@ -112,8 +118,8 @@
       font-family: inherit; /* 确保字体一致 */
     }
     
-    /* 空星星特殊处理 */
-    .star.rational-star.empty::before {
+    /* 0%填充的星星不显示::before伪元素 */
+    .star.rational-star[data-fill="0"]::before {
       display: none;
     }
     
