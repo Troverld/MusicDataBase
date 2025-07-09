@@ -60,46 +60,6 @@ export const permissionService = {
     }
   },
 
-  // 验证艺术家所有权
-  async validateArtistOwnership(artistID: string): Promise<[boolean, string]> {
-    const user = getUser();
-    if (!user || !user.userToken || !user.userID) {
-      return [false, 'User not authenticated'];
-    }
-
-    const data = {
-      userID: user.userID,
-      userToken: user.userToken,
-      artistID
-    };
-
-    try {
-      return await callAPI<[boolean, string]>('validArtistOwnership', data);
-    } catch (error: any) {
-      return [false, error.message];
-    }
-  },
-
-  // 验证乐队所有权
-  async validateBandOwnership(bandID: string): Promise<[boolean, string]> {
-    const user = getUser();
-    if (!user || !user.userToken || !user.userID) {
-      return [false, 'User not authenticated'];
-    }
-
-    const data = {
-      userID: user.userID,
-      userToken: user.userToken,
-      bandID
-    };
-
-    try {
-      return await callAPI<[boolean, string]>('validBandOwnership', data);
-    } catch (error: any) {
-      return [false, error.message];
-    }
-  },
-
   // 验证专辑所有权
   async validateAlbumOwnership(albumID: string): Promise<[boolean, string]> {
     const user = getUser();

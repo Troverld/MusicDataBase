@@ -97,6 +97,7 @@ export const useArtistPermission = (artistID: string) => {
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { isAdmin } = usePermissions();
 
   const checkArtistPermission = useCallback(async () => {
     if (!artistID) {
@@ -109,10 +110,12 @@ export const useArtistPermission = (artistID: string) => {
     setError('');
 
     try {
-      const [hasPermission, message] = await permissionService.validateArtistOwnership(artistID);
-      setCanEdit(hasPermission);
-      if (!hasPermission && message) {
-        setError(message);
+      // 由于后端 validArtistOwnership API 不存在，暂时只允许管理员编辑
+      // 等待后端实现相应API后，可以恢复完整的权限检查逻辑
+      setCanEdit(isAdmin);
+      
+      if (!isAdmin) {
+        setError('仅管理员可编辑艺术家信息');
       }
     } catch (err: any) {
       setCanEdit(false);
@@ -120,7 +123,7 @@ export const useArtistPermission = (artistID: string) => {
     } finally {
       setLoading(false);
     }
-  }, [artistID]);
+  }, [artistID, isAdmin]);
 
   useEffect(() => {
     checkArtistPermission();
@@ -133,6 +136,7 @@ export const useBandPermission = (bandID: string) => {
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { isAdmin } = usePermissions();
 
   const checkBandPermission = useCallback(async () => {
     if (!bandID) {
@@ -145,10 +149,12 @@ export const useBandPermission = (bandID: string) => {
     setError('');
 
     try {
-      const [hasPermission, message] = await permissionService.validateBandOwnership(bandID);
-      setCanEdit(hasPermission);
-      if (!hasPermission && message) {
-        setError(message);
+      // 由于后端 validBandOwnership API 不存在，暂时只允许管理员编辑
+      // 等待后端实现相应API后，可以恢复完整的权限检查逻辑
+      setCanEdit(isAdmin);
+      
+      if (!isAdmin) {
+        setError('仅管理员可编辑乐队信息');
       }
     } catch (err: any) {
       setCanEdit(false);
@@ -156,7 +162,7 @@ export const useBandPermission = (bandID: string) => {
     } finally {
       setLoading(false);
     }
-  }, [bandID]);
+  }, [bandID, isAdmin]);
 
   useEffect(() => {
     checkBandPermission();
