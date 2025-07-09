@@ -99,8 +99,9 @@ export interface Genre {
 }
 
 // 新增：统计服务相关类型定义
+// 修复：支持后端返回的小写 genreID
 export interface Dim {
-  GenreID: string;
+  genreID: string;  // 修改为小写 g，匹配后端实际返回的字段名
   value: number;
 }
 

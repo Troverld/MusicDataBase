@@ -54,16 +54,13 @@ case class ValidateSongOwnershipPlanner(
         isUploader <- isUserUploader()
         _ <- IO(logger.info(s"是否为上传者: ${isUploader}"))
 
-        // Step 3: Check if the user is creator or manager
-        isCreatorManager <- if (!isUploader) isUserCreatorOrManager() else IO.pure(false)
-        _ <- IO(logger.info(s"是否为创作者或管理者: ${isCreatorManager}"))
 
         // Step 4: Check if the user is an admin
-        isAdmin <- if (!isUploader && !isCreatorManager) checkAdminPrivileges() else IO.pure(false)
+        isAdmin <- if (!isUploader) checkAdminPrivileges() else IO.pure(false)
         _ <- IO(logger.info(s"是否为管理员: ${isAdmin}"))
 
         // Step 5: Combine results
-        isOwner = isUploader || isCreatorManager || isAdmin
+        isOwner = isUploader || isAdmin
         _ <- IO(logger.info(s"最终权限验证结果 isOwner = ${isOwner}"))
 
         _ <- if (!isOwner)
@@ -91,37 +88,37 @@ case class ValidateSongOwnershipPlanner(
   }
 
 
-  private def isUserCreatorOrManager()(using PlanContext): IO[Boolean] = {
-    for {
-      _ <- IO(logger.info(s"开始验证是否为创作者或管理者"))
-
-      songDataOpt <- readDBJsonOptional(
-        s"SELECT creators FROM ${schemaName}.song_table WHERE song_id = ?",
-        List(SqlParameter("String", songID))
-      )
-
-      creatorsList <- songDataOpt match {
-        case Some(json) =>
-          json.hcursor.get[String]("creators") match {
-            case Right(creatorsStr) =>
-              io.circe.parser.decode[List[String]](creatorsStr) match {
-                case Right(list) => IO.pure(list)
-                case Left(err) =>
-                  IO(logger.error(s"解析 creators 字段失败: ${err.getMessage}")) *> IO.pure(List())
-              }
-            case Left(err) =>
-              IO(logger.error(s"读取 creators 字段失败: ${err.getMessage}")) *> IO.pure(List())
-          }
-        case None =>
-          IO(logger.error("歌曲数据不存在")) *> IO.pure(List())
-      }
-
-      _ <- IO(logger.info(s"歌曲创作者列表: ${creatorsList}"))
-
-      isManagedByUser <- creatorsList.existsM(isManagedByUserID)
-      _ <- IO(logger.info(s"是否存在创作者/乐队受用户 ${userID} 管理: ${isManagedByUser}"))
-    } yield isManagedByUser
-  }
+//  private def isUserCreatorOrManager()(using PlanContext): IO[Boolean] = {
+//    for {
+//      _ <- IO(logger.info(s"开始验证是否为创作者或管理者"))
+//
+//      songDataOpt <- readDBJsonOptional(
+//        s"SELECT creators FROM ${schemaName}.song_table WHERE song_id = ?",
+//        List(SqlParameter("String", songID))
+//      )
+//
+//      creatorsList <- songDataOpt match {
+//        case Some(json) =>
+//          json.hcursor.get[String]("creators") match {
+//            case Right(creatorsStr) =>
+//              io.circe.parser.decode[List[String]](creatorsStr) match {
+//                case Right(list) => IO.pure(list)
+//                case Left(err) =>
+//                  IO(logger.error(s"解析 creators 字段失败: ${err.getMessage}")) *> IO.pure(List())
+//              }
+//            case Left(err) =>
+//              IO(logger.error(s"读取 creators 字段失败: ${err.getMessage}")) *> IO.pure(List())
+//          }
+//        case None =>
+//          IO(logger.error("歌曲数据不存在")) *> IO.pure(List())
+//      }
+//
+//      _ <- IO(logger.info(s"歌曲创作者列表: ${creatorsList}"))
+//
+//      isManagedByUser <- creatorsList.existsM(isManagedByUserID)
+//      _ <- IO(logger.info(s"是否存在创作者/乐队受用户 ${userID} 管理: ${isManagedByUser}"))
+//    } yield isManagedByUser
+//  }
 
   private def isManagedByUserID(creatorID: String)(using PlanContext): IO[Boolean] = {
     for {

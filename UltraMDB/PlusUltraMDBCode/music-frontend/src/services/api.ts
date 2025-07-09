@@ -53,8 +53,6 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'SearchBandByName': 'creator',
   'AddArtistManager': 'creator',
   'AddBandManager': 'creator',
-  'validArtistOwnership': 'creator',    // 更正：保持小写开头
-  'validBandOwnership': 'creator',      // 更正：保持小写开头
   
   // TrackService APIs
   'CreateAlbum': 'track',

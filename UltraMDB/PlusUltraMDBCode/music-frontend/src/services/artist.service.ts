@@ -71,7 +71,7 @@ export const artistService = {
   },
 
   // 根据名称搜索艺术家
-  async searchArtistByName(artistName: string): Promise<[string[] | null, string]> {
+  async searchArtistByName(name: string): Promise<[string[] | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
@@ -80,17 +80,36 @@ export const artistService = {
     const data = {
       userID: user.userID,
       userToken: user.userToken,
-      artistName
+      name
     };
 
     return callAPI<[string[] | null, string]>('SearchArtistByName', data);
   },
 
-  // 批量获取艺术家详情
+  // 获取所有创作者
+  async getAllCreators(): Promise<[Artist[] | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken
+    };
+
+    return callAPI<[Artist[] | null, string]>('GetAllCreators', data);
+  },
+
+  // 批量获取艺术家信息
   async getArtistsByIds(artistIDs: string[]): Promise<Artist[]> {
+    if (!artistIDs || artistIDs.length === 0) {
+      return [];
+    }
+
     const artists: Artist[] = [];
     
-    // 并行获取所有艺术家详情
+    // 批量获取艺术家信息
     const promises = artistIDs.map(artistID => this.getArtistById(artistID));
     const results = await Promise.allSettled(promises);
     
@@ -125,21 +144,5 @@ export const artistService = {
     };
 
     return callAPI<[boolean, string]>('AddArtistManager', data);
-  },
-
-  // 验证艺术家所有权
-  async validateArtistOwnership(artistID: string): Promise<[boolean, string]> {
-    const user = getUser();
-    if (!user || !user.userToken || !user.userID) {
-      throw new Error('User not authenticated');
-    }
-
-    const data = {
-      userID: user.userID,
-      userToken: user.userToken,
-      artistID
-    };
-
-    return callAPI<[boolean, string]>('validArtistOwnership', data);
   }
 };
