@@ -112,14 +112,15 @@ object StatisticsUtils {
   def add(profile1: Profile, profile2: Profile): Profile = {
     val map1 = profile1.vector.map(dim => (dim.GenreID, dim.value)).toMap
     val map2 = profile2.vector.map(dim => (dim.GenreID, dim.value)).toMap
-    
+
     val allKeys = map1.keySet ++ map2.keySet
     val summedVector = allKeys.toList.map { key =>
       Dim(key, map1.getOrElse(key, 0.0) + map2.getOrElse(key, 0.0))
     }
-    
+
     Profile(
       summedVector,
-      norm = false  // Sum of normalized vectors isn't necessarily normalized
+      norm = false // Sum of normalized vectors isn't necessarily normalized
     )
+  }
 }

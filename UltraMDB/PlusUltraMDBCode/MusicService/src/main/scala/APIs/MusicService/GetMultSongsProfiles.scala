@@ -35,26 +35,26 @@ case object GetMultSongsProfiles{
   import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[GetSongByID] = deriveEncoder
-  private val circeDecoder: Decoder[GetSongByID] = deriveDecoder
+  private val circeEncoder: Encoder[GetMultSongsProfiles] = deriveEncoder
+  private val circeDecoder: Decoder[GetMultSongsProfiles] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[GetSongByID] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[GetMultSongsProfiles] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[GetSongByID] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[GetSongByID]() {})) } 
+  private val jacksonDecoder: Decoder[GetMultSongsProfiles] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[GetMultSongsProfiles]() {})) }
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
   
   // Circe + Jackson 兜底的 Encoder
-  given getSongByIDEncoder: Encoder[GetSongByID] = Encoder.instance { config =>
+  given GetMultSongsProfilesEncoder: Encoder[GetMultSongsProfiles] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
   // Circe + Jackson 兜底的 Decoder
-  given getSongByIDDecoder: Decoder[GetSongByID] = Decoder.instance { cursor =>
+  given GetMultSongsProfilesDecoder: Decoder[GetMultSongsProfiles] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 
