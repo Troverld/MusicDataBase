@@ -78,9 +78,9 @@ const UserProfile: React.FC = () => {
     if (profile && profile.vector) {
       const processedData = profile.vector
         .map(dim => ({
-          genreID: dim.GenreID,
+          genreID: dim.genreID,  // 修改：使用小写的 genreID
           value: dim.value,
-          name: getGenreNameById(dim.GenreID)
+          name: getGenreNameById(dim.genreID)  // 修改：使用小写的 genreID
         }))
         .sort((a, b) => b.value - a.value);
       
@@ -154,87 +154,82 @@ const UserProfile: React.FC = () => {
               📊 {profile.norm ? '已归一化' : '未归一化'}
             </span>
             <span className="stat-item">
-              🎵 {sortedData.length} 个曲风偏好
+              🎵 {sortedData.length} 种曲风
             </span>
           </div>
         </div>
       </div>
-
+      
       <div className="profile-content">
+        {/* 条形图表 */}
         <div className="chart-section">
-          <h2>曲风偏好分布</h2>
+          <h2>音乐偏好分布</h2>
           <div className="chart-container">
             <div className="bar-chart">
               {sortedData.map((item, index) => (
                 <div key={item.genreID} className="bar-item">
-                  <div className="bar-wrapper">
-                    <div 
-                      className="bar"
-                      style={{
-                        height: `${Math.max(item.value * 100, 2)}%`,
-                        backgroundColor: getBarColor(item.value, index)
-                      }}
-                      title={`${item.name}: ${formatPreference(item.value)}`}
-                    >
-                      <div className="bar-value">
-                        {formatPreference(item.value)}
-                      </div>
-                    </div>
+                  <div 
+                    className="bar" 
+                    style={{
+                      height: `${item.value * 300}px`,
+                      backgroundColor: getBarColor(item.value, index),
+                      minHeight: '20px'
+                    }}
+                  >
+                    <span className="bar-value">{formatPreference(item.value)}</span>
                   </div>
-                  <div className="bar-label">
-                    {item.name}
-                  </div>
+                  <div className="bar-label">{item.name}</div>
                 </div>
               ))}
             </div>
           </div>
         </div>
-
+        
+        {/* 详细数据表格 */}
         <div className="data-section">
-          <h2>详细数据</h2>
+          <h2>详细偏好数据</h2>
           <div className="data-table">
             <div className="table-header">
-              <span>排名</span>
-              <span>曲风</span>
-              <span>偏好度</span>
-              <span>占比条形图</span>
+              <div className="table-cell">排名</div>
+              <div className="table-cell">曲风</div>
+              <div className="table-cell">偏好度</div>
+              <div className="table-cell">可视化</div>
             </div>
             {sortedData.map((item, index) => (
               <div key={item.genreID} className="table-row">
-                <span className="rank">#{index + 1}</span>
-                <span className="genre-name">{item.name}</span>
-                <span className="preference-value">{formatPreference(item.value)}</span>
-                <span className="mini-bar">
-                  <div 
-                    className="mini-bar-fill"
-                    style={{
-                      width: `${item.value * 100}%`,
-                      backgroundColor: getBarColor(item.value, index)
-                    }}
-                  ></div>
-                </span>
+                <div className="table-cell rank">#{index + 1}</div>
+                <div className="table-cell genre-name">{item.name}</div>
+                <div className="table-cell percentage">{formatPreference(item.value)}</div>
+                <div className="table-cell">
+                  <div className="mini-bar-container">
+                    <div 
+                      className="mini-bar"
+                      style={{
+                        width: `${item.value * 100}%`,
+                        backgroundColor: getBarColor(item.value, index)
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </div>
-
+        
+        {/* 用户画像洞察 */}
         <div className="insights-section">
-          <h2>📊 音乐偏好洞察</h2>
+          <h2>音乐偏好洞察</h2>
           <div className="insights-grid">
             <div className="insight-card">
-              <h3>🏆 最偏爱的曲风</h3>
-              <div className="top-genre">
-                <span className="genre-icon">🎵</span>
-                <span className="genre-text">
-                  {sortedData[0]?.name} ({formatPreference(sortedData[0]?.value)})
-                </span>
-              </div>
+              <h3>🎵 主要偏好</h3>
+              <p className="primary-genre">{sortedData[0]?.name || '暂无'}</p>
+              <p className="preference-level">偏好度：{sortedData[0] ? formatPreference(sortedData[0].value) : '0%'}</p>
             </div>
             
             <div className="insight-card">
               <h3>🎨 偏好多样性</h3>
               <div className="diversity-score">
-                {sortedData.length >= 5 ? (
+                {sortedData.filter(item => item.value > 0.1).length >= 3 ? (
                   <span className="high-diversity">🌈 多样化偏好</span>
                 ) : (
                   <span className="focused-preference">🎯 专注偏好</span>
