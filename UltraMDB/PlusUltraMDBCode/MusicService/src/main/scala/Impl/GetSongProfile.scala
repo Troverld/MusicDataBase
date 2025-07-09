@@ -62,7 +62,7 @@ case class GetSongProfile(
 
   private def performSearch(using PlanContext): IO[(Option[Profile], String)] = {
     for {
-      // Step 1: 读取这首歌的 genres 字段
+      // Step 1: 获取歌曲 genres 字段
       songJsonOpt <- readDBJsonOptional(
         s"SELECT genres FROM ${schemaName}.song_table WHERE song_id = ?;",
         List(SqlParameter("String", songID))
@@ -72,7 +72,6 @@ case class GetSongProfile(
         case Some(jsonObj) =>
           val field = jsonObj.hcursor.downField("genres")
           if (field.focus.exists(_.isString)) {
-            // 如果是字符串，先解析成数组
             field.as[String].flatMap { rawStr =>
               io.circe.parser.parse(rawStr).flatMap(_.as[List[String]])
             } match {
@@ -91,16 +90,14 @@ case class GetSongProfile(
       }
 
       // Step 2: 读取所有 genre_id
-      allGenresJson <- readDBJson(
+      allGenreRows <- readDBRows(
         s"SELECT genre_id FROM ${schemaName}.genre_table;",
         List()
       )
 
-      allGenres <- IO.fromEither(
-        allGenresJson.as[List[Map[String, String]]].map(_.flatMap(_.get("genre_id")))
-      )
+      allGenres = allGenreRows.map(json => decodeField[String](json, "genre_id"))
 
-      // Step 3: 构建 Profile 向量（genre 是否出现）
+      // Step 3: 构建 Profile 向量
       profileVec = allGenres.map { gid =>
         Dim(GenreID = gid, value = if (songGenres.contains(gid)) 1.0 else 0.0)
       }
