@@ -1,7 +1,7 @@
 package Utils
 
 import Common.API.PlanContext
-import APIs.MusicService.{GetMultiSongsProfiles, GetSongProfile}
+import APIs.MusicService.{GetMultSongsProfiles, GetSongProfile}
 import Objects.StatisticsService.{Dim, Profile}
 import cats.effect.IO
 import cats.implicits._
