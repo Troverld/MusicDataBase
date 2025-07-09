@@ -1,7 +1,8 @@
 package Impl
 
 // 外部服务API的导入
-import APIs.CreatorService.GetArtistByID // 用于验证 artistID 是否存在
+
+import Utils.SearchUtil
 import APIs.OrganizeService.validateUserMapping
 
 // 内部项目通用库的导入
@@ -43,7 +44,7 @@ case class SearchAllBelongingBandsPlanner(
       _ <- verifyArtistExists()
 
       // Step 3: 在数据库中执行查询
-      bandIDs <- findBandsByMember()
+      bandIDs <- SearchUtil.findBandsByMemberFromDB(artistID)
 
     } yield {
       // Step 4: 格式化成功响应
@@ -74,36 +75,10 @@ case class SearchAllBelongingBandsPlanner(
    * 这可以防止对无效 artistID 进行昂贵的数据库查询。
    */
   private def verifyArtistExists()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在验证艺术家是否存在: ${artistID}")
-    GetArtistByID(userID, userToken, artistID).send.flatMap {
-      case (Some(_), _) => logInfo("艺术家存在，继续查询。")
-      case (None, _)    => IO.raiseError(new Exception("指定的艺术家ID不存在"))
-    }
-  }
-
-  /**
-   * 在 band_table 中查询 members 字段包含指定 artistID 的所有记录。
-   *
-   * @return A list of matching band IDs.
-   */
-  private def findBandsByMember()(using PlanContext): IO[List[String]] = {
-    logInfo(s"正在数据库中搜索包含成员 ${artistID} 的乐队...")
-
-    val query = s"""SELECT band_id FROM "${schemaName}"."band_table" WHERE members::jsonb @> ?::jsonb"""
-    val artistIdAsJsonArray = s"""["$artistID"]"""
-    val params = List(SqlParameter("String", artistIdAsJsonArray))
-
-    readDBRows(query, params).flatMap { rows =>
-      // 参照 SearchBandByNamePlanner 的正确实现进行修正。
-      // 我们的数据库服务层会将 snake_case (band_id) 转换为 camelCase (bandID)。
-      // 因此，我们必须使用 "bandID" 来解码 JSON。
-      rows.traverse { row =>
-        // 使用 IO.fromEither 可以使代码更简洁，它直接将 Either[Throwable, A] 转换为 IO[A]。
-        IO.fromEither(row.hcursor.get[String]("bandID"))
-      }.handleErrorWith { error =>
-        // 提供一个更清晰的错误上下文。
-        IO.raiseError(new Exception(s"从数据库行解码 bandID 失败: ${error.getMessage}", error))
-      }
+    logInfo(s"正在通过 SearchUtil 验证艺术家是否存在: ${artistID}")
+    SearchUtil.fetchArtistFromDB(artistID).flatMap { // <-- 直接调用
+      case Some(_) => logInfo("艺术家存在，继续查询。")
+      case None    => IO.raiseError(new Exception("指定的艺术家ID不存在"))
     }
   }
 

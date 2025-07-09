@@ -1,7 +1,7 @@
 package Impl
 
 // 外部服务API的导入
-import APIs.CreatorService.{GetArtistByID, GetBandByID}
+import Utils.SearchUtil
 import APIs.OrganizeService.validateAdminMapping
 
 // 内部项目通用库的导入
@@ -81,35 +81,30 @@ case class UpdateBandMessagePlanner(
   private def validateMemberIDs(memberIDsOpt: Option[List[String]])(using PlanContext): IO[Unit] = {
     memberIDsOpt match {
       case Some(ids) if ids.nonEmpty =>
-        // --- 新增：检查重复成员 ---
-        val distinctIDs = ids.toSet
+        val distinctIDs = ids.distinct
         if (distinctIDs.size < ids.size) {
-          val duplicates = ids.groupBy(identity).collect { case (id, list) if list.size > 1 => id }.mkString(", ")
-          return IO.raiseError(new IllegalArgumentException(s"提供的成员列表中包含重复的艺术家ID: ${duplicates}"))
+          return IO.raiseError(new IllegalArgumentException("提供的成员列表中包含重复的艺术家ID"))
         }
-        // --- 新增结束 ---
 
-        logInfo(s"正在并行验证 ${distinctIDs.size} 个唯一成员ID的有效性...")
-        distinctIDs.toList.parTraverse { memberID =>
-          GetArtistByID(userID, userToken, memberID).send.map(result => memberID -> result._1.isDefined)
-        }.flatMap { results =>
-          val invalidResults = results.filterNot(_._2)
-          if (invalidResults.nonEmpty) {
-            val invalidIDs = invalidResults.map(_._1).mkString(", ")
-            IO.raiseError(new Exception(s"部分成员ID无效或不存在: ${invalidIDs}"))
+        logInfo(s"正在批量验证 ${distinctIDs.size} 个唯一成员ID的有效性...")
+        SearchUtil.fetchArtistsFromDB(distinctIDs).flatMap { foundArtists =>
+          val foundIDs = foundArtists.map(_.artistID).toSet
+          val invalidIDs = distinctIDs.toSet -- foundIDs
+          if (invalidIDs.nonEmpty) {
+            IO.raiseError(new Exception(s"部分成员ID无效或不存在: ${invalidIDs.mkString(", ")}"))
           } else {
-            logInfo("所有提供的成员ID均有效且无重复。")
+            logInfo("所有提供的成员ID均有效。")
           }
         }
-      case _ => IO.unit // 如果没有提供成员列表，则不需要验证。
+      case _ => IO.unit
     }
   }
 
   private def getBand()(using PlanContext): IO[Band] = {
-    logInfo(s"正在获取乐队 ${bandID} 的当前信息")
-    GetBandByID(userID, userToken, bandID).send.flatMap {
-      case (Some(band), _) => logInfo("成功获取到乐队当前信息。").as(band)
-      case (None, message) => IO.raiseError(new Exception(s"无法获取乐队信息: $message"))
+    logInfo(s"正在通过 SearchUtil 获取乐队 ${bandID} 的当前信息")
+    SearchUtil.fetchBandFromDB(bandID).flatMap { // <-- 直接调用
+      case Some(band) => IO.pure(band)
+      case None => IO.raiseError(new Exception(s"无法获取乐队信息: ID ${bandID} 不存在"))
     }
   }
 

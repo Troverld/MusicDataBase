@@ -1,7 +1,7 @@
 package Impl
 
 // External service APIs
-import APIs.CreatorService.GetBandByID
+import Utils.SearchUtil
 import APIs.MusicService.FilterSongsByEntity
 import APIs.OrganizeService.validateAdminMapping
 import Objects.CreatorService.{CreatorID_Type, CreatorType}
@@ -62,16 +62,10 @@ case class DeleteBandMessagePlanner(
    * 使用 GetBandByID API 检查乐队是否存在。如果不存在则失败。
    */
   private def verifyBandExists()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在通过 API 确认乐队是否存在: ${bandID}")
-    // 调用 GetBandByID API
-    GetBandByID(adminID, adminToken, bandID).send.flatMap {
-      // API 返回一个元组 (Option[Band], String)
-      case (Some(_), _) =>
-        // 如果 Option[Band] 是 Some，说明乐队存在
-        logInfo("乐队存在，继续执行。")
-      case (None, _) =>
-        // 如果是 None，说明乐队不存在，抛出错误
-        IO.raiseError(new Exception("乐队ID不存在"))
+    logInfo(s"正在通过 SearchUtil 确认乐队是否存在: ${bandID}")
+    SearchUtil.fetchBandFromDB(bandID).flatMap { // <-- 直接调用
+      case Some(_) => logInfo("乐队存在，继续执行。")
+      case None    => IO.raiseError(new Exception("乐队ID不存在"))
     }
   }
 

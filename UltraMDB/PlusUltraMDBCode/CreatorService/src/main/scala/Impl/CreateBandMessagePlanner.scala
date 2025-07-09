@@ -1,7 +1,7 @@
 package Impl
 
 // 外部服务API的导入
-import APIs.CreatorService.GetArtistByID
+import Utils.SearchUtil
 import APIs.OrganizeService.validateAdminMapping
 
 // 内部项目通用库的导入
@@ -87,29 +87,20 @@ case class CreateBandMessagePlanner(
    * 2. 通过并行调用 GetArtistByID 来验证每个ID是否对应一个存在的艺术家。
    */
   private def validateMembers(memberIDs: List[String])(using PlanContext): IO[Unit] = {
-    if (memberIDs.isEmpty) {
-      logInfo("成员列表为空，跳过验证。")
-      return IO.unit
-    }
+    if (memberIDs.isEmpty) return IO.unit
 
-    // --- 新增：检查重复成员 ---
-    val distinctMemberIDs = memberIDs.toSet
+    val distinctMemberIDs = memberIDs.distinct
     if (distinctMemberIDs.size < memberIDs.size) {
-      // 找出重复的元素用于报错
       val duplicates = memberIDs.groupBy(identity).collect { case (id, list) if list.size > 1 => id }.mkString(", ")
       return IO.raiseError(new IllegalArgumentException(s"成员列表中包含重复的艺术家ID: ${duplicates}"))
     }
-    // --- 新增结束 ---
 
-    logInfo(s"正在并行验证 ${distinctMemberIDs.size} 个唯一成员ID的有效性...")
-    // 使用 distinctMemberIDs.toList 来避免对重复ID进行不必要的API调用
-    distinctMemberIDs.toList.parTraverse { memberID =>
-      GetArtistByID(adminID, adminToken, memberID).send.map(result => memberID -> result._1.isDefined)
-    }.flatMap { results =>
-      val invalidResults = results.filterNot(_._2)
-      if (invalidResults.nonEmpty) {
-        val invalidIDs = invalidResults.map(_._1).mkString(", ")
-        IO.raiseError(new Exception(s"部分成员ID无效或不存在: ${invalidIDs}"))
+    logInfo(s"正在批量验证 ${distinctMemberIDs.size} 个唯一成员ID的有效性...")
+    SearchUtil.fetchArtistsFromDB(distinctMemberIDs).flatMap { foundArtists =>
+      val foundIDs = foundArtists.map(_.artistID).toSet
+      val invalidIDs = distinctMemberIDs.toSet -- foundIDs
+      if (invalidIDs.nonEmpty) {
+        IO.raiseError(new Exception(s"部分成员ID无效或不存在: ${invalidIDs.mkString(", ")}"))
       } else {
         logInfo("所有成员ID均有效且无重复。")
       }

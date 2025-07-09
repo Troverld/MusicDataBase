@@ -4,7 +4,7 @@ package Impl
 // import APIs.CreatorService.{GetArtistByID, ValidArtistOwnership}
 
 import APIs.OrganizeService.validateAdminMapping
-import APIs.CreatorService.GetArtistByID
+import Utils.SearchUtil
 
 // 内部项目通用库的导入
 import Common.API.{PlanContext, Planner}
@@ -86,13 +86,10 @@ case class UpdateArtistMessagePlanner(
    * This is necessary to fill in any fields that are not being updated.
    */
   private def getArtist()(using PlanContext): IO[Artist] = {
-    logInfo(s"正在获取艺术家 ${artistID} 的当前信息以进行更新")
-    GetArtistByID(userID, userToken, artistID).send.flatMap {
-      case (Some(artist), _) =>
-        logInfo("成功获取到艺术家当前信息。")
-        IO.pure(artist)
-      case (None, message) =>
-        IO.raiseError(new Exception(s"无法获取艺术家信息: $message"))
+    logInfo(s"正在通过 SearchUtil 获取艺术家 ${artistID} 的当前信息")
+    SearchUtil.fetchArtistFromDB(artistID).flatMap { // <-- 直接调用
+      case Some(artist) => IO.pure(artist)
+      case None => IO.raiseError(new Exception(s"无法获取艺术家信息: ID ${artistID} 不存在"))
     }
   }
 

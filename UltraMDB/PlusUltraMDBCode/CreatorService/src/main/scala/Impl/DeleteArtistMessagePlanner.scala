@@ -1,7 +1,7 @@
 package Impl
 
 // External service APIs
-import APIs.CreatorService.{GetArtistByID, SearchAllBelongingBands}
+import Utils.SearchUtil
 import APIs.MusicService.FilterSongsByEntity
 import APIs.OrganizeService.validateAdminMapping
 import Objects.CreatorService.{CreatorID_Type, CreatorType}
@@ -58,10 +58,10 @@ case class DeleteArtistMessagePlanner(
   }
 
   private def verifyArtistExists()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在通过 API 确认艺术家是否存在: ${artistID}")
-    GetArtistByID(adminID, adminToken, artistID).send.flatMap {
-      case (Some(_), _) => logInfo("艺术家存在，继续执行。")
-      case (None, _)    => IO.raiseError(new Exception("艺术家ID不存在"))
+    logInfo(s"正在通过 SearchUtil 确认艺术家是否存在: ${artistID}")
+    SearchUtil.fetchArtistFromDB(artistID).flatMap { // <-- 直接调用
+      case Some(_) => logInfo("艺术家存在，继续执行。")
+      case None    => IO.raiseError(new Exception("艺术家ID不存在"))
     }
   }
 
@@ -80,18 +80,10 @@ case class DeleteArtistMessagePlanner(
         case _                   => false
       }
 
-    // 【重构核心】检查是否是任何一个乐队的成员
+    // 【关键改动】直接调用 SearchUtil 检查是否是任何一个乐队的成员
     val bandMembershipCheck: IO[Boolean] = {
-      logInfo(s"正在通过 API 检查艺术家 ${artistID} 的乐队成员关系...")
-      SearchAllBelongingBands(adminID, adminToken, artistID).send.flatMap {
-        // API 返回 (Option[List[String]], String)
-        case (Some(bandIDs), _) =>
-          // 如果操作成功，检查返回的列表是否非空
-          IO.pure(bandIDs.nonEmpty)
-        case (None, errorMsg) =>
-          // 如果操作失败 (例如，底层的 Planner 抛出错误)，则将此视为一个需要中止的错误
-          IO.raiseError(new Exception(s"检查乐队成员关系失败: $errorMsg"))
-      }
+      logInfo(s"正在通过 SearchUtil 检查艺术家 ${artistID} 的乐队成员关系...")
+      SearchUtil.findBandsByMemberFromDB(artistID).map(_.nonEmpty)
     }
 
     // 并行执行所有检查

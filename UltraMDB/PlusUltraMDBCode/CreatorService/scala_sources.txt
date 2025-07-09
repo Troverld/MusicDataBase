@@ -1,0 +1,2945 @@
+ 
+ 
+// ===== src\main\scala\Impl\AddArtistManagerPlanner.scala ===== 
+ 
+// package Impl
+
+// // 外部服务API的导入
+// import APIs.CreatorService.GetArtistByID // <-- 新增: 导入我们将要调用的API
+// import APIs.OrganizeService.validateAdminMapping
+
+// // 内部项目通用库的导入
+// import Common.API.{PlanContext, Planner}
+// import Common.DBAPI._
+// import Common.Object.SqlParameter
+// import Common.ServiceUtils.schemaName
+// import Objects.CreatorService.Artist
+
+// // 第三方库的导入
+// import cats.effect.IO
+// import cats.implicits._
+// import io.circe.generic.auto._
+// import io.circe.syntax._
+// import org.slf4j.LoggerFactory
+
+// /**
+//  * Planner for AddArtistManager: 处理为艺术家添加管理者的业务逻辑。
+//  *
+//  * 此实现已重构，不再直接查询数据库以获取艺术家信息，
+//  * 而是通过调用 GetArtistByID API 来实现，以促进服务解耦。
+//  *
+//  * @param adminID     执行操作的管理员ID。
+//  * @param adminToken  管理员的认证令牌。
+//  * @param userID      将被添加为管理者的用户ID。
+//  * @param artistID    目标艺术家的ID。
+//  * @param planContext 隐式执行上下文。
+//  */
+// case class AddArtistManagerPlanner(
+//   adminID: String,
+//   adminToken: String,
+//   userID: String,
+//   artistID: String,
+//   override val planContext: PlanContext
+// ) extends Planner[(Boolean, String)] {
+
+//   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+//   override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+//     val logic: IO[(Boolean, String)] = for {
+//       // 步骤 1: 验证管理员凭证
+//       _ <- validateAdmin()
+
+//       // 步骤 2: 验证目标用户是否存在
+//       _ <- verifyUserExists()
+
+//       // 步骤 3: 通过API获取艺术家信息
+//       artist <- getArtistViaAPI() // <-- 关键改动: 调用新方法
+
+//       // 步骤 4: 确保用户尚未成为该艺术家的管理者
+//       _ <- checkNotAlreadyManager(artist)
+
+//       // 步骤 5: 更新艺术家的管理者列表
+//       _ <- updateArtistManagerList(artist)
+//     } yield (true, "管理者添加成功")
+
+//     // 统一的错误处理
+//     logic.handleErrorWith { error =>
+//       logError(s"为艺术家 ${artistID} 添加管理者 ${userID} 的操作失败", error) >>
+//         IO.pure((false, error.getMessage))
+//     }
+//   }
+
+//   /** 验证管理员身份。*/
+//   private def validateAdmin()(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在验证管理员凭证: adminID=${adminID}") >>
+//       validateAdminMapping(adminID, adminToken).send.flatMap {
+//         case (true, _) => logInfo("管理员验证通过。")
+//         case (false, errorMsg) => IO.raiseError(new Exception(s"管理员认证失败: $errorMsg"))
+//       }
+//   }
+
+//   /** 验证目标用户是否存在于数据库中。*/
+//   private def verifyUserExists()(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在检查用户是否存在: userID=${userID}") >> {
+//       val query = s"SELECT EXISTS(SELECT 1 FROM ${schemaName}.user WHERE user_id = ?)"
+//       readDBBoolean(query, List(SqlParameter("String", userID))).flatMap {
+//         case true  => logInfo(s"用户(userID=${userID})存在。")
+//         case false => IO.raiseError(new Exception("指定的用户不存在"))
+//       }
+//     }
+//   }
+
+//   // --- 这是被替换的部分 ---
+//   // private def fetchArtist()(using PlanContext): IO[Artist] = { ... } // 旧的直接DB查询方法已被删除
+
+//   /**
+//    * [新增] 通过调用 GetArtistByID API 来获取艺术家信息。
+//    * 这种方式将数据获取的逻辑委托给专门的API，实现了关注点分离。
+//    * 该方法将API返回的 (Option[Artist], String) 转换为 fail-fast 的 IO[Artist]。
+//    */
+//   private def getArtistViaAPI()(using PlanContext): IO[Artist] = {
+//     logInfo(s"正在通过 GetArtistByID API 查询艺术家: artistID=${artistID}")
+//     // 管理员作为请求的发起者，使用其身份进行查询
+//     GetArtistByID(userID = adminID, userToken = adminToken, artistID = artistID).send.flatMap {
+//       case (Some(artist), _) =>
+//         // API调用成功且找到了艺术家
+//         logInfo(s"API查询成功，找到艺术家: ${artist.name}")
+//         IO.pure(artist)
+//       case (None, message) =>
+//         // API调用成功但未找到艺术家，或API调用本身失败并返回了错误信息。
+//         // 对于当前流程，这两种情况都应视为失败。
+//         IO.raiseError(new Exception(message))
+//     }
+//   }
+
+//   /** 检查用户是否已经是该艺术家的管理者。*/
+//   private def checkNotAlreadyManager(artist: Artist)(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在检查用户 ${userID} 是否已是艺术家 ${artistID} 的管理者") >> {
+//       val isAlreadyManager = artist.managedBy.contains(userID)
+//       if (isAlreadyManager) IO.raiseError(new Exception("该用户已经是此艺术家的管理者"))
+//       else logInfo(s"用户 ${userID} 不是管理者，可以继续。")
+//     }
+//   }
+
+//   /** 将新用户ID添加到艺术家的 managedBy 列表并更新数据库。*/
+//   private def updateArtistManagerList(artist: Artist)(using PlanContext): IO[Unit] = {
+//     val updatedList = artist.managedBy :+ userID
+//     val query = s"UPDATE ${schemaName}.artist_table SET managed_by = ? WHERE artist_id = ?"
+//     logInfo(s"正在更新艺术家 ${artistID} 的管理者列表") >>
+//       writeDB(
+//         query,
+//         List(
+//           SqlParameter("String", updatedList.asJson.noSpaces),
+//           SqlParameter("String", artist.artistID)
+//         )
+//       ).void
+//   }
+
+//   /** 记录一条带 TraceID 的参考信息日志。*/
+//   private def logInfo(message: String): IO[Unit] =
+//     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+//   /** 记录一条带 TraceID 的错误日志。*/
+//   private def logError(message: String, cause: Throwable): IO[Unit] =
+//     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+// } 
+// ===== End of src\main\scala\Impl\AddArtistManagerPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\AddBandManagerPlanner.scala ===== 
+ 
+// package Impl
+
+// // 外部服务API的导入
+// import APIs.CreatorService.GetBandByID // The API to fetch band details
+// import APIs.OrganizeService.validateAdminMapping
+
+// // 内部项目通用库的导入
+// import Common.API.{PlanContext, Planner}
+// import Common.DBAPI._
+// import Common.Object.SqlParameter
+// import Common.ServiceUtils.schemaName
+// import Objects.CreatorService.Band // The authoritative Band object definition
+
+// // 第三方库的导入
+// import cats.effect.IO
+// import cats.implicits._
+// import io.circe.generic.auto._
+// import io.circe.syntax._
+// import org.slf4j.LoggerFactory
+
+// /**
+//  * Planner for AddBandManager: Handles adding a user as a manager for a band.
+//  *
+//  * This implementation has been refactored to call the GetBandByID API
+//  * for fetching band data, rather than accessing the database directly.
+//  *
+//  * @param adminID     The administrator's user ID performing the action.
+//  * @param adminToken  The administrator's authentication token.
+//  * @param userID      The user ID to be added as a manager.
+//  * @param bandID      The ID of the band to be managed.
+//  * @param planContext The implicit execution context.
+//  */
+// case class AddBandManagerPlanner(
+//   adminID: String,
+//   adminToken: String,
+//   userID: String,
+//   bandID: String,
+//   override val planContext: PlanContext
+// ) extends Planner[(Boolean, String)] { // Aligned with the official API return type
+
+//   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+//   override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+//     val logic: IO[(Boolean, String)] = for {
+//       // Step 1: Validate administrator credentials.
+//       _ <- validateAdmin()
+
+//       // Step 2: Verify that the target user exists.
+//       _ <- verifyUserExists()
+
+//       // Step 3: Fetch the band's information via its dedicated API.
+//       band <- getBandViaAPI()
+
+//       // Step 4: Ensure the user is not already a manager for the band.
+//       _ <- checkNotAlreadyManager(band)
+
+//       // Step 5: Add the user to the band's manager list and persist the change.
+//       _ <- updateBandManagerList(band)
+//     } yield (true, "管理者添加成功")
+
+//     // Unified error handling for the entire process.
+//     logic.handleErrorWith { error =>
+//       logError(s"为乐队 ${bandID} 添加管理者 ${userID} 的操作失败", error) >>
+//         IO.pure((false, error.getMessage))
+//     }
+//   }
+
+//   /** Validates the admin credentials by calling the authentication service. */
+//   private def validateAdmin()(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在验证管理员凭证: adminID=${adminID}") >>
+//       validateAdminMapping(adminID, adminToken).send.flatMap {
+//         case (true, _) => logInfo("管理员验证通过。")
+//         case (false, errorMsg) => IO.raiseError(new Exception(s"管理员认证失败: $errorMsg"))
+//       }
+//   }
+
+//   /** Verifies that the user to be added exists in the database. */
+//   private def verifyUserExists()(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在检查用户是否存在: userID=${userID}") >> {
+//       val query = s"SELECT EXISTS(SELECT 1 FROM ${schemaName}.user WHERE user_id = ?)"
+//       readDBBoolean(query, List(SqlParameter("String", userID))).flatMap {
+//         case true  => logInfo(s"用户(userID=${userID})存在。")
+//         case false => IO.raiseError(new Exception("指定的用户不存在"))
+//       }
+//     }
+//   }
+
+//   /** Fetches band information by calling the GetBandByID API. */
+//   private def getBandViaAPI()(using PlanContext): IO[Band] = {
+//     logInfo(s"正在通过 GetBandByID API 查询乐队: bandID=${bandID}")
+//     // The admin uses their own credentials to authorize the lookup.
+//     GetBandByID(userID = adminID, userToken = adminToken, bandID = bandID).send.flatMap {
+//       case (Some(band), _) =>
+//         logInfo(s"API查询成功，找到乐队: ${band.name}")
+//         IO.pure(band)
+//       case (None, message) =>
+//         IO.raiseError(new Exception(message))
+//     }
+//   }
+
+//   /** Checks if the user is already in the band's managedBy list. */
+//   private def checkNotAlreadyManager(band: Band)(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在检查用户 ${userID} 是否已是乐队 ${bandID} 的管理者") >> {
+//       if (band.managedBy.contains(userID)) {
+//         IO.raiseError(new Exception("该用户已经是此乐队的管理者"))
+//       } else {
+//         logInfo(s"用户 ${userID} 不是管理者，可以继续。")
+//       }
+//     }
+//   }
+
+//   /** Adds the new user ID to the band's managedBy list and updates the database. */
+//   private def updateBandManagerList(band: Band)(using PlanContext): IO[Unit] = {
+//     val updatedList = (band.managedBy :+ userID).distinct // Use distinct just in case
+//     val query = s"""UPDATE "${schemaName}"."band_table" SET managed_by = ? WHERE band_id = ?"""
+//     logInfo(s"正在更新乐队 ${bandID} 的管理者列表") >>
+//       writeDB(
+//         query,
+//         List(
+//           SqlParameter("String", updatedList.asJson.noSpaces),
+//           SqlParameter("String", band.bandID)
+//         )
+//       ).void
+//   }
+
+//   /** Logs an informational message with the trace ID. */
+//   private def logInfo(message: String): IO[Unit] =
+//     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+//   /** Logs an error message with the trace ID and the cause. */
+//   private def logError(message: String, cause: Throwable): IO[Unit] =
+//     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+// } 
+// ===== End of src\main\scala\Impl\AddBandManagerPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\CreateArtistMessagePlanner.scala ===== 
+ 
+// package Impl
+
+// // 外部服务API的导入
+// import APIs.OrganizeService.validateAdminMapping
+
+// // 内部项目通用库的导入
+// import Common.API.{PlanContext, Planner}
+// import Common.DBAPI._
+// import Common.Object.SqlParameter
+// import Common.ServiceUtils.schemaName
+
+// // 第三方库及标准库的导入
+// import cats.effect.IO
+// import cats.implicits._
+// import io.circe.generic.auto._ // Temporary import
+// import io.circe.syntax._
+// import org.slf4j.LoggerFactory
+// import java.util.UUID // For generating truly unique IDs
+
+// /**
+//  * Planner for CreateArtistMessage: Handles the creation of a new artist entry.
+//  * This action is restricted to administrators only.
+//  *
+//  * @param adminID    The ID of the administrator performing the creation.
+//  * @param adminToken The administrator's authentication token.
+//  * @param name       The name of the new artist.
+//  * @param bio        The biography of the new artist.
+//  * @param planContext The implicit execution context.
+//  */
+// case class CreateArtistMessagePlanner(
+//   adminID: String,
+//   adminToken: String,
+//   name: String,
+//   bio: String,
+//   override val planContext: PlanContext
+// ) extends Planner[(Option[String], String)] { // Corrected return type
+
+//   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+//   override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
+//     val logic: IO[(Option[String], String)] = for {
+//       // Step 1: Verify the user is a valid administrator.
+//       _ <- verifyIsAdmin()
+
+//       // Step 2: Validate that essential inputs are not blank.
+//       _ <- validateInputs()
+
+//       // Step 3: Generate a new, unique ID for the artist.
+//       artistID <- generateArtistID()
+
+//       // Step 4: Insert the new artist record into the database.
+//       _ <- insertArtist(artistID)
+//     } yield (Some(artistID), "艺术家创建成功")
+
+//     logic.handleErrorWith { error =>
+//       logError(s"创建艺术家 '${name}' 的操作失败", error) >>
+//         IO.pure((None, error.getMessage))
+//     }
+//   }
+
+//   /**
+//    * Verifies that the provided credentials belong to an administrator.
+//    */
+//   private def verifyIsAdmin()(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在验证管理员权限: adminID=${adminID}")
+//     validateAdminMapping(adminID, adminToken).send.flatMap {
+//       case (true, _) => logInfo("管理员权限验证通过。")
+//       case (false, message) => IO.raiseError(new Exception(s"管理员认证失败: $message"))
+//     }
+//   }
+
+//   /**
+//    * Validates business rules for the input data, e.g., name cannot be empty.
+//    */
+//   private def validateInputs()(using PlanContext): IO[Unit] = {
+//     logInfo("正在验证输入参数...")
+//     if (name.trim.isEmpty) {
+//       IO.raiseError(new IllegalArgumentException("艺术家名称不能为空"))
+//     } else {
+//       logInfo("输入参数验证通过。")
+//     }
+//   }
+
+//   /**
+//    * Generates a new, unique artist ID using UUID.
+//    */
+//   private def generateArtistID()(using PlanContext): IO[String] = {
+//     val newID = s"artist_${UUID.randomUUID().toString}"
+//     logInfo(s"生成新艺术家ID: $newID").as(newID)
+//   }
+
+//   /**
+//    * Inserts the new artist record into the database.
+//    * Initializes `managed_by` with an empty JSON array '[]' for consistency.
+//    */
+//   private def insertArtist(artistID: String)(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在向数据库插入新艺术家记录: ID=${artistID}")
+//     val query =
+//       s"""
+//          INSERT INTO "${schemaName}"."artist_table" (artist_id, name, bio, managed_by)
+//          VALUES (?, ?, ?, ?)
+//       """
+
+//     // Critical Fix: Initialize managed_by with an empty JSON array, not NULL.
+//     val emptyManagerListJson = List.empty[String].asJson.noSpaces
+
+//     writeDB(
+//       query,
+//       List(
+//         SqlParameter("String", artistID),
+//         SqlParameter("String", name),
+//         SqlParameter("String", bio),
+//         SqlParameter("String", emptyManagerListJson)
+//       )
+//     ).void
+//   }
+
+//   private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+//   private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+// }
+
+package Impl
+
+// 外部服务API的导入
+import APIs.OrganizeService.validateAdminMapping
+
+// 内部项目通用库的导入
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import io.circe.generic.auto._
+import Common.ServiceUtils.schemaName
+
+// 第三方库及标准库的导入
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import java.util.UUID // For generating truly unique IDs
+
+/**
+ * Planner for CreateArtistMessage: Handles the creation of a new artist entry.
+ * This action is restricted to administrators only.
+ *
+ * @param adminID    The ID of the administrator performing the creation.
+ * @param adminToken The administrator's authentication token.
+ * @param name       The name of the new artist.
+ * @param bio        The biography of the new artist.
+ * @param planContext The implicit execution context.
+ */
+case class CreateArtistMessagePlanner(
+  adminID: String,
+  adminToken: String,
+  name: String,
+  bio: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[String], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
+    val logic: IO[(Option[String], String)] = for {
+      // Step 1: 验证管理员身份
+      _ <- verifyIsAdmin()
+
+      // Step 2: 验证输入参数
+      _ <- validateInputs()
+
+      // Step 3: 生成新的艺术家ID
+      artistID <- generateArtistID()
+
+      // Step 4: 将新艺术家插入数据库
+      _ <- insertArtist(artistID)
+    } yield (Some(artistID), "艺术家创建成功")
+
+    logic.handleErrorWith { error =>
+      logError(s"创建艺术家 '${name}' 的操作失败", error) >>
+        IO.pure((None, s"创建艺术家失败: ${error.getMessage}"))
+    }
+  }
+
+  /**
+   * 验证管理员权限
+   */
+  private def verifyIsAdmin()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证管理员权限: adminID=${adminID}")
+    validateAdminMapping(adminID, adminToken).send.flatMap {
+      case (true, _) => logInfo("管理员权限验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"管理员认证失败: $message"))
+    }
+  }
+
+  /**
+   * 验证输入参数，确保名称不为空
+   */
+  private def validateInputs()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证输入参数...")
+    if (name.trim.isEmpty) {
+      IO.raiseError(new IllegalArgumentException("艺术家名称不能为空"))
+    } else {
+      logInfo("输入参数验证通过。")
+    }
+  }
+
+  /**
+   * 生成唯一的艺术家ID
+   */
+  private def generateArtistID()(using PlanContext): IO[String] = {
+    val newID = s"artist_${UUID.randomUUID().toString}"
+    logInfo(s"生成新艺术家ID: $newID").as(newID)
+  }
+
+  /**
+   * 将新艺术家记录插入数据库
+   */
+  private def insertArtist(artistID: String)(using PlanContext): IO[Unit] = {
+    logInfo(s"正在向数据库插入新艺术家记录: ID=${artistID}")
+    
+    // SQL 语句现在只包含 artist_id, name, 和 bio
+    val query =
+      s"""
+         INSERT INTO "${schemaName}"."artist_table" (artist_id, name, bio)
+         VALUES (?, ?, ?)
+      """
+
+    // 参数列表也相应地减少
+    val params = List(
+      SqlParameter("String", artistID),
+      SqlParameter("String", name),
+      SqlParameter("String", bio)
+    )
+
+    writeDB(query, params).void // .void 表示我们不关心 writeDB 的返回值，只关心它是否成功
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\CreateArtistMessagePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\CreateBandMessagePlanner.scala ===== 
+ 
+package Impl
+
+// 外部服务API的导入
+import APIs.CreatorService.GetArtistByID
+import APIs.OrganizeService.validateAdminMapping
+
+// 内部项目通用库的导入
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+
+// 第三方库及标准库的导入
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import io.circe.syntax._
+import org.slf4j.LoggerFactory
+import java.util.UUID
+
+/**
+ * Planner for CreateBandMessage: Handles the creation of a new band.
+ * This action is restricted to administrators and requires all members to be valid artists.
+ *
+ * @param adminID    The ID of the administrator creating the band.
+ * @param adminToken The administrator's authentication token.
+ * @param name       The name of the new band.
+ * @param members    A list of artist IDs that form the band.
+ * @param bio        The biography of the new band.
+ * @param planContext The implicit execution context.
+ */
+case class CreateBandMessagePlanner(
+  adminID: String,
+  adminToken: String,
+  name: String,
+  members: List[String],
+  bio: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[String], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
+    val logic: IO[(Option[String], String)] = for {
+      // Step 1: 验证管理员权限
+      _ <- verifyIsAdmin()
+
+      // Step 2: 验证输入参数
+      _ <- validateInputs()
+
+      // Step 3: 验证所有成员ID都是有效的、不重复的艺术家
+      _ <- validateMembers(members)
+
+      // Step 4: 生成唯一的乐队ID
+      bandID <- generateBandID()
+
+      // Step 5: 将新乐队插入数据库
+      _ <- insertBand(bandID, members)
+    } yield (Some(bandID), "乐队创建成功")
+
+    logic.handleErrorWith { error =>
+      logError(s"创建乐队 '${name}' 的操作失败", error) >>
+        IO.pure((None, s"创建乐队失败: ${error.getMessage}"))
+    }
+  }
+
+  private def verifyIsAdmin()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证管理员权限: adminID=${adminID}")
+    validateAdminMapping(adminID, adminToken).send.flatMap {
+      case (true, _) => logInfo("管理员权限验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"管理员认证失败: $message"))
+    }
+  }
+
+  private def validateInputs()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证输入参数...")
+    if (name.trim.isEmpty) {
+      IO.raiseError(new IllegalArgumentException("乐队名称不能为空"))
+    } else {
+      logInfo("输入参数验证通过。")
+    }
+  }
+
+  /**
+   * 验证成员列表:
+   * 1. 检查成员ID是否有重复。
+   * 2. 通过并行调用 GetArtistByID 来验证每个ID是否对应一个存在的艺术家。
+   */
+  private def validateMembers(memberIDs: List[String])(using PlanContext): IO[Unit] = {
+    if (memberIDs.isEmpty) {
+      logInfo("成员列表为空，跳过验证。")
+      return IO.unit
+    }
+
+    // --- 新增：检查重复成员 ---
+    val distinctMemberIDs = memberIDs.toSet
+    if (distinctMemberIDs.size < memberIDs.size) {
+      // 找出重复的元素用于报错
+      val duplicates = memberIDs.groupBy(identity).collect { case (id, list) if list.size > 1 => id }.mkString(", ")
+      return IO.raiseError(new IllegalArgumentException(s"成员列表中包含重复的艺术家ID: ${duplicates}"))
+    }
+    // --- 新增结束 ---
+
+    logInfo(s"正在并行验证 ${distinctMemberIDs.size} 个唯一成员ID的有效性...")
+    // 使用 distinctMemberIDs.toList 来避免对重复ID进行不必要的API调用
+    distinctMemberIDs.toList.parTraverse { memberID =>
+      GetArtistByID(adminID, adminToken, memberID).send.map(result => memberID -> result._1.isDefined)
+    }.flatMap { results =>
+      val invalidResults = results.filterNot(_._2)
+      if (invalidResults.nonEmpty) {
+        val invalidIDs = invalidResults.map(_._1).mkString(", ")
+        IO.raiseError(new Exception(s"部分成员ID无效或不存在: ${invalidIDs}"))
+      } else {
+        logInfo("所有成员ID均有效且无重复。")
+      }
+    }
+  }
+
+  private def generateBandID()(using PlanContext): IO[String] = {
+    val newID = s"band_${UUID.randomUUID().toString}"
+    logInfo(s"生成新乐队ID: $newID").as(newID)
+  }
+
+  /**
+   * 将新乐队记录插入数据库。
+   * members 字段被序列化为 JSON 字符串并存入 TEXT 列。
+   */
+  private def insertBand(bandID: String, members: List[String])(using PlanContext): IO[Unit] = {
+    logInfo(s"正在向数据库插入新乐队记录: ID=${bandID}")
+    
+    // SQL 语句现在只包含 band_id, name, members, 和 bio
+    val query =
+      s"""
+         INSERT INTO "${schemaName}"."band_table" (band_id, name, members, bio)
+         VALUES (?, ?, ?, ?)
+      """
+
+    // 将 members 列表序列化为 JSON 字符串
+    val membersJson = members.distinct.asJson.noSpaces // 在插入时也使用 distinct 确保数据一致性
+
+    // 参数列表现在只包含4个参数
+    val params = List(
+      SqlParameter("String", bandID),
+      SqlParameter("String", name),
+      SqlParameter("String", membersJson), // members 作为 JSON 字符串存储
+      SqlParameter("String", bio)
+    )
+
+    writeDB(query, params).void
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\CreateBandMessagePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\DeleteArtistMessagePlanner.scala ===== 
+ 
+package Impl
+
+// External service APIs
+import APIs.CreatorService.{GetArtistByID, SearchAllBelongingBands}
+import APIs.MusicService.FilterSongsByEntity
+import APIs.OrganizeService.validateAdminMapping
+import Objects.CreatorService.{CreatorID_Type, CreatorType}
+
+// Internal project common libraries
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+
+// Third-party libraries and standard library
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto._ // Assuming companion objects are now the standard
+
+case class DeleteArtistMessagePlanner(
+  adminID: String,
+  adminToken: String,
+  artistID: String,
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    val logic: IO[(Boolean, String)] = for {
+      // Step 1: 验证管理员权限
+      _ <- verifyIsAdmin()
+
+      // Step 2: 使用 API 验证艺术家是否存在
+      _ <- verifyArtistExists()
+
+      // Step 3: [已重构] 检查艺术家引用关系
+      _ <- checkArtistIsNotReferenced()
+
+      // Step 4: 从数据库删除艺术家
+      _ <- deleteArtistFromDB()
+
+    } yield (true, "艺术家删除成功")
+
+    logic.handleErrorWith { error =>
+      logError(s"删除艺术家 ${artistID} 的操作失败", error) >>
+        IO.pure((false, error.getMessage))
+    }
+  }
+
+  private def verifyIsAdmin()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证管理员权限: adminID=${adminID}")
+    validateAdminMapping(adminID, adminToken).send.flatMap {
+      case (true, _) => logInfo("管理员权限验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"管理员认证失败: $message"))
+    }
+  }
+
+  private def verifyArtistExists()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在通过 API 确认艺术家是否存在: ${artistID}")
+    GetArtistByID(adminID, adminToken, artistID).send.flatMap {
+      case (Some(_), _) => logInfo("艺术家存在，继续执行。")
+      case (None, _)    => IO.raiseError(new Exception("艺术家ID不存在"))
+    }
+  }
+
+  /**
+   * 【已重构】
+   * 检查艺术家是否被其他实体引用。
+   * bandMembershipCheck 现在通过调用 SearchAllBelongingBands API 实现。
+   */
+  private def checkArtistIsNotReferenced()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在并行检查艺术家 ${artistID} 是否被其他实体引用...")
+
+    // 检查是否被歌曲引用
+    val songReferenceCheck: IO[Boolean] =
+      FilterSongsByEntity(adminID, adminToken, Some(CreatorID_Type(CreatorType.Artist, artistID))).send.map {
+        case (Some(songList), _) => songList.nonEmpty
+        case _                   => false
+      }
+
+    // 【重构核心】检查是否是任何一个乐队的成员
+    val bandMembershipCheck: IO[Boolean] = {
+      logInfo(s"正在通过 API 检查艺术家 ${artistID} 的乐队成员关系...")
+      SearchAllBelongingBands(adminID, adminToken, artistID).send.flatMap {
+        // API 返回 (Option[List[String]], String)
+        case (Some(bandIDs), _) =>
+          // 如果操作成功，检查返回的列表是否非空
+          IO.pure(bandIDs.nonEmpty)
+        case (None, errorMsg) =>
+          // 如果操作失败 (例如，底层的 Planner 抛出错误)，则将此视为一个需要中止的错误
+          IO.raiseError(new Exception(s"检查乐队成员关系失败: $errorMsg"))
+      }
+    }
+
+    // 并行执行所有检查
+    (songReferenceCheck, bandMembershipCheck).parTupled.flatMap {
+      case (isReferencedInSongs, isMemberOfBand) =>
+        val errors = List(
+          if (isReferencedInSongs) Some("歌曲") else None,
+          if (isMemberOfBand) Some("乐队") else None
+        ).flatten
+
+        if (errors.nonEmpty) {
+          IO.raiseError(new Exception(s"无法删除：艺术家已被 ${errors.mkString("、")} 引用"))
+        } else {
+          logInfo("引用检查通过，艺术家未被引用。")
+        }
+    }
+  }
+
+  private def deleteArtistFromDB()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在从数据库中删除艺术家: ${artistID}")
+    val sql = s"""DELETE FROM "${schemaName}"."artist_table" WHERE artist_id = ?"""
+    writeDB(sql, List(SqlParameter("String", artistID))).void
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\DeleteArtistMessagePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\DeleteBandMessagePlanner.scala ===== 
+ 
+package Impl
+
+// External service APIs
+import APIs.CreatorService.GetBandByID
+import APIs.MusicService.FilterSongsByEntity
+import APIs.OrganizeService.validateAdminMapping
+import Objects.CreatorService.{CreatorID_Type, CreatorType}
+
+// Internal project common libraries
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+
+// Third-party libraries and standard library
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto._ // Assuming companion objects are now the standard
+
+case class DeleteBandMessagePlanner(
+  adminID: String,
+  adminToken: String,
+  bandID: String,
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    val logic: IO[(Boolean, String)] = for {
+      // Step 1: 验证管理员权限
+      _ <- verifyIsAdmin()
+
+      // Step 2: [已重构] 使用 API 验证乐队是否存在
+      _ <- verifyBandExists()
+
+      // Step 3: 检查乐队引用关系
+      _ <- checkBandIsNotReferenced()
+
+      // Step 4: [保持不变] 执行最终的数据库删除操作
+      _ <- deleteBandFromDB()
+
+    } yield (true, "乐队删除成功")
+
+    logic.handleErrorWith { error =>
+      logError(s"删除乐队 ${bandID} 的操作失败", error) >>
+        IO.pure((false, error.getMessage))
+    }
+  }
+
+  private def verifyIsAdmin()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证管理员权限: adminID=${adminID}")
+    validateAdminMapping(adminID, adminToken).send.flatMap {
+      case (true, _) => logInfo("管理员权限验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"管理员认证失败: $message"))
+    }
+  }
+
+  /**
+   * 【已重构】
+   * 使用 GetBandByID API 检查乐队是否存在。如果不存在则失败。
+   */
+  private def verifyBandExists()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在通过 API 确认乐队是否存在: ${bandID}")
+    // 调用 GetBandByID API
+    GetBandByID(adminID, adminToken, bandID).send.flatMap {
+      // API 返回一个元组 (Option[Band], String)
+      case (Some(_), _) =>
+        // 如果 Option[Band] 是 Some，说明乐队存在
+        logInfo("乐队存在，继续执行。")
+      case (None, _) =>
+        // 如果是 None，说明乐队不存在，抛出错误
+        IO.raiseError(new Exception("乐队ID不存在"))
+    }
+  }
+
+  private def checkBandIsNotReferenced()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在并行检查乐队 ${bandID} 是否被其他实体引用...")
+
+    val songReferenceCheck: IO[Boolean] =
+      FilterSongsByEntity(adminID, adminToken, Some(CreatorID_Type(CreatorType.Band, bandID))).send.map {
+        case (Some(songList), _) => songList.nonEmpty
+        case _                   => false
+      }
+    
+    songReferenceCheck.flatMap { isReferenced =>
+      if (isReferenced) {
+        IO.raiseError(new Exception("无法删除：乐队已被歌曲引用"))
+      } else {
+        logInfo("引用检查通过，乐队未被引用。")
+      }
+    }
+  }
+
+  /**
+   * [保持不变]
+   * 直接从数据库中删除乐队记录。这是此 Planner 的核心写操作职责。
+   */
+  private def deleteBandFromDB()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在从数据库中删除乐队: ${bandID}")
+    val sql = s"""DELETE FROM "${schemaName}"."band_table" WHERE band_id = ?"""
+    writeDB(sql, List(SqlParameter("String", bandID))).void
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\DeleteBandMessagePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetAllCreatorsPlanner.scala ===== 
+ 
+package Impl
+
+// External service APIs
+import APIs.OrganizeService.validateUserMapping
+import Objects.CreatorService.{CreatorID_Type, CreatorType} // 导入我们需要的类型
+
+// Internal project common libraries
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+
+// Third-party libraries and standard library
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for GetAllCreators: Fetches a complete list of all creators (artists and bands).
+ *
+ * @param userID     The ID of the user making the request.
+ * @param userToken  The user's authentication token.
+ * @param planContext The implicit execution context.
+ */
+case class GetAllCreatorsPlanner(
+  userID: String,
+  userToken: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[List[CreatorID_Type]], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[List[CreatorID_Type]], String)] = {
+    val logic: IO[(Option[List[CreatorID_Type]], String)] = for {
+      // 步骤 1: 验证用户身份
+      _ <- validateUser()
+
+      // 步骤 2: 并行获取所有艺术家和乐队
+      _ <- logInfo("开始并行获取所有艺术家和乐队...")
+      creatorsTuple <- (fetchAllArtists(), fetchAllBands()).parTupled
+      (artists, bands) = creatorsTuple
+      _ <- logInfo(s"获取到 ${artists.length} 位艺术家和 ${bands.length} 支乐队。")
+      
+      // 合并结果
+      allCreators = artists ++ bands
+      
+    } yield {
+      // 步骤 3: 格式化成功响应
+      val message = if (allCreators.isEmpty) "数据库中没有任何创作者" else "查询成功"
+      (Some(allCreators), message)
+    }
+
+    // 统一的错误处理
+    logic.handleErrorWith { error =>
+      logError("获取所有创作者的操作失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * 验证用户凭证
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户身份: userID=${userID}")
+    validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"用户认证失败: $message"))
+    }
+  }
+
+  /**
+   * 从数据库中获取所有艺术家的ID，并将其包装为 CreatorID_Type
+   * @return 一个包含所有艺术家 CreatorID_Type 的列表
+   */
+  private def fetchAllArtists()(using PlanContext): IO[List[CreatorID_Type]] = {
+    logInfo("正在查询 artist_table...")
+    val query = s"""SELECT artist_id FROM "${schemaName}"."artist_table""""
+    
+    readDBRows(query, List()).flatMap { rows =>
+      rows.traverse { row =>
+        IO.fromEither(row.hcursor.get[String]("artistID").map(CreatorID_Type.artist))
+      }.handleErrorWith { err =>
+        IO.raiseError(new Exception(s"解码 artistID 失败: ${err.getMessage}"))
+      }
+    }
+  }
+
+  /**
+   * 从数据库中获取所有乐队的ID，并将其包装为 CreatorID_Type
+   * @return 一个包含所有乐队 CreatorID_Type 的列表
+   */
+  private def fetchAllBands()(using PlanContext): IO[List[CreatorID_Type]] = {
+    logInfo("正在查询 band_table...")
+    val query = s"""SELECT band_id FROM "${schemaName}"."band_table""""
+    
+    readDBRows(query, List()).flatMap { rows =>
+      rows.traverse { row =>
+        IO.fromEither(row.hcursor.get[String]("bandID").map(CreatorID_Type.band))
+      }.handleErrorWith { err =>
+        IO.raiseError(new Exception(s"解码 bandID 失败: ${err.getMessage}"))
+      }
+    }
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetAllCreatorsPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetArtistByIDPlanner.scala ===== 
+ 
+// package Impl
+
+// // 外部服务API的导入
+// import APIs.OrganizeService.validateUserMapping // API for user authentication
+
+// // 内部项目通用库的导入
+// import Common.API.{PlanContext, Planner}
+// import Common.DBAPI._
+// import Common.Object.SqlParameter
+// import Common.ServiceUtils.schemaName
+// import Objects.CreatorService.Artist // The authoritative Artist object definition
+
+// // 第三方库的导入
+// import cats.effect.IO
+// import cats.implicits._
+// import io.circe.generic.auto._
+// import org.slf4j.LoggerFactory
+
+// /**
+//  * Planner for GetArtistByID: Handles fetching an artist's full metadata by their ID.
+//  *
+//  * @param userID      The ID of the user making the request.
+//  * @param userToken   The user's authentication token.
+//  * @param artistID    The unique ID of the artist to query.
+//  * @param planContext The implicit execution context.
+//  */
+// case class GetArtistByIDPlanner(
+//   userID: String,
+//   userToken: String,
+//   artistID: String,
+//   override val planContext: PlanContext
+// ) extends Planner[(Option[Artist], String)] {
+
+//   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+//   override def plan(using planContext: PlanContext): IO[(Option[Artist], String)] = {
+//     val logic: IO[(Option[Artist], String)] = for {
+//       // Step 1: Authenticate the user. This is a prerequisite for any data access.
+//       _ <- validateUser()
+
+//       // Step 2: Fetch the artist from the database. This helper returns an Option.
+//       artistOpt <- fetchArtist()
+//     } yield {
+//       // Step 3: Construct the final response based on whether the artist was found.
+//       artistOpt match {
+//         case Some(artist) => (Some(artist), "查询成功")
+//         case None         => (None, "指定的艺术家不存在")
+//       }
+//     }
+
+//     // Unified error handling: Catches failures from authentication or database operations.
+//     logic.handleErrorWith { error =>
+//       logError(s"查询艺术家 ${artistID} 的操作失败", error) >>
+//         IO.pure((None, error.getMessage)) // On any failure, return (None, errorMessage)
+//     }
+//   }
+
+//   /** Validates the user's credentials by calling the authentication service. */
+//   private def validateUser()(using PlanContext): IO[Unit] = {
+//     logInfo(s"正在验证用户身份: userID=${userID}") >>
+//       validateUserMapping(userID, userToken).send.flatMap {
+//         case (true, _) =>
+//           logInfo("用户验证通过。")
+//         case (false, errorMsg) =>
+//           IO.raiseError(new Exception(s"用户认证失败: $errorMsg"))
+//       }
+//   }
+
+//   /**
+//    * Fetches an artist from the database by its ID.
+//    * Returns an IO[Option[Artist]] to gracefully handle the "not found" case.
+//    */
+//   private def fetchArtist()(using PlanContext): IO[Option[Artist]] = {
+//     logInfo(s"正在数据库中查询艺术家: artistID=${artistID}")
+//     val query = s"SELECT * FROM ${schemaName}.artist_table WHERE artist_id = ?"
+//     readDBRows(query, List(SqlParameter("String", artistID))).flatMap {
+//       case row :: Nil =>
+//         // One artist found, attempt to decode it.
+//         IO.fromEither(row.as[Artist])
+//           .map(Some(_)) // On success, wrap in Some
+//           .handleErrorWith(err => IO.raiseError(new Exception(s"解码Artist对象失败: ${err.getMessage}")))
+//       case Nil =>
+//         // No artist found, return an empty Option.
+//         IO.pure(None)
+//       case _ =>
+//         // This case should not be reachable if artist_id is a PRIMARY KEY.
+//         IO.raiseError(new Exception(s"数据库主键冲突: 存在多个ID为 ${artistID} 的艺术家"))
+//     }
+//   }
+
+//   /** Logs an informational message with the trace ID. */
+//   private def logInfo(message: String): IO[Unit] =
+//     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+//   /** Logs an error message with the trace ID and the cause. */
+//   private def logError(message: String, cause: Throwable): IO[Unit] =
+//     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+// }
+
+package Impl
+
+import APIs.OrganizeService.validateUserMapping
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import Objects.CreatorService.Artist // 导入更新后的 Artist 定义
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._ // 确保自动派生导入
+import org.slf4j.LoggerFactory
+
+case class GetArtistByIDPlanner(
+  userID: String,
+  userToken: String,
+  artistID: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[Artist], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[Artist], String)] = {
+    val logic: IO[(Option[Artist], String)] = for {
+      // 1. 用户认证
+      _ <- validateUser()
+
+      // 2. 从数据库获取艺术家信息
+      artistOpt <- fetchArtist()
+
+    } yield {
+      // 3. 格式化成功响应
+      artistOpt match {
+        case Some(artist) => (Some(artist), "查询艺术家成功")
+        case None         => (None, s"未找到ID为 ${artistID} 的艺术家")
+      }
+    }
+
+    // 统一错误处理
+    logic.handleErrorWith { error =>
+      logError(s"查询艺术家 ${artistID} 的操作失败", error) >>
+        IO.pure((None, s"查询艺术家失败: ${error.getMessage}"))
+    }
+  }
+
+  /**
+   * 验证用户身份
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户身份: userID=${userID}")
+    validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"用户认证失败: $message"))
+    }
+  }
+
+  /**
+   * 从数据库中获取艺术家信息
+   */
+  private def fetchArtist()(using PlanContext): IO[Option[Artist]] = {
+    logInfo(s"正在数据库中查询艺术家: artist_id = ${artistID}")
+    val query = s"""SELECT * FROM "${schemaName}"."artist_table" WHERE artist_id = ?"""
+    val params = List(SqlParameter("String", artistID))
+
+    readDBRows(query, params).flatMap { rows =>
+      rows.headOption match {
+        case Some(row) =>
+          // 使用 Circe 的自动解码，现在应该能直接成功
+          IO.fromEither(row.as[Artist])
+            .map(Some(_)) // 将解码成功的 Artist 包装在 Some 中
+            .handleErrorWith { err =>
+              // 如果还是解码失败，抛出包含详细信息的异常
+              IO.raiseError(new Exception(s"解码Artist对象失败: ${err.getMessage}"))
+            }
+        case None =>
+          // 如果查询结果为空，返回 None
+          IO.pure(None)
+      }
+    }
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TTID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetArtistByIDPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\GetBandByIDPlanner.scala ===== 
+ 
+package Impl
+
+// 外部服务API的导入
+import APIs.OrganizeService.validateUserMapping // API for user authentication
+
+// 内部项目通用库的导入
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import Objects.CreatorService.Band // 导入 Band 定义
+
+// 第三方库的导入
+import cats.effect.IO
+import cats.implicits._
+// 保留这个导入，因为 Planner 可能会隐式地依赖它
+import io.circe.generic.auto._ 
+// 显式导入我们需要的东西
+import io.circe.{Json, DecodingFailure}
+import io.circe.parser.parse
+import org.slf4j.LoggerFactory
+
+case class GetBandByIDPlanner(
+  userID: String,
+  userToken: String,
+  bandID: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[Band], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[Band], String)] = {
+    val logic: IO[(Option[Band], String)] = for {
+      // 1. 用户认证
+      _ <- validateUser()
+
+      // 2. 从数据库获取并处理乐队信息
+      result <- fetchAndProcessBand()
+    } yield result
+
+    // 统一错误处理
+    logic.handleErrorWith { error =>
+      logError(s"查询乐队 ${bandID} 的操作失败", error) >>
+        IO.pure((None, s"查询乐队失败: ${error.getMessage}"))
+    }
+  }
+
+  /** 验证用户身份 */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户身份: userID=${userID}")
+    validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户验证通过。")
+      case (false, errorMsg) => IO.raiseError(new Exception(s"用户认证失败: $errorMsg"))
+    }
+  }
+
+  /**
+   * 从数据库中获取乐队信息，并对返回的原始 JSON 进行预处理
+   */
+  private def fetchAndProcessBand()(using PlanContext): IO[(Option[Band], String)] = {
+    logInfo(s"正在数据库中查询乐队: band_id = ${bandID}")
+    val query = s"""SELECT * FROM "${schemaName}"."band_table" WHERE band_id = ?"""
+    val params = List(SqlParameter("String", bandID))
+
+    // 注意：这里我们假设 readDBRows 返回 List[Json]，如果不是，需要用 readDBJsonOptional
+    // 根据你的 Planner 代码，readDBRows 应该是正确的
+    readDBRows(query, params).flatMap {
+      case rawJson :: Nil => // 匹配到一行数据
+        // 对 "members" 字段进行预处理，将其从 "双重编码的字符串" 修复为真正的 JSON 数组
+        val patchedJson = rawJson.mapObject { jsonObj =>
+          jsonObj("members") match {
+            // 检查 'members' 字段是否存在且为 JSON 字符串
+            case Some(jsonVal) if jsonVal.isString =>
+              // 安全地获取字符串值，如果为空则默认为 "[]"
+              val jsonStr = jsonVal.asString.getOrElse("[]")
+              // 尝试将这个字符串解析成一个 JSON 对象（这里应该是一个数组）
+              parse(jsonStr) match {
+                // 如果解析成功且结果是一个数组
+                case Right(arrayJson) if arrayJson.isArray =>
+                  // 用解析后的 JSON 数组替换掉原来的字符串
+                  jsonObj.add("members", arrayJson)
+                // 如果解析失败或结果不是数组，则保持原样（或可以移除该字段）
+                case _ => jsonObj 
+              }
+            // 如果 'members' 字段不是字符串或不存在，则不进行任何操作
+            case _ => jsonObj
+          }
+        }
+        
+        // 使用修复后的 patchedJson 进行解码
+        // 这里的 .as[Band] 会自动使用隐式解码器
+        IO.fromEither(patchedJson.as[Band])
+          .map(band => (Some(band), "查询乐队成功")) // 成功则包装
+          .handleErrorWith(err => {
+            logError(s"对修复后的JSON解码失败: ${patchedJson.noSpaces}", err)
+            IO.pure((None, s"解码Band对象失败: ${err.getMessage}"))
+          })
+
+      case Nil =>
+        // 未找到乐队
+        IO.pure((None, s"未找到ID为 ${bandID} 的乐队"))
+
+      case _ =>
+        // 数据库中存在重复的主键
+        IO.raiseError(new Exception(s"数据库主键冲突: 存在多个ID为 ${bandID} 的乐队"))
+    }
+  }
+
+  /** 记录日志 */
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\GetBandByIDPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\SearchAllBelongingBandsPlanner.scala ===== 
+ 
+package Impl
+
+// 外部服务API的导入
+import APIs.CreatorService.GetArtistByID // 用于验证 artistID 是否存在
+import APIs.OrganizeService.validateUserMapping
+
+// 内部项目通用库的导入
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import io.circe.generic.auto._ // 确保自动派生导入
+
+// 第三方库及标准库的导入
+import cats.effect.IO
+import cats.implicits._
+import io.circe.Json
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for SearchAllBelongingBands: Finds all bands a specific artist is a member of.
+ *
+ * @param userID     The ID of the user making the request.
+ * @param userToken  The user's authentication token.
+ * @param artistID   The ID of the artist to search for in band memberships.
+ * @param planContext The implicit execution context.
+ */
+case class SearchAllBelongingBandsPlanner(
+  userID: String,
+  userToken: String,
+  artistID: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[List[String]], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
+    val logic: IO[(Option[List[String]], String)] = for {
+      // Step 1: 验证用户身份
+      _ <- validateUser()
+
+      // Step 2: 验证目标艺术家是否存在，这是一个好的实践，可以提前返回清晰的错误信息
+      _ <- verifyArtistExists()
+
+      // Step 3: 在数据库中执行查询
+      bandIDs <- findBandsByMember()
+
+    } yield {
+      // Step 4: 格式化成功响应
+      val message = if (bandIDs.isEmpty) "该艺术家不属于任何乐队" else "查询成功"
+      (Some(bandIDs), message)
+    }
+
+    // 统一错误处理
+    logic.handleErrorWith { error =>
+      logError(s"查询艺术家 ${artistID} 所属乐队的操作失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * 验证用户身份
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户身份: userID=${userID}")
+    validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"用户认证失败: $message"))
+    }
+  }
+
+  /**
+   * 使用 GetArtistByID API 验证目标艺术家是否存在。
+   * 这可以防止对无效 artistID 进行昂贵的数据库查询。
+   */
+  private def verifyArtistExists()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证艺术家是否存在: ${artistID}")
+    GetArtistByID(userID, userToken, artistID).send.flatMap {
+      case (Some(_), _) => logInfo("艺术家存在，继续查询。")
+      case (None, _)    => IO.raiseError(new Exception("指定的艺术家ID不存在"))
+    }
+  }
+
+  /**
+   * 在 band_table 中查询 members 字段包含指定 artistID 的所有记录。
+   *
+   * @return A list of matching band IDs.
+   */
+  private def findBandsByMember()(using PlanContext): IO[List[String]] = {
+    logInfo(s"正在数据库中搜索包含成员 ${artistID} 的乐队...")
+
+    val query = s"""SELECT band_id FROM "${schemaName}"."band_table" WHERE members::jsonb @> ?::jsonb"""
+    val artistIdAsJsonArray = s"""["$artistID"]"""
+    val params = List(SqlParameter("String", artistIdAsJsonArray))
+
+    readDBRows(query, params).flatMap { rows =>
+      // 参照 SearchBandByNamePlanner 的正确实现进行修正。
+      // 我们的数据库服务层会将 snake_case (band_id) 转换为 camelCase (bandID)。
+      // 因此，我们必须使用 "bandID" 来解码 JSON。
+      rows.traverse { row =>
+        // 使用 IO.fromEither 可以使代码更简洁，它直接将 Either[Throwable, A] 转换为 IO[A]。
+        IO.fromEither(row.hcursor.get[String]("bandID"))
+      }.handleErrorWith { error =>
+        // 提供一个更清晰的错误上下文。
+        IO.raiseError(new Exception(s"从数据库行解码 bandID 失败: ${error.getMessage}", error))
+      }
+    }
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\SearchAllBelongingBandsPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\SearchArtistByNamePlanner.scala ===== 
+ 
+package Impl
+
+// External service APIs
+import APIs.OrganizeService.validateUserMapping
+
+// Internal project common libraries
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+
+// Third-party libraries and standard library
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._ // Assuming companion objects are the standard
+
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for SearchArtistByName: Handles fuzzy searching for artists by name.
+ *
+ * @param userID     The ID of the user making the request.
+ * @param userToken  The user's authentication token.
+ * @param artistName The partial or full name of the artist to search for.
+ * @param planContext The implicit execution context.
+ */
+case class SearchArtistByNamePlanner(
+  userID: String,
+  userToken: String,
+  artistName: String,
+  override val planContext: PlanContext
+) extends Planner[(Option[List[String]], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
+    val logic: IO[(Option[List[String]], String)] = for {
+      // Step 1: Authenticate the user.
+      _ <- validateUser()
+
+      // Step 2: Validate the search input.
+      _ <- validateInputs()
+
+      // Step 3: Perform the fuzzy search in the database.
+      artistIDs <- searchArtistsInDB()
+    } yield {
+      // Step 4: Format the successful response.
+      val message = if (artistIDs.isEmpty) "未找到匹配的艺术家" else "查询成功"
+      (Some(artistIDs), message)
+    }
+
+    // Unified error handling for the entire process.
+    logic.handleErrorWith { error =>
+      logError(s"搜索艺术家 '${artistName}' 的操作失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * Validates the user's credentials by calling the authentication service.
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户身份: userID=${userID}")
+    validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"用户认证失败: $message"))
+    }
+  }
+
+  /**
+   * Validates that the search term is not blank.
+   */
+  private def validateInputs()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证输入参数...")
+    if (artistName.trim.isEmpty) {
+      IO.raiseError(new IllegalArgumentException("艺术家搜索名称不能为空"))
+    } else {
+      logInfo(s"搜索词验证通过: '${artistName}'")
+    }
+  }
+
+  /**
+   * Performs a fuzzy search in the artist_table using the LIKE operator.
+   * @return A list of matching artist IDs.
+   */
+  private def searchArtistsInDB()(using PlanContext): IO[List[String]] = {
+    logInfo(s"正在数据库中模糊搜索艺术家: name LIKE '%${artistName}%'")
+    val query = s"""SELECT artist_id FROM "${schemaName}"."artist_table" WHERE name LIKE ?"""
+    val searchParam = s"%$artistName%"
+
+    readDBRows(query, List(SqlParameter("String", searchParam))).flatMap { rows =>
+      // Safely traverse the list of JSON results and decode the 'artist_id' from each.
+      rows.traverse { row =>
+        IO.fromEither(row.hcursor.get[String]("artistID"))
+      }.handleErrorWith { err =>
+        IO.raiseError(new Exception(s"解码 artist_id 失败: ${err.getMessage}"))
+      }
+    }
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\SearchArtistByNamePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\SearchBandByNamePlanner.scala ===== 
+ 
+package Impl
+
+// External service APIs
+import APIs.OrganizeService.validateUserMapping
+
+// Internal project common libraries
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+
+// Third-party libraries and standard library
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._ // Assuming companion objects are the standard
+
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for SearchBandByName: Handles fuzzy searching for bands by name.
+ *
+ * @param userID     The ID of the user making the request.
+ * @param userToken  The user's authentication token.
+ * @param BandName   The partial or full name of the band to search for.
+ * @param planContext The implicit execution context.
+ */
+case class SearchBandByNamePlanner(
+  userID: String,
+  userToken: String,
+  BandName: String, // Respecting the casing from the API definition
+  override val planContext: PlanContext
+) extends Planner[(Option[List[String]], String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
+    val logic: IO[(Option[List[String]], String)] = for {
+      // Step 1: Authenticate the user.
+      _ <- validateUser()
+
+      // Step 2: Validate the search input.
+      _ <- validateInputs()
+
+      // Step 3: Perform the fuzzy search in the database.
+      bandIDs <- searchBandsInDB()
+    } yield {
+      // Step 4: Format the successful response.
+      val message = if (bandIDs.isEmpty) "未找到匹配的乐队" else "查询成功"
+      (Some(bandIDs), message)
+    }
+
+    // Unified error handling for the entire process.
+    logic.handleErrorWith { error =>
+      logError(s"搜索乐队 '${BandName}' 的操作失败", error) >>
+        IO.pure((None, error.getMessage))
+    }
+  }
+
+  /**
+   * Validates the user's credentials by calling the authentication service.
+   */
+  private def validateUser()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户身份: userID=${userID}")
+    validateUserMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("用户验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"用户认证失败: $message"))
+    }
+  }
+
+  /**
+   * Validates that the search term is not blank.
+   */
+  private def validateInputs()(using PlanContext): IO[Unit] = {
+    logInfo("正在验证输入参数...")
+    if (BandName.trim.isEmpty) {
+      IO.raiseError(new IllegalArgumentException("乐队搜索名称不能为空"))
+    } else {
+      logInfo(s"搜索词验证通过: '${BandName}'")
+    }
+  }
+
+  /**
+   * Performs a fuzzy search in the band_table using the LIKE operator.
+   * @return A list of matching band IDs.
+   */
+  private def searchBandsInDB()(using PlanContext): IO[List[String]] = {
+    logInfo(s"正在数据库中模糊搜索乐队: name LIKE '%${BandName}%'")
+    val query = s"""SELECT band_id FROM "${schemaName}"."band_table" WHERE name LIKE ?"""
+    val searchParam = s"%$BandName%"
+
+    readDBRows(query, List(SqlParameter("String", searchParam))).flatMap { rows =>
+      // Safely traverse the list of JSON results and decode the 'bandID' from each.
+      // The field name is changed from "band_id" to "bandID" to match the actual JSON response
+      // from the database service, which performs snake_case to camelCase conversion.
+      rows.traverse { row =>
+        IO.fromEither(row.hcursor.get[String]("bandID")) // <--- 修改在这里
+      }.handleErrorWith { err =>
+        // The error message is also updated for clarity.
+        IO.raiseError(new Exception(s"解码 bandID 失败: ${err.getMessage}")) // <--- 相应的错误信息也更新一下
+      }
+    }
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\SearchBandByNamePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\UpdateArtistMessagePlanner.scala ===== 
+ 
+package Impl
+
+// 外部服务API的导入
+// import APIs.CreatorService.{GetArtistByID, ValidArtistOwnership}
+
+import APIs.OrganizeService.validateAdminMapping
+import APIs.CreatorService.GetArtistByID
+
+// 内部项目通用库的导入
+import Common.API.{PlanContext, Planner}
+import Objects.CreatorService.Artist
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+
+// 第三方库的导入
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto.deriveEncoder // Temporary import
+
+/**
+ * Planner for UpdateArtistMessage: Handles updating an artist's name and/or bio.
+ *
+ * This implementation first validates ownership via the ValidArtistOwnership API,
+ * then fetches the current artist state via the GetArtistByID API to apply updates.
+ *
+ * @param userID      The ID of the user initiating the update.
+ * @param userToken   The user's authentication token.
+ * @param artistID    The ID of the artist to update.
+ * @param name        The optional new name for the artist.
+ * @param bio         The optional new bio for the artist.
+ * @param planContext The implicit execution context.
+ */
+case class UpdateArtistMessagePlanner(
+  userID: String,
+  userToken: String,
+  artistID: String,
+  name: Option[String],
+  bio: Option[String],
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] { // Corrected return type
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    // Check if there's anything to update at all.
+    if (name.isEmpty && bio.isEmpty) {
+      return IO.pure((false, "没有提供任何更新内容"))
+    }
+
+    val logic: IO[(Boolean, String)] = for {
+      // Step 1: Verify the user has the right to perform this action.
+      // This single call handles both user authentication and ownership verification.
+      _ <- verifyOwnership()
+
+      // Step 2: Fetch the current artist data to use as a base for the update.
+      currentArtist <- getArtist()
+
+      // Step 3: Apply the updates and persist to the database.
+      _ <- updateArtist(currentArtist)
+    } yield (true, "艺术家信息更新成功")
+
+    logic.handleErrorWith { error =>
+      logError(s"更新艺术家 ${artistID} 的操作失败", error) >>
+        IO.pure((false, error.getMessage))
+    }
+  }
+
+  /**
+   * Verifies that the user has ownership rights over the artist.
+   * This delegates the check to the dedicated validation API.
+   */
+  private def verifyOwnership()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户 ${userID} 对艺术家 ${artistID} 的管理权限")
+    validateAdminMapping(userID, userToken).send.flatMap {
+      case (true, _) =>
+        logInfo("权限验证通过。")
+      case (false, message) =>
+        IO.raiseError(new Exception(s"权限验证失败: $message"))
+    }
+  }
+
+  /**
+   * Fetches the current state of the artist using the GetArtistByID API.
+   * This is necessary to fill in any fields that are not being updated.
+   */
+  private def getArtist()(using PlanContext): IO[Artist] = {
+    logInfo(s"正在获取艺术家 ${artistID} 的当前信息以进行更新")
+    GetArtistByID(userID, userToken, artistID).send.flatMap {
+      case (Some(artist), _) =>
+        logInfo("成功获取到艺术家当前信息。")
+        IO.pure(artist)
+      case (None, message) =>
+        IO.raiseError(new Exception(s"无法获取艺术家信息: $message"))
+    }
+  }
+
+  /**
+   * Updates the artist's information in the database with the new values.
+   */
+  private def updateArtist(currentArtist: Artist)(using PlanContext): IO[Unit] = {
+    // Use the provided new value, or fall back to the current value if None.
+    val newName = name.getOrElse(currentArtist.name)
+    val newBio = bio.getOrElse(currentArtist.bio)
+
+    logInfo(s"正在执行数据库更新。新名称: '$newName', 新简介: '$newBio'")
+
+    val query =
+      s"""
+         UPDATE "${schemaName}"."artist_table"
+         SET name = ?, bio = ?
+         WHERE artist_id = ?
+      """
+
+    writeDB(
+      query,
+      List(
+        SqlParameter("String", newName),
+        SqlParameter("String", newBio),
+        SqlParameter("String", artistID)
+      )
+    ).void
+  }
+
+  /** Logs an informational message with the trace ID. */
+  private def logInfo(message: String): IO[Unit] =
+    IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+  /** Logs an error message with the trace ID and the cause. */
+  private def logError(message: String, cause: Throwable): IO[Unit] =
+    IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\UpdateArtistMessagePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\UpdateBandMessagePlanner.scala ===== 
+ 
+package Impl
+
+// 外部服务API的导入
+import APIs.CreatorService.{GetArtistByID, GetBandByID}
+import APIs.OrganizeService.validateAdminMapping
+
+// 内部项目通用库的导入
+import Common.API.{PlanContext, Planner}
+import Common.DBAPI._
+import Common.Object.SqlParameter
+import Common.ServiceUtils.schemaName
+import Objects.CreatorService.Band
+
+// 第三方库的导入
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import io.circe.syntax._
+import org.slf4j.LoggerFactory
+
+/**
+ * Planner for UpdateBandMessage: Handles updating a band's name, bio, and/or members.
+ *
+ * @param userID      The ID of the user initiating the update.
+ * @param userToken   The user's authentication token.
+ * @param bandID      The ID of the band to update.
+ * @param name        The optional new name for the band.
+ * @param members     The optional new list of member IDs.
+ * @param bio         The optional new bio for the band.
+ * @param planContext The implicit execution context.
+ */
+case class UpdateBandMessagePlanner(
+  userID: String,
+  userToken: String,
+  bandID: String,
+  name: Option[String],
+  members: Option[List[String]],
+  bio: Option[String],
+  override val planContext: PlanContext
+) extends Planner[(Boolean, String)] {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+    // 如果没有任何更新内容，提前返回
+    if (name.isEmpty && members.isEmpty && bio.isEmpty) {
+      return IO.pure((false, "没有提供任何更新内容"))
+    }
+
+    val logic: IO[(Boolean, String)] = for {
+      // Step 1: 验证用户权限
+      _ <- verifyOwnership()
+      // Step 2: 验证新的成员列表（如果提供）
+      _ <- validateMemberIDs(members)
+      // Step 3: 获取乐队当前信息
+      currentBand <- getBand()
+      // Step 4: 更新数据库
+      _ <- updateBand(currentBand, members)
+    } yield (true, "乐队信息更新成功")
+
+    logic.handleErrorWith { error =>
+      logError(s"更新乐队 ${bandID} 的操作失败", error) >>
+        IO.pure((false, s"更新失败: ${error.getMessage}"))
+    }
+  }
+
+  private def verifyOwnership()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证用户 ${userID} 对乐队 ${bandID} 的管理权限")
+    // 假设管理员有权更新所有乐队信息
+    validateAdminMapping(userID, userToken).send.flatMap {
+      case (true, _) => logInfo("权限验证通过。")
+      case (false, message) => IO.raiseError(new Exception(s"权限验证失败: $message"))
+    }
+  }
+
+  /**
+   * 验证提供的成员ID列表：
+   * 1. 检查成员ID是否有重复。
+   * 2. 并行验证每个ID是否都对应一个存在的艺术家。
+   */
+  private def validateMemberIDs(memberIDsOpt: Option[List[String]])(using PlanContext): IO[Unit] = {
+    memberIDsOpt match {
+      case Some(ids) if ids.nonEmpty =>
+        // --- 新增：检查重复成员 ---
+        val distinctIDs = ids.toSet
+        if (distinctIDs.size < ids.size) {
+          val duplicates = ids.groupBy(identity).collect { case (id, list) if list.size > 1 => id }.mkString(", ")
+          return IO.raiseError(new IllegalArgumentException(s"提供的成员列表中包含重复的艺术家ID: ${duplicates}"))
+        }
+        // --- 新增结束 ---
+
+        logInfo(s"正在并行验证 ${distinctIDs.size} 个唯一成员ID的有效性...")
+        distinctIDs.toList.parTraverse { memberID =>
+          GetArtistByID(userID, userToken, memberID).send.map(result => memberID -> result._1.isDefined)
+        }.flatMap { results =>
+          val invalidResults = results.filterNot(_._2)
+          if (invalidResults.nonEmpty) {
+            val invalidIDs = invalidResults.map(_._1).mkString(", ")
+            IO.raiseError(new Exception(s"部分成员ID无效或不存在: ${invalidIDs}"))
+          } else {
+            logInfo("所有提供的成员ID均有效且无重复。")
+          }
+        }
+      case _ => IO.unit // 如果没有提供成员列表，则不需要验证。
+    }
+  }
+
+  private def getBand()(using PlanContext): IO[Band] = {
+    logInfo(s"正在获取乐队 ${bandID} 的当前信息")
+    GetBandByID(userID, userToken, bandID).send.flatMap {
+      case (Some(band), _) => logInfo("成功获取到乐队当前信息。").as(band)
+      case (None, message) => IO.raiseError(new Exception(s"无法获取乐队信息: $message"))
+    }
+  }
+
+  private def updateBand(currentBand: Band, newMembersOpt: Option[List[String]])(using PlanContext): IO[Unit] = {
+    val finalName = name.getOrElse(currentBand.name)
+    val finalBio = bio.getOrElse(currentBand.bio)
+    // 如果提供了新成员列表，则使用它；否则，使用乐队当前的成员列表
+    val finalMembers = newMembersOpt.getOrElse(currentBand.members).distinct
+
+    logInfo(s"正在执行数据库更新。")
+    val query =
+      s"""
+         UPDATE "${schemaName}"."band_table"
+         SET name = ?, bio = ?, members = ?
+         WHERE band_id = ?
+      """
+
+    writeDB(
+      query,
+      List(
+        SqlParameter("String", finalName),
+        SqlParameter("String", finalBio),
+        SqlParameter("String", finalMembers.asJson.noSpaces), // 序列化去重后的成员列表
+        SqlParameter("String", bandID)
+      )
+    ).void
+  }
+
+  private def logInfo(message: String): IO[Unit] = IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+  private def logError(message: String, cause: Throwable): IO[Unit] = IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+} 
+// ===== End of src\main\scala\Impl\UpdateBandMessagePlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\ValidArtistOwnershipPlanner.scala ===== 
+ 
+// package Impl
+
+// // 外部服务API的导入
+// import APIs.CreatorService.GetArtistByID
+// import APIs.OrganizeService.validateAdminMapping // API to check for admin status
+
+// // 内部项目通用库的导入
+// import Common.API.{PlanContext, Planner}
+// import Objects.CreatorService.Artist
+
+// // 第三方库的导入
+// import cats.effect.IO
+// import cats.implicits._
+// import org.slf4j.LoggerFactory
+// import io.circe.generic.auto.deriveEncoder
+
+// /**
+//  * Planner for ValidArtistOwnership: Checks if a user has management rights over a specific artist.
+//  *
+//  * A user is considered to have ownership if EITHER of the following is true:
+//  * 1. They are listed in the artist's `managedBy` field.
+//  * 2. They are a system administrator.
+//  *
+//  * @param userID      The ID of the user whose ownership is being checked.
+//  * @param userToken   The user's authentication token.
+//  * @param artistID    The ID of the artist in question.
+//  * @param planContext The implicit execution context.
+//  */
+// case class ValidArtistOwnershipPlanner(
+//   userID: String,
+//   userToken: String,
+//   artistID: String,
+//   override val planContext: PlanContext
+// ) extends Planner[(Boolean, String)] {
+
+//   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+//   override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+//     val logic: IO[(Boolean, String)] = for {
+//       // Step 1: Fetch the artist information. This will not fail if the artist doesn't exist.
+//       artistOpt <- getArtistViaAPI()
+
+//       // Step 2: Concurrently, check if the current user is an administrator.
+//       isAdmin <- checkIsAdmin()
+
+//     } yield {
+//       // Step 3: Combine the results with pure logic.
+//       // Check if the user is in the artist's management list.
+//       // .exists is a safe and concise way to handle the Option. It returns false if artistOpt is None.
+//       val isInManagedByList = artistOpt.exists(_.managedBy.contains(userID))
+
+//       // Final ownership is true if either condition is met.
+//       val hasOwnership = isInManagedByList || isAdmin
+
+//       val message = if (hasOwnership) "用户拥有管理权限" else "用户无管理权限"
+//       (hasOwnership, message)
+//     }
+
+//     // Unified error handling for any unexpected system failures during API calls.
+//     logic.handleErrorWith { error =>
+//       logError(s"验证用户 ${userID} 对艺术家 ${artistID} 的权限时发生错误", error) >>
+//         IO.pure((false, error.getMessage))
+//     }
+//   }
+
+//   /**
+//    * Calls the GetArtistByID API.
+//    * This helper gracefully handles the API's (Option[Artist], String) response,
+//    * returning only the IO[Option[Artist]] for use in the main logic.
+//    */
+//   private def getArtistViaAPI()(using PlanContext): IO[Option[Artist]] = {
+//     logInfo(s"正在通过API获取艺术家信息: artistID=${artistID}")
+//     GetArtistByID(userID, userToken, artistID).send.map { case (artistOpt, msg) =>
+//       logInfo(s"GetArtistByID API 响应: $msg")
+//       artistOpt // Return the Option part of the tuple.
+//     }
+//   }
+
+//   /**
+//    * Checks if the current user is an administrator by calling the validation API.
+//    * Note: We pass the user's credentials to the admin validation endpoint.
+//    */
+//   private def checkIsAdmin()(using PlanContext): IO[Boolean] = {
+//     logInfo(s"正在检查用户 ${userID} 是否为管理员")
+//     validateAdminMapping(adminID = userID, adminToken = userToken).send.map { case (isAdmin, msg) =>
+//       logInfo(s"validateAdminMapping API 响应: $msg")
+//       isAdmin // Return the Boolean part of the tuple.
+//     }
+//   }
+
+//   /** Logs an informational message with the trace ID. */
+//   private def logInfo(message: String): IO[Unit] =
+//     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+//   /** Logs an error message with the trace ID and the cause. */
+//   private def logError(message: String, cause: Throwable): IO[Unit] =
+//     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+// } 
+// ===== End of src\main\scala\Impl\ValidArtistOwnershipPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Impl\ValidBandOwnershipPlanner.scala ===== 
+ 
+// package Impl
+
+// // 外部服务API的导入
+// import APIs.CreatorService.GetBandByID // The API to fetch band details
+// import APIs.OrganizeService.validateAdminMapping // API to check for admin status
+
+// // 内部项目通用库的导入
+// import Common.API.{PlanContext, Planner}
+// import Objects.CreatorService.Band
+
+// // 第三方库的导入
+// import cats.effect.IO
+// import cats.implicits._
+// import org.slf4j.LoggerFactory
+// import io.circe.generic.auto.deriveEncoder // Temporary import to satisfy the compiler
+
+// /**
+//  * Planner for ValidBandOwnership: Checks if a user has management rights over a specific band.
+//  *
+//  * A user is considered to have ownership if EITHER of the following is true:
+//  * 1. They are listed in the band's `managedBy` field.
+//  * 2. They are a system administrator.
+//  *
+//  * @param userID      The ID of the user whose ownership is being checked.
+//  * @param userToken   The user's authentication token.
+//  * @param bandID      The ID of the band in question.
+//  * @param planContext The implicit execution context.
+//  */
+// case class ValidBandOwnershipPlanner(
+//   userID: String,
+//   userToken: String,
+//   bandID: String,
+//   override val planContext: PlanContext
+// ) extends Planner[(Boolean, String)] { // Corrected to return (Boolean, String)
+
+//   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+//   override def plan(using planContext: PlanContext): IO[(Boolean, String)] = {
+//     val logic: IO[(Boolean, String)] = for {
+//       // Step 1: Fetch band information via its dedicated API.
+//       bandOpt <- getBandViaAPI()
+
+//       // Step 2: Concurrently, check if the current user is an administrator.
+//       isAdmin <- checkIsAdmin()
+
+//     } yield {
+//       // Step 3: Combine the results with pure, clear logic.
+//       // Check if the user is in the band's management list.
+//       val isInManagedByList = bandOpt.exists(_.managedBy.contains(userID))
+
+//       // Final ownership is true if the user is in the list OR is an admin.
+//       val hasOwnership = isInManagedByList || isAdmin
+
+//       val message = if (hasOwnership) "用户拥有管理权限" else "用户无管理权限"
+//       (hasOwnership, message)
+//     }
+
+//     // Unified error handling for unexpected system failures during API calls.
+//     logic.handleErrorWith { error =>
+//       logError(s"验证用户 ${userID} 对乐队 ${bandID} 的权限时发生错误", error) >>
+//         IO.pure((false, error.getMessage))
+//     }
+//   }
+
+//   /**
+//    * Calls the GetBandByID API to fetch band details.
+//    * This helper returns an IO[Option[Band]], abstracting away the raw API response.
+//    */
+//   private def getBandViaAPI()(using PlanContext): IO[Option[Band]] = {
+//     logInfo(s"正在通过API获取乐队信息: bandID=${bandID}")
+//     GetBandByID(userID, userToken, bandID).send.map { case (bandOpt, msg) =>
+//       logInfo(s"GetBandByID API 响应: $msg")
+//       bandOpt // Return only the Option[Band] part.
+//     }
+//   }
+
+//   /**
+//    * Checks if the current user is an administrator by calling the validation API.
+//    */
+//   private def checkIsAdmin()(using PlanContext): IO[Boolean] = {
+//     logInfo(s"正在检查用户 ${userID} 是否为管理员")
+//     validateAdminMapping(adminID = userID, adminToken = userToken).send.map { case (isAdmin, msg) =>
+//       logInfo(s"validateAdminMapping API 响应: $msg")
+//       isAdmin // Return only the Boolean part.
+//     }
+//   }
+
+//   /** Logs an informational message with the trace ID. */
+//   private def logInfo(message: String): IO[Unit] =
+//     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
+
+//   /** Logs an error message with the trace ID and the cause. */
+//   private def logError(message: String, cause: Throwable): IO[Unit] =
+//     IO(logger.error(s"TID=${planContext.traceID.id} -- $message", cause))
+// } 
+// ===== End of src\main\scala\Impl\ValidBandOwnershipPlanner.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\CreatorService\Artist.scala ===== 
+ 
+package Objects.CreatorService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Artist
+ * desc: 艺术家信息
+ * @param artistID: String (艺术家的唯一ID)
+ * @param name: String (艺术家的名字)
+ * @param bio: String (艺术家的简介)
+//  * @param managedBy: String (管理艺术家的用户ID的列表)
+ */
+
+case class Artist(
+  artistID: String,
+  name: String,
+  bio: String,
+  // managedBy: List[String]
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Artist{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Artist] = deriveEncoder
+  private val circeDecoder: Decoder[Artist] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Artist] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Artist] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Artist]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given artistEncoder: Encoder[Artist] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given artistDecoder: Decoder[Artist] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\CreatorService\Artist.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\CreatorService\Band.scala ===== 
+ 
+package Objects.CreatorService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Band
+ * desc: 表示一个音乐组合的信息
+ * @param bandID: String (乐队的唯一标识)
+ * @param name: String (乐队名称)
+ * @param members: String (乐队成员的ID列表)
+ * @param bio: String (乐队的简介)
+//  * @param managedBy: String (负责管理该乐队的管理者ID列表)
+ */
+
+case class Band(
+  bandID: String,
+  name: String,
+  members: List[String],
+  bio: String,
+  // managedBy: List[String]
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Band{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Band] = deriveEncoder
+  private val circeDecoder: Decoder[Band] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Band] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Band] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Band]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given bandEncoder: Encoder[Band] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given bandDecoder: Decoder[Band] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\CreatorService\Band.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\CreatorService\CreatorID_Type.scala ===== 
+ 
+package Objects.CreatorService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+// --- 核心定义部分 ---
+
+/**
+ * CreatorType
+ * desc: 代表创作者的类型。这是一个封闭的类型集（ADT），只能是 Artist 或 Band。
+ */
+sealed trait CreatorType
+object CreatorType {
+  case object Artist extends CreatorType
+  case object Band extends CreatorType
+
+  def fromString(typeStr: String): Option[CreatorType] = typeStr.toLowerCase match {
+    case "artist" => Some(Artist)
+    case "band"   => Some(Band)
+    case _        => None
+  }
+  
+  def toString(creatorType: CreatorType): String = creatorType match {
+    case Artist => "artist"
+    case Band => "band"
+  }
+  
+  // 为 CreatorType 提供一致的小写编解码器
+  // 强制使用自定义编码器，确保始终返回小写
+  private val customEncoder: Encoder[CreatorType] = Encoder.instance { creatorType =>
+    Json.fromString(toString(creatorType)) // 始终使用 toString 方法，确保小写
+  }
+
+  private val customDecoder: Decoder[CreatorType] = Decoder.instance { cursor =>
+    cursor.as[String].flatMap { typeStr =>
+      fromString(typeStr) match {
+        case Some(creatorType) => Right(creatorType)
+        case None => Left(io.circe.DecodingFailure(s"Invalid CreatorType: $typeStr", cursor.history))
+      }
+    }
+  }
+
+  // 使用统一的编解码器，不再使用 Circe 的自动派生
+  given creatorTypeEncoder: Encoder[CreatorType] = customEncoder
+  given creatorTypeDecoder: Decoder[CreatorType] = customDecoder
+}
+
+/**
+ * CreatorID_Type
+ * desc: 创作者ID的智能包装器，封装了创作者类型和其原始String ID。
+ * @param creatorType CreatorType (创作者的类型，Artist 或 Band)
+ * @param id String (原始ID字符串)
+ */
+case class CreatorID_Type (creatorType: CreatorType, id: String) {
+  def isArtist: Boolean = creatorType == CreatorType.Artist
+  def isBand: Boolean = creatorType == CreatorType.Band
+
+  def asArtistId: Option[String] = if (isArtist) Some(id) else None
+  def asBandId: Option[String] = if (isBand) Some(id) else None
+  
+  //process class code 预留标志位，不要删除
+}
+
+case object CreatorID_Type {
+  // --- 工厂方法，用于安全创建 ---
+  def apply(idType: String, id: String): Try[CreatorID_Type] =
+    CreatorType.fromString(idType)
+      .map(t => new CreatorID_Type(t, id))
+      .toRight(new IllegalArgumentException(s"无效的 CreatorType: '$idType'. 只接受 'Artist' 或 'Band'。"))
+      .toTry
+
+  def artist(id: String): CreatorID_Type = new CreatorID_Type(CreatorType.Artist, id)
+  def band(id: String): CreatorID_Type = new CreatorID_Type(CreatorType.Band, id)
+
+  // --- 使用统一的编解码策略，确保一致性 ---
+
+  // 使用自定义编解码器，确保 creatorType 字段始终是小写
+  private val customEncoder: Encoder[CreatorID_Type] = Encoder.instance { creatorIdType =>
+    Json.obj(
+      "creatorType" -> Json.fromString(CreatorType.toString(creatorIdType.creatorType)),
+      "id" -> Json.fromString(creatorIdType.id)
+    )
+  }
+
+  private val customDecoder: Decoder[CreatorID_Type] = Decoder.instance { cursor =>
+    for {
+      creatorTypeStr <- cursor.downField("creatorType").as[String]
+      id <- cursor.downField("id").as[String]
+      creatorType <- CreatorType.fromString(creatorTypeStr) match {
+        case Some(ct) => Right(ct)
+        case None => Left(io.circe.DecodingFailure(s"Invalid CreatorType: $creatorTypeStr", cursor.history))
+      }
+    } yield CreatorID_Type(creatorType, id)
+  }
+  
+  // 使用统一的编解码器，不再提供后备方案
+  given CreatorID_TypeEncoder: Encoder[CreatorID_Type] = customEncoder
+  given CreatorID_TypeDecoder: Decoder[CreatorID_Type] = customDecoder
+  
+  //process object code 预留标志位，不要删除
+} 
+// ===== End of src\main\scala\Objects\CreatorService\CreatorID_Type.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\MusicService\Genre.scala ===== 
+ 
+package Objects.MusicService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Genre
+ * desc: 音乐流派信息，包括ID、名称以及描述
+ * @param genreID: String (流派的唯一标识符)
+ * @param name: String (流派的名称)
+ * @param description: String (流派的描述与相关信息)
+ */
+
+case class Genre(
+  genreID: String,
+  name: String,
+  description: String
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Genre{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Genre] = deriveEncoder
+  private val circeDecoder: Decoder[Genre] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Genre] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Genre] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Genre]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given genreEncoder: Encoder[Genre] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given genreDecoder: Decoder[Genre] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\MusicService\Genre.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\MusicService\Song.scala ===== 
+ 
+package Objects.MusicService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+import Objects.CreatorService.CreatorID_Type
+
+import scala.util.Try
+import org.joda.time.DateTime
+
+import java.util.UUID
+
+
+case class Song(
+                 songID: String,
+                 name: String,
+                 releaseTime: DateTime,
+                 creators: List[CreatorID_Type],
+                 performers: List[String],
+                 lyricists: List[String],
+                 arrangers: List[String],
+                 instrumentalists: List[String],
+                 composers: List[String],
+                 genres: List[String],
+                 uploaderID: String
+               ){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Song{
+
+
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Song] = deriveEncoder
+  private val circeDecoder: Decoder[Song] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Song] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Song] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Song]() {})) }
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+
+  // Circe + Jackson 兜底的 Encoder
+  given songEncoder: Encoder[Song] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given songDecoder: Decoder[Song] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\MusicService\Song.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\OrganizeService\AuthRequest.scala ===== 
+ 
+package Objects.OrganizeService
+
+import Objects.CreatorService.CreatorID_Type // Import our new CreatorId type
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+import org.joda.time.DateTime
+import scala.util.Try
+
+// --- Define the new RequestStatus ADT first ---
+
+/**
+ * RequestStatus
+ * desc: 表示授权申请的当前状态。
+ */
+sealed trait RequestStatus
+object RequestStatus {
+  case object Pending extends RequestStatus
+  case object Approved extends RequestStatus
+  case object Rejected extends RequestStatus
+
+  // Provide Encoder/Decoder so it can be serialized with AuthRequest
+  // Circe will automatically handle case objects as strings ("Pending", "Approved", etc.)
+  implicit val encoder: Encoder[RequestStatus] = deriveEncoder
+  implicit val decoder: Decoder[RequestStatus] = deriveDecoder
+}
+
+
+// --- Define the unified AuthRequest object ---
+
+/**
+ * AuthRequest
+ * desc: 一个统一的授权申请记录，用于用户申请成为艺术家或乐队的管理者。
+ * @param requestID 唯一的申请ID。
+ * @param userID 提交申请的用户ID。
+ * @param targetID 申请绑定的目标，使用 CreatorID_Type 来区分是艺术家还是乐队。
+ * @param certification 用户提供的认证材料。
+ * @param status 申请的当前状态 (Pending, Approved, Rejected)。
+ * @param createdAt 申请创建的时间戳。
+ * @param processedBy 处理该申请的管理员ID，在处理前为None。
+ * @param processedAt 处理该申请的时间戳，在处理前为None。
+ */
+case class AuthRequest(
+  requestID: String,
+  userID: String,
+  targetID: CreatorID_Type,
+  certification: String,
+  status: RequestStatus,
+  createdAt: DateTime,
+  processedBy: Option[String],
+  processedAt: Option[DateTime]
+) {
+  //process class code 预留标志位，不要删除
+}
+
+object AuthRequest {
+
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+
+  // --- Replicating your standard Circe + Jackson fallback serialization logic ---
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[AuthRequest] = deriveEncoder
+  private val circeDecoder: Decoder[AuthRequest] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[AuthRequest] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[AuthRequest] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[AuthRequest]() {})) }
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+
+  // Circe + Jackson 兜底的 Encoder
+  given authRequestEncoder: Encoder[AuthRequest] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given authRequestDecoder: Decoder[AuthRequest] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+  //process object code 预留标志位，不要删除
+} 
+// ===== End of src\main\scala\Objects\OrganizeService\AuthRequest.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\OrganizeService\User.scala ===== 
+ 
+package Objects.OrganizeService
+
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * User
+ * desc: 用户信息，包含用户的账号信息与密码
+ * @param userID: String (用户的唯一标识)
+ * @param account: String (用户登录账号)
+ * @param password: String (用户登录密码)
+ */
+
+case class User(
+  userID: String,
+  account: String,
+  password: String
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object User{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[User] = deriveEncoder
+  private val circeDecoder: Decoder[User] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[User] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[User] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[User]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given userEncoder: Encoder[User] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given userDecoder: Decoder[User] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+}
+
+ 
+// ===== End of src\main\scala\Objects\OrganizeService\User.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\StatisticsService\Dim.scala ===== 
+ 
+package Objects.StatisticsService
+
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+import Common.Serialize.JacksonSerializeUtils
+import com.fasterxml.jackson.core.`type`.TypeReference
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.parser.*
+import io.circe.syntax.*
+import io.circe.{Decoder, Encoder, Json}
+import org.joda.time.DateTime
+
+import java.util.UUID
+import scala.util.Try
+
+
+case class Dim(
+  GenreID: String,
+  value: Double
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Dim{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Dim] = deriveEncoder
+  private val circeDecoder: Decoder[Dim] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Dim] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Dim] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Dim]() {})) }
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given dimEncoder: Encoder[Dim] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given dimDecoder: Decoder[Dim] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+} 
+// ===== End of src\main\scala\Objects\StatisticsService\Dim.scala ===== 
+ 
+ 
+// ===== src\main\scala\Objects\StatisticsService\Profile.scala ===== 
+ 
+package Objects.StatisticsService
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax.*
+import io.circe.parser.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+import com.fasterxml.jackson.core.`type`.TypeReference
+import Common.Serialize.JacksonSerializeUtils
+
+import scala.util.Try
+
+import org.joda.time.DateTime
+import java.util.UUID
+
+
+/**
+ * Profile
+ * desc: 一个通用的统计画像/向量对象。它由一个(键, 值)对的列表组成，用于表示用户画像、创作倾向或曲风实力等统计数据。
+ * @param vector: List[Dim] (一个由 Dim 构成的列表。)\
+ * @param norm: Boolean (可选参数，表示该向量是否已进行归一化。)
+ */
+
+case class Profile(
+  vector: List[Dim],
+  norm: Boolean
+){
+
+  //process class code 预留标志位，不要删除
+
+
+}
+
+
+case object Profile{
+
+    
+  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+
+  // Circe 默认的 Encoder 和 Decoder
+  private val circeEncoder: Encoder[Profile] = deriveEncoder
+  private val circeDecoder: Decoder[Profile] = deriveDecoder
+
+  // Jackson 对应的 Encoder 和 Decoder
+  private val jacksonEncoder: Encoder[Profile] = Encoder.instance { currentObj =>
+    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
+  }
+
+  private val jacksonDecoder: Decoder[Profile] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[Profile]() {})) } 
+    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
+  }
+  
+  // Circe + Jackson 兜底的 Encoder
+  given profileEncoder: Encoder[Profile] = Encoder.instance { config =>
+    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
+  }
+
+  // Circe + Jackson 兜底的 Decoder
+  given profileDecoder: Decoder[Profile] = Decoder.instance { cursor =>
+    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
+  }
+
+
+
+  //process object code 预留标志位，不要删除
+
+
+} 
+// ===== End of src\main\scala\Objects\StatisticsService\Profile.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\Test.scala ===== 
+ 
+package Utils
+
+import Common.API.PlanContext
+import cats.effect.IO
+
+object Test:
+  def test(st:String)(using PlanContext):IO[String]=
+    IO("hello world!")
+ 
+// ===== End of src\main\scala\Utils\Test.scala ===== 
+ 
+ 
+// ======================================== 
+// Collection completed 
+// Total .scala files processed: 26 
+// ======================================== 
