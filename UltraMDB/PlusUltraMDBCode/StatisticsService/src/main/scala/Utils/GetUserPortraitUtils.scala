@@ -1,7 +1,7 @@
 package Utils
 
 import Common.API.PlanContext
-import APIs.MusicService.GetSongProfile
+import APIs.MusicService.{GetMultiSongsProfiles, GetSongProfile}
 import Objects.StatisticsService.{Dim, Profile}
 import cats.effect.IO
 import cats.implicits._
@@ -37,18 +37,13 @@ object GetUserPortraitUtils {
         }.toMap
 
         for {
-          // 3. 并行获取所有歌曲的曲风
-          genresForSongsMap <- fetchGenresForSongs(allInteractedSongIds, userID, userToken)
+          // 3. 并行获取所有歌曲的Profile
+          songProfilesMap <- fetchGenresForSongs(allInteractedSongIds, userID, userToken)
 
-          // 4. Map-Reduce 计算曲风偏好
-          rawGenrePreferences = mapReduceGenreScores(songInteractionScores, genresForSongsMap)
+          // 4. 计算加权Profile总和
+          rawProfile = mapReduceGenreScores(songInteractionScores, songProfilesMap)
 
-          // 5. 过滤并格式化结果
-          positivePreferences = rawGenrePreferences.toList.filter(_._2 > 0)
-          preferenceDims = positivePreferences.map { case (genreId, score) => Dim(genreId, score) }
-
-          // 6. 归一化
-          rawProfile = Profile(vector = preferenceDims, norm = false)
+          // 5. 归一化
           finalProfile = StatisticsUtils.normalizeVector(rawProfile)
 
           _ <- logInfo(s"计算出用户画像，包含 ${finalProfile.vector.length} 个曲风偏好")
@@ -59,36 +54,43 @@ object GetUserPortraitUtils {
 
   private def mapReduceGenreScores(
     songScores: Map[String, Double],
-    genreMap: Map[String, List[String]]
-  ): Map[String, Double] = {
-    val genreScorePairs = songScores.toList.flatMap {
-      case (songId, score) =>
-        val genres = genreMap.getOrElse(songId, List.empty)
-        genres.map(genreId => (genreId, score))
+    genreMap: Map[String, Profile]  // Changed from Map[String, List[String]]
+  ): Profile = {
+    songScores.foldLeft(Profile(List.empty, norm = false)) {
+      case (accumulatedProfile, (songId, score)) =>
+        genreMap.get(songId) match {
+          case Some(songProfile) =>
+            val weightedProfile = StatisticsUtils.multiply(songProfile, score)
+            StatisticsUtils.add(accumulatedProfile, weightedProfile)
+          case None =>
+            accumulatedProfile
+        }
     }
-
-    genreScorePairs
-      .groupBy { case (genreId, _) => genreId }
-      .view
-      .mapValues(_.map { case (_, score) => score }.sum)
-      .toMap
   }
 
-  private def fetchGenresForSongs(songIds: Set[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Map[String, List[String]]] = {
+  private def fetchGenresForSongs(songIds: Set[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Map[String, Profile]] = {
     if (songIds.isEmpty) return IO.pure(Map.empty)
 
-    logInfo(s"准备为 ${songIds.size} 首歌曲并行获取曲风Profile")
+    logInfo(s"准备批量获取 ${songIds.size} 首歌曲的曲风Profile")
 
-    songIds.toList.traverse { songId =>
-      GetSongProfile(userID, userToken, songId).send.map {
-        case (Some(profile), _) => songId -> profile.vector.map(_.GenreID)
-        case (None, message) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
-          songId -> List.empty[String]
-      }
-    }.map(_.toMap)
+    val songIdsList = songIds.toList
+
+    GetMultSongsProfiles(userID, userToken, songIdsList).send.flatMap {
+      case (Some(profiles), _) =>
+        IO.pure(songIdsList.zip(profiles).toMap)
+      
+      case (None, message) =>
+        logInfo(s"批量获取歌曲Profile失败: $message. 将回退到单曲获取方式") >>
+          songIds.toList.traverse { songId =>
+            GetSongProfile(userID, userToken, songId).send.map {
+              case (Some(profile), _) => songId -> profile
+              case (None, message) =>
+                logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
+                songId -> Profile(List.empty, norm = true)
+            }
+          }.map(_.toMap)
+    }
   }
-
   private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
     IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
 }

@@ -89,4 +89,37 @@ object StatisticsUtils {
     val itemsWithScores = profile.vector.map(dim => (dim.GenreID, dim.value))
     softmaxSampleInternal(itemsWithScores)
   }
+
+  /**
+   * Multiplies a Profile by a scalar value
+   * @param profile The profile to multiply
+   * @param scalar The scalar value
+   * @return A new Profile with all dimensions multiplied by the scalar
+   */
+  def multiply(profile: Profile, scalar: Double): Profile = {
+    Profile(
+      profile.vector.map(dim => dim.copy(value = dim.value * scalar)),
+      profile.norm && scalar == 1.0  // Only remains normalized if scalar is 1
+    )
+  }
+
+  /**
+   * Adds two profiles together (vector addition)
+   * @param profile1 First profile
+   * @param profile2 Second profile
+   * @return A new Profile that's the sum of both inputs
+   */
+  def add(profile1: Profile, profile2: Profile): Profile = {
+    val map1 = profile1.vector.map(dim => (dim.GenreID, dim.value)).toMap
+    val map2 = profile2.vector.map(dim => (dim.GenreID, dim.value)).toMap
+    
+    val allKeys = map1.keySet ++ map2.keySet
+    val summedVector = allKeys.toList.map { key =>
+      Dim(key, map1.getOrElse(key, 0.0) + map2.getOrElse(key, 0.0))
+    }
+    
+    Profile(
+      summedVector,
+      norm = false  // Sum of normalized vectors isn't necessarily normalized
+    )
 }
