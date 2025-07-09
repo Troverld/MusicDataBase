@@ -1,0 +1,27 @@
+<configuration>
+
+  <!-- 设置默认编码 -->
+  <property name="LOG_PATH" value="logs/statistics.log" />
+
+  <!-- 全局日志级别控制（覆盖所有 logger） -->
+  <root level="WARN">
+    <appender-ref ref="FILE" />
+  </root>
+
+  <!-- 单独对 com 目录下所有包设为 WARN -->
+  <logger name="com" level="WARN" />
+
+  <!-- 可加上你自定义包前缀，比如： -->
+  <logger name="Process" level="WARN" />
+  <logger name="Planner" level="WARN" />
+  <logger name="Objects" level="WARN" />
+  <logger name="Impl" level="WARN" />
+
+  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <file>${LOG_PATH}</file>
+    <append>true</append>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+</configuration>
