@@ -31,8 +31,10 @@ object GetNextSongRecommendationUtils {
       currentSongID: String
   )(using planContext: PlanContext): IO[String] = {
     for {
-      recommendationData <- (getUserPortrait(userID, userToken), getSongGenres(userID, userToken, currentSongID), getRecentPlayedSongs(userID)).parTupled
-      (userPortrait, currentSongGenres, recentPlayedSongs) = recommendationData
+      // 【串行】
+      userPortrait <- getUserPortrait(userID, userToken)
+      currentSongGenres <- getSongGenres(userID, userToken, currentSongID)
+      recentPlayedSongs <- getRecentPlayedSongs(userID)
       _ <- logInfo(s"获取到用户画像，当前歌曲曲风: [${currentSongGenres.mkString(", ")}], 最近播放: ${recentPlayedSongs.size}首")
 
       strategies = List(
@@ -126,7 +128,7 @@ object GetNextSongRecommendationUtils {
     for {
       candidateIds <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send.map(_._1.getOrElse(List.empty))
       candidates = candidateIds.filterNot(excludeSongs.contains).take(CANDIDATE_SONGS_LIMIT)
-      songsWithPopularity <- candidates.parTraverse(songId => GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0))))
+      songsWithPopularity <- candidates.traverse(songId => GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0))))
       topSongs = songsWithPopularity.sortBy(-_._2).take(TOP_N_SONGS_FOR_SAMPLING)
       sampledSong <- if (topSongs.isEmpty) IO.pure(None) else {
         val songDims = topSongs.map { case (id, popularity) => Dim(id, popularity) }

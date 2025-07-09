@@ -25,11 +25,8 @@ object GetSimilarSongsUtils {
       limit: Int
   )(using planContext: PlanContext): IO[List[String]] = {
     for {
-      initialData <- (
-        fetchSongMetrics(userID, userToken, songID),
-        fetchAllOtherSongs(userID, userToken, songID)
-      ).parTupled
-      (targetMetrics, allOtherSongs) = initialData
+      targetMetrics <- fetchSongMetrics(userID, userToken, songID)
+      allOtherSongs <- fetchAllOtherSongs(userID, userToken, songID)
       _ <- logInfo(s"目标歌曲数据获取成功。找到 ${allOtherSongs.length} 首其他歌曲作为候选。")
 
       candidateMetrics <- fetchAllSongMetrics(userID, userToken, allOtherSongs)
@@ -44,15 +41,23 @@ object GetSimilarSongsUtils {
   }
 
   private def fetchSongMetrics(userID: String, userToken: String, sID: String)(using PlanContext): IO[SongMetrics] =
-    (
-      GetSongProfile(userID, userToken, sID).send,
-      GetSongPopularity(userID, userToken, sID).send
-    ).parTupled.flatMap {
-      case ((Some(profile), _), (Some(popularity), _)) => IO.pure(SongMetrics(sID, profile, popularity))
-      case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
-        val errorDetails = s"Profile: ${profileOpt.isDefined} ($profileMsg), Popularity: ${popOpt.isDefined} ($popMsg)"
-        IO.raiseError(new Exception(s"获取歌曲 ${sID} 的核心数据失败: $errorDetails"))
-    }
+    for {
+      // 1. 串行执行两个 IO 操作
+      profileResult <- GetSongProfile(userID, userToken, sID).send
+      popularityResult <- GetSongPopularity(userID, userToken, sID).send
+
+      // 2. 将两个结果组合成元组，然后对元组进行 match
+      metrics <- (profileResult, popularityResult) match {
+        // 匹配成功的情况
+        case ((Some(profile), _), (Some(popularity), _)) =>
+          IO.pure(SongMetrics(sID, profile, popularity))
+
+        // 匹配失败的情况 (捕获所有其他组合)
+        case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
+          val errorDetails = s"Profile: ${profileOpt.isDefined} ('$profileMsg'), Popularity: ${popOpt.isDefined} ('$popMsg')"
+          IO.raiseError(new Exception(s"获取歌曲 ${sID} 的核心数据失败: $errorDetails"))
+      }
+    } yield metrics // 3. 将 match 的结果 (也是一个 IO) 返回
 
   private def fetchAllOtherSongs(userID: String, userToken: String, targetSongID: String)(using PlanContext): IO[List[String]] =
     GetSongList(userID, userToken).send.flatMap {
@@ -61,7 +66,7 @@ object GetSimilarSongsUtils {
     }
 
   private def fetchAllSongMetrics(userID: String, userToken: String, songIDs: List[String])(using planContext: PlanContext): IO[List[SongMetrics]] =
-    songIDs.parTraverse { sID =>
+    songIDs.traverse { sID =>
       fetchSongMetrics(userID, userToken, sID).attempt.map {
         case Right(metrics) => Some(metrics)
         case Left(error) =>

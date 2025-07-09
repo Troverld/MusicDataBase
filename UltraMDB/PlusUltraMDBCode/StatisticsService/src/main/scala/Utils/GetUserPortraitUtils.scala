@@ -19,8 +19,8 @@ object GetUserPortraitUtils {
       _ <- logInfo("开始实时计算用户画像")
 
       // 1. 调用数据访问层获取历史记录
-      histories <- (SearchUtils.fetchUserPlaybackHistory(userID), SearchUtils.fetchUserRatingHistory(userID)).parTupled
-      (playedSongs, ratedSongsMap) = histories
+      playedSongs <- SearchUtils.fetchUserPlaybackHistory(userID)
+      ratedSongsMap <- SearchUtils.fetchUserRatingHistory(userID)
 
       allInteractedSongIds = (playedSongs ++ ratedSongsMap.keys).toSet
       _ <- logInfo(s"用户总共交互过 ${allInteractedSongIds.size} 首歌曲")
@@ -79,7 +79,7 @@ object GetUserPortraitUtils {
 
     logInfo(s"准备为 ${songIds.size} 首歌曲并行获取曲风Profile")
 
-    songIds.toList.parTraverse { songId =>
+    songIds.toList.traverse { songId =>
       GetSongProfile(userID, userToken, songId).send.map {
         case (Some(profile), _) => songId -> profile.vector.map(_.GenreID)
         case (None, message) =>

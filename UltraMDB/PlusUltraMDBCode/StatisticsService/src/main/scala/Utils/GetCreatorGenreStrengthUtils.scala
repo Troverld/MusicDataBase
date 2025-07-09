@@ -56,7 +56,7 @@ object GetCreatorGenreStrengthUtils {
   private def calculateGenreStrengths(songs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[List[Dim]] = {
     for {
       // **修正点**: 将 planContext 显式传递给辅助方法
-      songData <- songs.parTraverse(fetchSongData(_, userID, userToken)(using planContext))
+      songData <- songs.traverse(fetchSongData(_, userID, userToken)(using planContext))
       genreStrengths = calculateAveragePopularityByGenre(songData)
     } yield genreStrengths
   }
@@ -65,11 +65,11 @@ object GetCreatorGenreStrengthUtils {
    * 内部辅助方法：并行获取单首歌曲的曲风和热度。
    */
   private def fetchSongData(songId: String, userID: String, userToken: String)(using planContext: PlanContext): IO[(List[String], Double)] = {
-    (
-      GetSongProfile(userID, userToken, songId).send,
-      GetSongPopularity(userID, userToken, songId).send
-    ).parTupled.map { case (profileResult, popularityResult) =>
-
+    // 【串行】
+    for {
+      profileResult <- GetSongProfile(userID, userToken, songId).send
+      popularityResult <- GetSongPopularity(userID, userToken, songId).send
+    } yield {
       val genres = profileResult match {
         case (Some(profile), _) => profile.vector.map(_.GenreID)
         case (None, msg) =>

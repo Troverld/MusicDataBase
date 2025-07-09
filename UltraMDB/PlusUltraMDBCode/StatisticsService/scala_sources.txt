@@ -289,17 +289,14 @@ case class GetCreatorGenreStrengthPlanner(
  
 // ===== src\main\scala\Impl\GetNextSongRecommendationPlanner.scala ===== 
  
+// ===== src/main/scala/Impl/GetNextSongRecommendationPlanner.scala =====
+
 package Impl
 
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
-import Common.Object.SqlParameter
-import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import APIs.MusicService.{GetSongByID, GetSongProfile, FilterSongsByEntity}
-import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity, GetUserSongRecommendations}
-import Objects.StatisticsService.{Dim, Profile}
-import Utils.StatisticsUtils
+import APIs.MusicService.GetSongByID
+import Utils.GetNextSongRecommendationUtils
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
@@ -314,33 +311,14 @@ case class GetNextSongRecommendationPlanner(
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  // 超参数常量
-  private val RECENT_SONGS_LIMIT = 10
-  private val CANDIDATE_SONGS_LIMIT = 5
-  private val TOP_N_SONGS_FOR_SAMPLING = 5
-  private val FALLBACK_PAGE_SIZE = 20
-  private val PREFERENCE_THRESHOLD = 0.05
-  private val SOFTMAX_PREFERENCE_THRESHOLD = 0.2
-
-  private type RecommendationStrategy = Set[String] => IO[Option[String]]
-
   override def plan(using planContext: PlanContext): IO[(Option[String], String)] = {
     val logic: IO[String] = for {
       _ <- logInfo(s"开始为用户 ${userID} 基于当前歌曲 ${currentSongID} 推荐下一首歌")
       _ <- validateUser()
       _ <- validateCurrentSong()
-
-      recommendationData <- (getUserPortrait(), getSongGenres(currentSongID), getRecentPlayedSongs()).parTupled
-      (userPortrait, currentSongGenres, recentPlayedSongs) = recommendationData
-      _ <- logInfo(s"获取到用户画像，当前歌曲曲风: [${currentSongGenres.mkString(", ")}], 最近播放: ${recentPlayedSongs.size}首")
-
-      strategies = List(
-        recommendSameGenre(currentSongGenres, userPortrait),
-        recommendByUserTopGenre(userPortrait),
-        fallbackRecommendation()
-      )
-
-      nextSongId <- tryStrategies(strategies, recentPlayedSongs + currentSongID)
+      _ <- logInfo("验证通过，正在调用 GetNextSongRecommendationUtils 执行推荐逻辑")
+      nextSongId <- GetNextSongRecommendationUtils.generateNextSongRecommendation(userID, userToken, currentSongID)
+      _ <- logInfo(s"推荐逻辑执行完毕，推荐歌曲ID: ${nextSongId}")
     } yield nextSongId
 
     logic.map { songId =>
@@ -366,118 +344,6 @@ case class GetNextSongRecommendationPlanner(
       }
   }
 
-  private def getUserPortrait()(using PlanContext): IO[Profile] = {
-    logInfo("正在通过API获取用户画像") >>
-      GetUserPortrait(userID, userToken).send.flatMap {
-        case (Some(portrait), _) => IO.pure(portrait)
-        case (None, msg) =>
-          logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >>
-            IO.pure(Profile(List.empty, norm = true))
-      }
-  }
-
-  private def getSongGenres(songId: String)(using PlanContext): IO[List[String]] = {
-    logInfo(s"正在通过API获取歌曲 ${songId} 的曲风") >>
-      GetSongProfile(userID, userToken, songId).send.map {
-        case (Some(profile), _) => profile.vector.map(_.GenreID)
-        case (None, msg) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg. 将视为空曲风列表。")
-          List.empty[String]
-      }
-  }
-
-  private def getRecentPlayedSongs()(using PlanContext): IO[Set[String]] = {
-    logInfo(s"正在查询用户最近播放的 ${RECENT_SONGS_LIMIT} 首歌曲")
-    val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ? ORDER BY play_time DESC LIMIT ?"
-    readDBRows(sql, List(SqlParameter("String", userID), SqlParameter("Int", RECENT_SONGS_LIMIT.toString)))
-      .map(_.map(decodeField[String](_, "song_id")).toSet)
-  }
-
-  private def tryStrategies(strategies: List[RecommendationStrategy], excludeSongs: Set[String])(using PlanContext): IO[String] = {
-    strategies.foldLeft(IO.pure(None: Option[String])) { (acc, strategy) =>
-      acc.flatMap {
-        case Some(songId) => IO.pure(Some(songId))
-        case None         => strategy(excludeSongs)
-      }
-    }.flatMap {
-      case Some(songId) => IO.pure(songId)
-      case None => IO.raiseError(new RuntimeException("所有推荐策略均失败，无法找到合适的歌曲"))
-    }
-  }
-
-  private def recommendSameGenre(currentGenres: List[String], userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
-    val genresWithPreference = currentGenres.flatMap(g => userPortrait.vector.find(_.GenreID == g))
-    if (genresWithPreference.isEmpty) {
-      logInfo("策略1: 用户对当前曲风无偏好记录，跳过") >> IO.pure(None)
-    } else {
-      val avgPreference = genresWithPreference.map(_.value).sum / genresWithPreference.length
-      logInfo(s"策略1: 用户对当前曲风的平均偏好度为: $avgPreference")
-
-      if (avgPreference >= PREFERENCE_THRESHOLD) {
-        logInfo(s"偏好度高于阈值 $PREFERENCE_THRESHOLD, 准备从当前曲风中采样")
-        val genreProfileToSample = Profile(vector = genresWithPreference, norm = false)
-        StatisticsUtils.softmaxSample(genreProfileToSample) match {
-          case Some(sampledGenre) =>
-            logInfo(s"从当前歌曲曲风中采样选中: '$sampledGenre'")
-            findSongInGenreByPopularity(sampledGenre, excludeSongs)
-          case None => IO.pure(None)
-        }
-      } else {
-        logInfo(s"偏好度低于阈值 $PREFERENCE_THRESHOLD, 跳过") >> IO.pure(None)
-      }
-    }
-  }
-
-  private def recommendByUserTopGenre(userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
-    val highlyLikedGenres = userPortrait.vector.filter(_.value > SOFTMAX_PREFERENCE_THRESHOLD)
-    if (highlyLikedGenres.isEmpty) {
-      logInfo(s"策略2: 用户没有偏好度高于 ${SOFTMAX_PREFERENCE_THRESHOLD} 的曲风，跳过") >> IO.pure(None)
-    } else {
-      val likedGenresProfile = Profile(vector = highlyLikedGenres, norm = false)
-      StatisticsUtils.softmaxSample(likedGenresProfile) match {
-        case Some(sampledGenre) =>
-          logInfo(s"策略2: 从 ${highlyLikedGenres.length} 个高偏好曲风中采样选中: '$sampledGenre'")
-          findSongInGenreByPopularity(sampledGenre, excludeSongs)
-        case None => IO.pure(None)
-      }
-    }
-  }
-
-  private def fallbackRecommendation()(using PlanContext): RecommendationStrategy = excludeSongs => {
-    logInfo("策略3: 启动后备推荐策略")
-    GetUserSongRecommendations(userID, userToken, pageSize = FALLBACK_PAGE_SIZE).send.flatMap {
-      case (Some(recommendedIds), _) =>
-        IO.pure(recommendedIds.find(id => !excludeSongs.contains(id)))
-      case (None, msg) =>
-        logInfo(s"后备推荐API调用失败: $msg").as(None)
-    }
-  }
-
-  private def findSongInGenreByPopularity(genre: String, excludeSongs: Set[String])(using PlanContext): IO[Option[String]] = {
-    for {
-      candidateIds <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send.map(_._1.getOrElse(List.empty))
-
-      candidates = candidateIds
-        .filterNot(excludeSongs.contains)
-        .take(CANDIDATE_SONGS_LIMIT)
-
-      songsWithPopularity <- candidates.parTraverse { songId =>
-        GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0)))
-      }
-
-      topSongs = songsWithPopularity.sortBy(-_._2).take(TOP_N_SONGS_FOR_SAMPLING)
-
-      sampledSong <- if (topSongs.isEmpty) {
-        IO.pure(None)
-      } else {
-        val songDims = topSongs.map { case (id, popularity) => Dim(id, popularity) }
-        val songsProfile = Profile(vector = songDims, norm = false)
-        IO.pure(StatisticsUtils.softmaxSample(songsProfile))
-      }
-
-    } yield sampledSong
-  }
-
   private def logInfo(message: String): IO[Unit] =
     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
 
@@ -489,76 +355,37 @@ case class GetNextSongRecommendationPlanner(
  
 // ===== src\main\scala\Impl\GetSimilarCreatorsPlanner.scala ===== 
  
+// ===== src/main/scala/Impl/GetSimilarCreatorsPlanner.scala =====
+
 package Impl
 
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._ // Assuming readDBRows is available
-import Common.Object.SqlParameter
-import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import APIs.CreatorService.GetAllCreators // 1. 导入新的API
-import APIs.StatisticsService.{GetCreatorCreationTendency, GetCreatorGenreStrength} // 1. 导入新的API
-import Objects.CreatorService.{CreatorID_Type, CreatorType}
-import Objects.StatisticsService.{Profile, Dim}
-import Utils.StatisticsUtils
+import Objects.CreatorService.CreatorID_Type
+import Utils.GetSimilarCreatorsUtils
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
 
-/**
- * Planner for GetSimilarCreators: 获取与指定创作者相似的其他创作者 (重构版)
- *
- * @param userID      用户ID
- * @param userToken   用户认证令牌
- * @param creator     目标创作者的智能ID对象
- * @param limit       返回的相似创作者数量
- * @param planContext 执行上下文
- */
 case class GetSimilarCreatorsPlanner(
                                       userID: String,
                                       userToken: String,
-                                      creator: CreatorID_Type, // 2. 使用类型安全的 CreatorID_Type
+                                      creator: CreatorID_Type,
                                       limit: Int,
                                       override val planContext: PlanContext
-                                    ) extends Planner[(Option[List[CreatorID_Type]], String)] { // 3. 更新返回类型
+                                    ) extends Planner[(Option[List[CreatorID_Type]], String)] {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
-
-  // -- 辅助数据结构 --
-  case class CreatorMetrics(creator: CreatorID_Type, tendency: Profile, strength: Profile)
-  case class RankedCreator(creator: CreatorID_Type, score: Double)
 
   override def plan(using planContext: PlanContext): IO[(Option[List[CreatorID_Type]], String)] = {
     val logic: IO[List[CreatorID_Type]] = for {
       _ <- logInfo(s"开始查找与创作者 ${creator.id} (${creator.creatorType}) 相似的创作者，限制数量: ${limit}")
       _ <- validateUser()
       _ <- validateLimit()
-
-      // 步骤 1: 并行获取目标创作者的统计数据和其他所有创作者的列表
-      _ <- logInfo("正在并行获取目标数据和所有候选创作者列表...")
-      initialData <- (
-        fetchCreatorMetrics(creator), // 获取目标创作者的倾向和实力
-        fetchAllOtherCreators()       // 获取所有其他创作者
-      ).parTupled
-
-      (targetMetrics, allOtherCreators) = initialData
-      _ <- logInfo(s"目标数据获取成功。找到 ${allOtherCreators.length} 位其他创作者。")
-
-      // 步骤 2: 并行获取所有候选创作者的统计数据
-      _ <- logInfo("正在并行获取所有候选创作者的统计数据 (此操作可能耗时较长)...")
-      candidateMetrics <- fetchAllCandidateMetrics(allOtherCreators)
-      _ <- logInfo(s"成功获取了 ${candidateMetrics.length} 位候选创作者的数据。")
-
-      // 步骤 3: 计算综合评分并排序
-      _ <- logInfo("正在计算综合评分并排序...")
-      rankedCreators = rankCreators(targetMetrics, candidateMetrics)
-
-      // 步骤 4: 提取最终结果
-      finalResult = rankedCreators.take(limit)
-      _ <- logInfo(s"查找完成，返回前 ${finalResult.length} 位最相似的创作者。")
-
-    } yield finalResult.map(_.creator)
+      _ <- logInfo("验证通过，正在调用 GetSimilarCreatorsUtils 执行查找逻辑")
+      similarCreators <- GetSimilarCreatorsUtils.findSimilarCreators(userID, userToken, creator, limit)
+    } yield similarCreators
 
     logic.map { creators =>
       (Some(creators), "相似创作者查找成功")
@@ -568,7 +395,6 @@ case class GetSimilarCreatorsPlanner(
     }
   }
 
-  // --- 验证逻辑 ---
   private def validateUser()(using PlanContext): IO[Unit] = {
     logInfo("正在验证用户身份") >> validateUserMapping(userID, userToken).send.flatMap {
       case (true, _) => logInfo("用户身份验证通过")
@@ -584,68 +410,6 @@ case class GetSimilarCreatorsPlanner(
     }
   }
 
-  // --- 数据获取逻辑 ---
-
-  /** 获取单个创作者的倾向和实力数据 */
-  private def fetchCreatorMetrics(c: CreatorID_Type)(using PlanContext): IO[CreatorMetrics] = {
-    (
-      GetCreatorCreationTendency(userID, userToken, c).send,
-      GetCreatorGenreStrength(userID, userToken, c).send
-    ).parTupled.flatMap {
-      case ((Some(tendency), _), (Some(strength), _)) =>
-        IO.pure(CreatorMetrics(c, tendency, strength))
-      case ((tendencyOpt, tendencyMsg), (strengthOpt, strengthMsg)) =>
-        val errorDetails = s"Tendency: ${tendencyOpt.isDefined} ($tendencyMsg), Strength: ${strengthOpt.isDefined} ($strengthMsg)"
-        IO.raiseError(new Exception(s"获取创作者 ${c.id} 的核心数据失败: $errorDetails"))
-    }
-  }
-
-  /** 使用 GetAllCreators API 获取除目标外的所有创作者 */
-  private def fetchAllOtherCreators()(using PlanContext): IO[List[CreatorID_Type]] = {
-    GetAllCreators(userID, userToken).send.flatMap {
-      case (Some(all), _) => IO.pure(all.filterNot(_.id == creator.id))
-      case (None, msg)    => IO.raiseError(new Exception(s"无法获取所有创作者列表: $msg"))
-    }
-  }
-
-  /** 并行获取所有候选创作者的统计数据，并优雅地处理失败 */
-  private def fetchAllCandidateMetrics(candidates: List[CreatorID_Type])(using PlanContext): IO[List[CreatorMetrics]] = {
-    candidates.parTraverse { c =>
-      fetchCreatorMetrics(c).attempt.map {
-        case Right(metrics) => Some(metrics)
-        case Left(error) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取候选者 ${c.id} 数据失败，将跳过此创作者: ${error.getMessage}")
-          None
-      }
-    }.map(_.flatten) // 过滤掉所有失败的结果
-  }
-
-  // --- 核心排序逻辑 ---
-
-  /**
-   * 根据综合评分对候选创作者进行排序
-   * @param target    目标创作者的统计数据
-   * @param candidates 候选创作者的统计数据列表
-   * @return 按综合评分降序排列的创作者列表
-   */
-  private def rankCreators(target: CreatorMetrics, candidates: List[CreatorMetrics]): List[RankedCreator] = {
-    candidates.map { candidate =>
-        // 计算余弦相似度
-        val similarity = StatisticsUtils.calculateCosineSimilarity(target.tendency, candidate.tendency)
-
-        // 计算对数实力因子
-        val totalStrength = candidate.strength.vector.map(_.value).sum
-        val strengthFactor = Math.log1p(totalStrength) // log(1 + strength)
-
-        // 最终综合评分
-        val finalScore = similarity * strengthFactor
-
-        RankedCreator(candidate.creator, finalScore)
-      }
-      .filter(_.score > 0) // 过滤掉没有相似性或影响力的
-      .sortBy(-_.score)    // 按分数降序排序
-  }
-
   private def logInfo(message: String): IO[Unit] =
     IO(logger.info(s"TID=${planContext.traceID.id} -- $message"))
 
@@ -657,31 +421,19 @@ case class GetSimilarCreatorsPlanner(
  
 // ===== src\main\scala\Impl\GetSimilarSongsPlanner.scala ===== 
  
+// ===== src/main/scala/Impl/GetSimilarSongsPlanner.scala =====
+
 package Impl
 
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
-import Common.Object.SqlParameter
-import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateUserMapping
-import APIs.MusicService.{GetSongByID, GetSongList, GetSongProfile}
-import APIs.StatisticsService.GetSongPopularity
-import Objects.StatisticsService.{Profile, Dim}
-import Utils.StatisticsUtils
+import APIs.MusicService.GetSongByID
+import Utils.GetSimilarSongsUtils
 import cats.effect.IO
 import cats.implicits._
 import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
 
-/**
- * Planner for GetSimilarSongs: 获取与指定歌曲相似的歌曲列表 (最终重构版)
- *
- * @param userID      用户ID
- * @param userToken   用户认证令牌
- * @param songID      目标歌曲ID
- * @param limit       返回的相似歌曲数量
- * @param planContext 执行上下文
- */
 case class GetSimilarSongsPlanner(
                                    userID: String,
                                    userToken: String,
@@ -692,34 +444,15 @@ case class GetSimilarSongsPlanner(
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  // -- 辅助数据结构 --
-  case class SongMetrics(songID: String, profile: Profile, popularity: Double)
-  case class RankedSong(songID: String, score: Double)
-
   override def plan(using planContext: PlanContext): IO[(Option[List[String]], String)] = {
     val logic: IO[List[String]] = for {
       _ <- logInfo(s"开始查找与歌曲 ${songID} 相似的歌曲，限制数量: ${limit}")
       _ <- validateUser()
       _ <- validateParams()
-      _ <- validateTargetSong() // 验证目标歌曲存在性
-
-      initialData <- (
-        fetchSongMetrics(songID),
-        fetchAllOtherSongs()
-      ).parTupled
-      (targetMetrics, allOtherSongs) = initialData
-      _ <- logInfo(s"目标歌曲数据获取成功。找到 ${allOtherSongs.length} 首其他歌曲作为候选。")
-
-      candidateMetrics <- fetchAllSongMetrics(allOtherSongs)
-      _ <- logInfo(s"成功获取了 ${candidateMetrics.length} 首候选歌曲的数据。")
-
-      _ <- logInfo("正在计算综合推荐分并排序...")
-      rankedSongs = rankSongs(targetMetrics, candidateMetrics)
-
-      finalResult = rankedSongs.take(limit).map(_.songID)
-      _ <- logInfo(s"查找完成，返回前 ${finalResult.length} 首最相似的歌曲。")
-
-    } yield finalResult
+      _ <- validateTargetSong()
+      _ <- logInfo("验证通过，正在调用 GetSimilarSongsUtils 执行查找逻辑")
+      similarSongs <- GetSimilarSongsUtils.findSimilarSongs(userID, userToken, songID, limit)
+    } yield similarSongs
 
     logic.map { similarSongs =>
       (Some(similarSongs), "相似歌曲查找成功")
@@ -729,7 +462,6 @@ case class GetSimilarSongsPlanner(
     }
   }
 
-  // --- 验证逻辑 ---
   private def validateUser()(using PlanContext): IO[Unit] = {
     logInfo("正在验证用户身份") >> validateUserMapping(userID, userToken).send.flatMap {
       case (true, _) => logInfo("用户身份验证通过")
@@ -750,53 +482,6 @@ case class GetSimilarSongsPlanner(
         case (Some(_), _) => logInfo("目标歌曲存在性验证通过")
         case (None, message) => IO.raiseError(new IllegalArgumentException(s"目标歌曲不存在: $message"))
       }
-  }
-
-  // --- 数据获取逻辑 ---
-
-  private def fetchSongMetrics(sID: String)(using PlanContext): IO[SongMetrics] = {
-    (
-      GetSongProfile(userID, userToken, sID).send,
-      GetSongPopularity(userID, userToken, sID).send
-    ).parTupled.flatMap {
-      case ((Some(profile), _), (Some(popularity), _)) =>
-        IO.pure(SongMetrics(sID, profile, popularity))
-      case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
-        val errorDetails = s"Profile: ${profileOpt.isDefined} ($profileMsg), Popularity: ${popOpt.isDefined} ($popMsg)"
-        IO.raiseError(new Exception(s"获取歌曲 ${sID} 的核心数据失败: $errorDetails"))
-    }
-  }
-
-  private def fetchAllOtherSongs()(using PlanContext): IO[List[String]] = {
-    GetSongList(userID, userToken).send.flatMap {
-      // **核心修正点**: GetSongList 返回的是 List[String]，直接使用即可
-      case (Some(songIDs), _) => IO.pure(songIDs.filterNot(_ == songID))
-      case (None, msg)         => IO.raiseError(new Exception(s"无法获取所有歌曲列表: $msg"))
-    }
-  }
-
-  private def fetchAllSongMetrics(songIDs: List[String])(using PlanContext): IO[List[SongMetrics]] = {
-    songIDs.parTraverse { sID =>
-      fetchSongMetrics(sID).attempt.map {
-        case Right(metrics) => Some(metrics)
-        case Left(error) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取候选歌曲 ${sID} 数据失败，将跳过此歌曲: ${error.getMessage}")
-          None
-      }
-    }.map(_.flatten)
-  }
-
-  // --- 核心排序逻辑 ---
-
-  private def rankSongs(target: SongMetrics, candidates: List[SongMetrics]): List[RankedSong] = {
-    candidates.map { candidate =>
-        val matchScore = StatisticsUtils.calculateCosineSimilarity(target.profile, candidate.profile)
-        val popularityFactor = Math.log1p(candidate.popularity)
-        val finalScore = matchScore * popularityFactor
-        RankedSong(candidate.songID, finalScore)
-      }
-      .filter(_.score > 0)
-      .sortBy(-_.score)
   }
 
   private def logInfo(message: String): IO[Unit] =
@@ -2277,6 +1962,327 @@ object GetCreatorGenreStrengthUtils {
 // ===== End of src\main\scala\Utils\GetCreatorGenreStrengthUtils.scala ===== 
  
  
+// ===== src\main\scala\Utils\GetNextSongRecommendationUtils.scala ===== 
+ 
+// ===== src/main/scala/Utils/GetNextSongRecommendationUtils.scala =====
+
+package Utils
+
+import Common.API.PlanContext
+import APIs.MusicService.{GetSongByID, GetSongProfile, FilterSongsByEntity}
+import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity, GetUserSongRecommendations}
+import Objects.StatisticsService.{Dim, Profile}
+import cats.effect.IO
+import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.LoggerFactory
+
+object GetNextSongRecommendationUtils {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  // 超参数常量
+  private val RECENT_SONGS_LIMIT = 10
+  private val CANDIDATE_SONGS_LIMIT = 5
+  private val TOP_N_SONGS_FOR_SAMPLING = 5
+  private val FALLBACK_PAGE_SIZE = 20
+  private val PREFERENCE_THRESHOLD = 0.05
+  private val SOFTMAX_PREFERENCE_THRESHOLD = 0.2
+
+  private type RecommendationStrategy = Set[String] => IO[Option[String]]
+
+  def generateNextSongRecommendation(
+      userID: String,
+      userToken: String,
+      currentSongID: String
+  )(using planContext: PlanContext): IO[String] = {
+    for {
+      recommendationData <- (getUserPortrait(userID, userToken), getSongGenres(userID, userToken, currentSongID), getRecentPlayedSongs(userID)).parTupled
+      (userPortrait, currentSongGenres, recentPlayedSongs) = recommendationData
+      _ <- logInfo(s"获取到用户画像，当前歌曲曲风: [${currentSongGenres.mkString(", ")}], 最近播放: ${recentPlayedSongs.size}首")
+
+      strategies = List(
+        recommendSameGenre(userID, userToken, currentSongGenres, userPortrait),
+        recommendByUserTopGenre(userID, userToken, userPortrait),
+        fallbackRecommendation(userID, userToken)
+      )
+
+      nextSongId <- tryStrategies(strategies, recentPlayedSongs + currentSongID)
+    } yield nextSongId
+  }
+
+  private def getUserPortrait(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] =
+    GetUserPortrait(userID, userToken).send.flatMap {
+      case (Some(portrait), _) => IO.pure(portrait)
+      case (None, msg) =>
+        logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >> IO.pure(Profile(List.empty, norm = true))
+    }
+
+  private def getSongGenres(userID: String, userToken: String, songId: String)(using planContext: PlanContext): IO[List[String]] =
+    GetSongProfile(userID, userToken, songId).send.map {
+      case (Some(profile), _) => profile.vector.map(_.GenreID)
+      case (None, msg) =>
+        logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg. 将视为空曲风列表。")
+        List.empty[String]
+    }
+
+  private def getRecentPlayedSongs(userID: String)(using PlanContext): IO[Set[String]] = {
+    logInfo(s"正在调用SearchUtils查询用户最近播放的 ${RECENT_SONGS_LIMIT} 首歌曲")
+    SearchUtils.fetchRecentPlayedSongs(userID, RECENT_SONGS_LIMIT)
+  }
+
+  private def tryStrategies(strategies: List[RecommendationStrategy], excludeSongs: Set[String])(using PlanContext): IO[String] =
+    strategies.foldLeft(IO.pure(None: Option[String])) { (acc, strategy) =>
+      acc.flatMap {
+        case Some(songId) => IO.pure(Some(songId))
+        case None => strategy(excludeSongs)
+      }
+    }.flatMap {
+      case Some(songId) => IO.pure(songId)
+      case None => IO.raiseError(new RuntimeException("所有推荐策略均失败，无法找到合适的歌曲"))
+    }
+
+  private def recommendSameGenre(userID: String, userToken: String, currentGenres: List[String], userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
+    val genresWithPreference = currentGenres.flatMap(g => userPortrait.vector.find(_.GenreID == g))
+    if (genresWithPreference.isEmpty) {
+      logInfo("策略1: 用户对当前曲风无偏好记录，跳过") >> IO.pure(None)
+    } else {
+      val avgPreference = genresWithPreference.map(_.value).sum / genresWithPreference.length
+      logInfo(s"策略1: 用户对当前曲风的平均偏好度为: $avgPreference")
+
+      if (avgPreference >= PREFERENCE_THRESHOLD) {
+        logInfo(s"偏好度高于阈值 $PREFERENCE_THRESHOLD, 准备从当前曲风中采样")
+        val genreProfileToSample = Profile(vector = genresWithPreference, norm = false)
+        StatisticsUtils.softmaxSample(genreProfileToSample) match {
+          case Some(sampledGenre) =>
+            logInfo(s"从当前歌曲曲风中采样选中: '$sampledGenre'")
+            findSongInGenreByPopularity(userID, userToken, sampledGenre, excludeSongs)
+          case None => IO.pure(None)
+        }
+      } else {
+        logInfo(s"偏好度低于阈值 $PREFERENCE_THRESHOLD, 跳过") >> IO.pure(None)
+      }
+    }
+  }
+
+  private def recommendByUserTopGenre(userID: String, userToken: String, userPortrait: Profile)(using PlanContext): RecommendationStrategy = excludeSongs => {
+    val highlyLikedGenres = userPortrait.vector.filter(_.value > SOFTMAX_PREFERENCE_THRESHOLD)
+    if (highlyLikedGenres.isEmpty) {
+      logInfo(s"策略2: 用户没有偏好度高于 ${SOFTMAX_PREFERENCE_THRESHOLD} 的曲风，跳过") >> IO.pure(None)
+    } else {
+      val likedGenresProfile = Profile(vector = highlyLikedGenres, norm = false)
+      StatisticsUtils.softmaxSample(likedGenresProfile) match {
+        case Some(sampledGenre) =>
+          logInfo(s"策略2: 从 ${highlyLikedGenres.length} 个高偏好曲风中采样选中: '$sampledGenre'")
+          findSongInGenreByPopularity(userID, userToken, sampledGenre, excludeSongs)
+        case None => IO.pure(None)
+      }
+    }
+  }
+
+  private def fallbackRecommendation(userID: String, userToken: String)(using PlanContext): RecommendationStrategy = excludeSongs => {
+    logInfo("策略3: 启动后备推荐策略")
+    GetUserSongRecommendations(userID, userToken, pageSize = FALLBACK_PAGE_SIZE).send.flatMap {
+      case (Some(recommendedIds), _) => IO.pure(recommendedIds.find(id => !excludeSongs.contains(id)))
+      case (None, msg) => logInfo(s"后备推荐API调用失败: $msg").as(None)
+    }
+  }
+
+  private def findSongInGenreByPopularity(userID: String, userToken: String, genre: String, excludeSongs: Set[String])(using PlanContext): IO[Option[String]] =
+    for {
+      candidateIds <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send.map(_._1.getOrElse(List.empty))
+      candidates = candidateIds.filterNot(excludeSongs.contains).take(CANDIDATE_SONGS_LIMIT)
+      songsWithPopularity <- candidates.parTraverse(songId => GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0))))
+      topSongs = songsWithPopularity.sortBy(-_._2).take(TOP_N_SONGS_FOR_SAMPLING)
+      sampledSong <- if (topSongs.isEmpty) IO.pure(None) else {
+        val songDims = topSongs.map { case (id, popularity) => Dim(id, popularity) }
+        IO.pure(StatisticsUtils.softmaxSample(Profile(vector = songDims, norm = false)))
+      }
+    } yield sampledSong
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\GetNextSongRecommendationUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\GetSimilarCreatorsUtils.scala ===== 
+ 
+// ===== src/main/scala/Utils/GetSimilarCreatorsUtils.scala =====
+
+package Utils
+
+import Common.API.PlanContext
+import APIs.CreatorService.GetAllCreators
+import APIs.StatisticsService.{GetCreatorCreationTendency, GetCreatorGenreStrength}
+import Objects.CreatorService.CreatorID_Type
+import Objects.StatisticsService.Profile
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto._
+
+object GetSimilarCreatorsUtils {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  private case class CreatorMetrics(creator: CreatorID_Type, tendency: Profile, strength: Profile)
+  private case class RankedCreator(creator: CreatorID_Type, score: Double)
+
+  def findSimilarCreators(
+      userID: String,
+      userToken: String,
+      creator: CreatorID_Type,
+      limit: Int
+  )(using planContext: PlanContext): IO[List[CreatorID_Type]] = {
+    for {
+      _ <- logInfo("正在并行获取目标数据和所有候选创作者列表...")
+      initialData <- (
+        fetchCreatorMetrics(userID, userToken, creator),
+        fetchAllOtherCreators(userID, userToken, creator)
+      ).parTupled
+      (targetMetrics, allOtherCreators) = initialData
+      _ <- logInfo(s"目标数据获取成功。找到 ${allOtherCreators.length} 位其他创作者。")
+
+      _ <- logInfo("正在并行获取所有候选创作者的统计数据...")
+      candidateMetrics <- fetchAllCandidateMetrics(userID, userToken, allOtherCreators)
+      _ <- logInfo(s"成功获取了 ${candidateMetrics.length} 位候选创作者的数据。")
+
+      _ <- logInfo("正在计算综合评分并排序...")
+      rankedCreators = rankCreators(targetMetrics, candidateMetrics)
+
+      finalResult = rankedCreators.take(limit)
+      _ <- logInfo(s"查找完成，返回前 ${finalResult.length} 位最相似的创作者。")
+    } yield finalResult.map(_.creator)
+  }
+
+  private def fetchCreatorMetrics(userID: String, userToken: String, c: CreatorID_Type)(using PlanContext): IO[CreatorMetrics] =
+    (
+      GetCreatorCreationTendency(userID, userToken, c).send,
+      GetCreatorGenreStrength(userID, userToken, c).send
+    ).parTupled.flatMap {
+      case ((Some(tendency), _), (Some(strength), _)) => IO.pure(CreatorMetrics(c, tendency, strength))
+      case ((tendencyOpt, tendencyMsg), (strengthOpt, strengthMsg)) =>
+        val errorDetails = s"Tendency: ${tendencyOpt.isDefined} ($tendencyMsg), Strength: ${strengthOpt.isDefined} ($strengthMsg)"
+        IO.raiseError(new Exception(s"获取创作者 ${c.id} 的核心数据失败: $errorDetails"))
+    }
+
+  private def fetchAllOtherCreators(userID: String, userToken: String, targetCreator: CreatorID_Type)(using PlanContext): IO[List[CreatorID_Type]] =
+    GetAllCreators(userID, userToken).send.flatMap {
+      case (Some(all), _) => IO.pure(all.filterNot(_.id == targetCreator.id))
+      case (None, msg) => IO.raiseError(new Exception(s"无法获取所有创作者列表: $msg"))
+    }
+
+  private def fetchAllCandidateMetrics(userID: String, userToken: String, candidates: List[CreatorID_Type])(using planContext: PlanContext): IO[List[CreatorMetrics]] =
+    candidates.parTraverse { c =>
+      fetchCreatorMetrics(userID, userToken, c).attempt.map {
+        case Right(metrics) => Some(metrics)
+        case Left(error) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取候选者 ${c.id} 数据失败，将跳过此创作者: ${error.getMessage}")
+          None
+      }
+    }.map(_.flatten)
+
+  private def rankCreators(target: CreatorMetrics, candidates: List[CreatorMetrics]): List[RankedCreator] =
+    candidates.map { candidate =>
+      val similarity = StatisticsUtils.calculateCosineSimilarity(target.tendency, candidate.tendency)
+      val totalStrength = candidate.strength.vector.map(_.value).sum
+      val strengthFactor = Math.log1p(totalStrength)
+      val finalScore = similarity * strengthFactor
+      RankedCreator(candidate.creator, finalScore)
+    }.filter(_.score > 0).sortBy(-_.score)
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\GetSimilarCreatorsUtils.scala ===== 
+ 
+ 
+// ===== src\main\scala\Utils\GetSimilarSongsUtils.scala ===== 
+ 
+// ===== src/main/scala/Utils/GetSimilarSongsUtils.scala =====
+
+package Utils
+
+import Common.API.PlanContext
+import APIs.MusicService.{GetSongList, GetSongProfile}
+import APIs.StatisticsService.GetSongPopularity
+import Objects.StatisticsService.Profile
+import cats.effect.IO
+import cats.implicits._
+import org.slf4j.LoggerFactory
+import io.circe.generic.auto._
+
+object GetSimilarSongsUtils {
+
+  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+
+  private case class SongMetrics(songID: String, profile: Profile, popularity: Double)
+  private case class RankedSong(songID: String, score: Double)
+
+  def findSimilarSongs(
+      userID: String,
+      userToken: String,
+      songID: String,
+      limit: Int
+  )(using planContext: PlanContext): IO[List[String]] = {
+    for {
+      initialData <- (
+        fetchSongMetrics(userID, userToken, songID),
+        fetchAllOtherSongs(userID, userToken, songID)
+      ).parTupled
+      (targetMetrics, allOtherSongs) = initialData
+      _ <- logInfo(s"目标歌曲数据获取成功。找到 ${allOtherSongs.length} 首其他歌曲作为候选。")
+
+      candidateMetrics <- fetchAllSongMetrics(userID, userToken, allOtherSongs)
+      _ <- logInfo(s"成功获取了 ${candidateMetrics.length} 首候选歌曲的数据。")
+
+      _ <- logInfo("正在计算综合推荐分并排序...")
+      rankedSongs = rankSongs(targetMetrics, candidateMetrics)
+
+      finalResult = rankedSongs.take(limit).map(_.songID)
+      _ <- logInfo(s"查找完成，返回前 ${finalResult.length} 首最相似的歌曲。")
+    } yield finalResult
+  }
+
+  private def fetchSongMetrics(userID: String, userToken: String, sID: String)(using PlanContext): IO[SongMetrics] =
+    (
+      GetSongProfile(userID, userToken, sID).send,
+      GetSongPopularity(userID, userToken, sID).send
+    ).parTupled.flatMap {
+      case ((Some(profile), _), (Some(popularity), _)) => IO.pure(SongMetrics(sID, profile, popularity))
+      case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
+        val errorDetails = s"Profile: ${profileOpt.isDefined} ($profileMsg), Popularity: ${popOpt.isDefined} ($popMsg)"
+        IO.raiseError(new Exception(s"获取歌曲 ${sID} 的核心数据失败: $errorDetails"))
+    }
+
+  private def fetchAllOtherSongs(userID: String, userToken: String, targetSongID: String)(using PlanContext): IO[List[String]] =
+    GetSongList(userID, userToken).send.flatMap {
+      case (Some(songIDs), _) => IO.pure(songIDs.filterNot(_ == targetSongID))
+      case (None, msg) => IO.raiseError(new Exception(s"无法获取所有歌曲列表: $msg"))
+    }
+
+  private def fetchAllSongMetrics(userID: String, userToken: String, songIDs: List[String])(using planContext: PlanContext): IO[List[SongMetrics]] =
+    songIDs.parTraverse { sID =>
+      fetchSongMetrics(userID, userToken, sID).attempt.map {
+        case Right(metrics) => Some(metrics)
+        case Left(error) =>
+          logger.warn(s"TID=${planContext.traceID.id} -- 获取候选歌曲 ${sID} 数据失败，将跳过此歌曲: ${error.getMessage}")
+          None
+      }
+    }.map(_.flatten)
+
+  private def rankSongs(target: SongMetrics, candidates: List[SongMetrics]): List[RankedSong] =
+    candidates.map { candidate =>
+      val matchScore = StatisticsUtils.calculateCosineSimilarity(target.profile, candidate.profile)
+      val popularityFactor = Math.log1p(candidate.popularity)
+      val finalScore = matchScore * popularityFactor
+      RankedSong(candidate.songID, finalScore)
+    }.filter(_.score > 0).sortBy(-_.score)
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+} 
+// ===== End of src\main\scala\Utils\GetSimilarSongsUtils.scala ===== 
+ 
+ 
 // ===== src\main\scala\Utils\GetSongPopularityUtils.scala ===== 
  
 // file: Utils/GetSongPopularityUtils.scala
@@ -2570,6 +2576,8 @@ object RateSongUtils {
  
 // ===== src\main\scala\Utils\SearchUtils.scala ===== 
  
+// ===== src/main/scala/Utils/SearchUtils.scala =====
+
 // file: Utils/SearchUtils.scala
 package Utils
 
@@ -2579,88 +2587,91 @@ import Common.ServiceUtils.schemaName
 import cats.effect.IO
 import io.circe.generic.auto._
 import Common.API.PlanContext
-import Common.Object.SqlParameter
 import cats.implicits._
-import Common.Object.SqlParameter
-import Common.DBAPI.writeDB
 import org.joda.time.DateTime
 
 object SearchUtils {
 
-  /**
-   * 从数据库获取一首歌的平均评分和评分总数。
-   */
+  // ... [已有代码保持不变] ...
   def fetchAverageRating(songID: String)(using planContext: PlanContext): IO[(Double, Int)] = {
     val sql = s"SELECT AVG(rating) AS avg_rating, COUNT(rating) AS rating_count FROM ${schemaName}.song_rating WHERE song_id = ?"
     val params = List(SqlParameter("String", songID))
 
     readDBRows(sql, params).flatMap {
       case row :: Nil =>
-        // 确保使用正确的 camelCase 字段名来解码
-        val avgResult = row.hcursor.get[Option[Double]]("avgRating").getOrElse(None)
-        val countResult = row.hcursor.get[Int]("ratingCount").getOrElse(0)
-        val averageRating = avgResult.getOrElse(0.0)
-        IO.pure((averageRating, countResult))
+        // 使用 for-comprehension 和 IO.fromEither 安全地解码，参考了范例的最佳实践
+        for {
+          avgRatingOpt <- IO.fromEither(row.hcursor.get[Option[Double]]("avgRating")
+            .leftMap(err => new Exception(s"解码 avgRating 失败: ${err.getMessage}", err)))
+          ratingCount <- IO.fromEither(row.hcursor.get[Int]("ratingCount")
+            .leftMap(err => new Exception(s"解码 ratingCount 失败: ${err.getMessage}", err)))
+        } yield (avgRatingOpt.getOrElse(0.0), ratingCount)
       case _ =>
+        // 如果没有评分记录，则平均分和评分数都为0
         IO.pure((0.0, 0))
     }
   }
 
-  /**
-   * 从数据库获取一首歌的播放总次数。
-   */
   def fetchPlayCount(songID: String)(using planContext: PlanContext): IO[Int] = {
     val sql = s"SELECT COUNT(*) FROM ${schemaName}.playback_log WHERE song_id = ?"
     readDBInt(sql, List(SqlParameter("String", songID)))
   }
 
-  /**
-   * 从数据库获取一个用户的所有播放历史记录（仅歌曲ID）。
-   *
-   * @param userID 目标用户的ID。
-   * @return 一个包含所有播放过的歌曲ID的列表的IO。
-   */
   def fetchUserPlaybackHistory(userID: String)(using planContext: PlanContext): IO[List[String]] = {
     val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ?"
     val params = List(SqlParameter("String", userID))
 
     readDBRows(sql, params).flatMap { rows =>
-      // 遍历每一行，并从JSON中解码 "songId" (camelCase) 字段。
       rows.traverse { row =>
         IO.fromEither(
-          row.hcursor.get[String]("songId") // **修正：使用 camelCase "songId"**
-            .leftMap(err => new Exception(s"解码 playback_log.songId 失败: ${err.getMessage}", err))
+          // 修正：根据规范，song_id 应当解码为 songID
+          row.hcursor.get[String]("songID")
+            .leftMap(err => new Exception(s"解码 playback_log.songID 失败: ${err.getMessage}", err))
         )
       }
     }
   }
 
   /**
-   * 从数据库获取一个用户的所有评分历史记录。
+   * (新增方法)
+   * 从数据库获取用户最近播放的歌曲ID集合。
    *
    * @param userID 目标用户的ID。
-   * @return 一个从歌曲ID映射到评分的Map的IO。
+   * @param limit  要获取的歌曲数量。
+   * @return 一个包含最近播放歌曲ID的Set的IO。
    */
+  def fetchRecentPlayedSongs(userID: String, limit: Int)(using planContext: PlanContext): IO[Set[String]] = {
+    val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ? ORDER BY play_time DESC LIMIT ?"
+    readDBRows(sql, List(SqlParameter("String", userID), SqlParameter("Int", limit.toString)))
+      .flatMap { rows =>
+        rows.traverse { row =>
+          IO.fromEither(
+            // 修正：根据规范，song_id 应当解码为 songID
+            row.hcursor.get[String]("songID")
+              .leftMap(err => new Exception(s"解码 playback_log.songID 失败: ${err.getMessage}", err))
+          )
+        }
+      }.map(_.toSet)
+  }
+
   def fetchUserRatingHistory(userID: String)(using planContext: PlanContext): IO[Map[String, Int]] = {
     val sql = s"SELECT song_id, rating FROM ${schemaName}.song_rating WHERE user_id = ?"
     val params = List(SqlParameter("String", userID))
 
     readDBRows(sql, params).flatMap { rows =>
-      // 遍历每一行，解码 "songId" 和 "rating" 字段，然后组合成元组。
       val decodedPairsIO = rows.traverse { row =>
         for {
           songId <- IO.fromEither(
-            row.hcursor.get[String]("songId") // **修正：使用 camelCase "songId"**
-              .leftMap(err => new Exception(s"解码 song_rating.songId 失败: ${err.getMessage}", err))
+            // 修正：根据规范，song_id 应当解码为 songID
+            row.hcursor.get[String]("songID")
+              .leftMap(err => new Exception(s"解码 song_rating.songID 失败: ${err.getMessage}", err))
           )
           rating <- IO.fromEither(
-            row.hcursor.get[Int]("rating") // `rating` 已经是 camelCase 格式
+            row.hcursor.get[Int]("rating")
               .leftMap(err => new Exception(s"解码 song_rating.rating 失败: ${err.getMessage}", err))
           )
         } yield (songId, rating)
       }
-
-      // 将元组列表转换为Map。
       decodedPairsIO.map(_.toMap)
     }
   }
@@ -2672,28 +2683,18 @@ object SearchUtils {
     readDBRows(sql, params).flatMap { rows =>
       rows.traverse { row =>
         IO.fromEither(
-          row.hcursor.get[String]("songId") // 确保使用 camelCase
-            .leftMap(err => new Exception(s"解码 playback_log.songId 失败: ${err.getMessage}", err))
+          // 修正：根据规范，song_id 应当解码为 songID
+          row.hcursor.get[String]("songID")
+            .leftMap(err => new Exception(s"解码 playback_log.songID 失败: ${err.getMessage}", err))
         )
       }.map(_.toSet)
     }
   }
 
-  /**
-   * 向数据库中插入一条新的播放记录。
-   * 封装了ID和时间戳的生成，以及数据库的写操作。
-   *
-   * @param userID 播放用户的ID。
-   * @param songID 播放的歌曲ID。
-   * @return 一个表示操作完成的 IO[Unit]。
-   */
   def logPlayback(userID: String, songID: String)(using planContext: PlanContext): IO[Unit] = {
     for {
-      // 在IO中生成业务数据
       now <- IO(new DateTime())
       logId <- IO(java.util.UUID.randomUUID().toString)
-
-      // 定义SQL和参数
       sql = s"INSERT INTO ${schemaName}.playback_log (log_id, user_id, song_id, play_time) VALUES (?, ?, ?, ?)"
       params = List(
         SqlParameter("String", logId),
@@ -2701,31 +2702,20 @@ object SearchUtils {
         SqlParameter("String", songID),
         SqlParameter("DateTime", now.getMillis.toString)
       )
-
-      // 执行数据库写操作
       _ <- writeDB(sql, params)
     } yield ()
   }
 
-    /**
-   * 查询特定用户对特定歌曲的评分。
-   * @return IO[Option[Int]]，如果找到评分则为 Some(rating)，否则为 None。
-   */
   def fetchUserSongRating(userID: String, songID: String)(using planContext: PlanContext): IO[Option[Int]] = {
     val sql = s"SELECT rating FROM ${schemaName}.song_rating WHERE user_id = ? AND song_id = ?"
     val params = List(SqlParameter("String", userID), SqlParameter("String", songID))
-    
+
     readDBRows(sql, params).flatMap {
-      case row :: _ => // 只关心第一行（理论上也只应该有一行）
-        IO.fromEither(row.hcursor.get[Int]("rating")).map(Some(_))
-      case Nil =>
-        IO.pure(None)
+      case row :: _ => IO.fromEither(row.hcursor.get[Int]("rating")).map(Some(_))
+      case Nil => IO.pure(None)
     }
   }
 
-  /**
-   * 更新用户对歌曲的评分。
-   */
   def updateUserSongRating(userID: String, songID: String, rating: Int)(using planContext: PlanContext): IO[Unit] = {
     val sql = s"UPDATE ${schemaName}.song_rating SET rating = ?, rated_at = ? WHERE user_id = ? AND song_id = ?"
     for {
@@ -2738,10 +2728,7 @@ object SearchUtils {
       ))
     } yield ()
   }
-  
-  /**
-   * 插入一条新的用户歌曲评分记录。
-   */
+
   def insertUserSongRating(userID: String, songID: String, rating: Int)(using planContext: PlanContext): IO[Unit] = {
     val sql = s"INSERT INTO ${schemaName}.song_rating (user_id, song_id, rating, rated_at) VALUES (?, ?, ?, ?)"
     for {
@@ -2871,5 +2858,5 @@ object Test:
  
 // ======================================== 
 // Collection completed 
-// Total .scala files processed: 30 
+// Total .scala files processed: 33 
 // ======================================== 

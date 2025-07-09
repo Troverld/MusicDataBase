@@ -20,8 +20,8 @@ object GetUserSongRecommendationsUtils {
     for {
       _ <- logInfo(s"在Utils层开始为用户 ${userID} 生成推荐，页码: ${pageNumber}，每页: ${pageSize}")
 
-      initialData <- (fetchUserPortrait(userID, userToken), fetchAllCandidateSongs(userID, userToken)).parTupled
-      (userPortrait, allSongs) = initialData
+      userPortrait <- fetchUserPortrait(userID, userToken)
+      allSongs <- fetchAllCandidateSongs(userID, userToken)
 
       rankedSongs <- if (userPortrait.vector.isEmpty) {
         logInfo("用户暂无画像数据，将推荐热门歌曲。") >> rankSongsByPopularity(allSongs, userID, userToken)
@@ -55,7 +55,7 @@ object GetUserSongRecommendationsUtils {
       val songsToFetch = songIDs.filterNot(playedSongs.contains)
       logInfo(s"用户已听过 ${playedSongs.size} 首歌，将从 ${songsToFetch.length} 首未听过的歌曲中获取数据。")
 
-      songsToFetch.parTraverse { songID =>
+      songsToFetch.traverse { songID =>
         fetchSongMetrics(songID, userID, userToken).attempt.map {
           case Right(metrics) => Some(metrics)
           case Left(error) =>
@@ -66,15 +66,23 @@ object GetUserSongRecommendationsUtils {
     }
 
   private def fetchSongMetrics(songID: String, userID: String, userToken: String)(using planContext: PlanContext): IO[SongMetrics] =
-    (
-      GetSongProfile(userID, userToken, songID).send,
-      GetSongPopularity(userID, userToken, songID).send
-    ).parTupled.flatMap {
-      case ((Some(profile), _), (Some(popularity), _)) => IO.pure(SongMetrics(songID, profile, popularity))
-      case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
-        val errorDetails = s"Profile: ${profileOpt.isDefined} ('$profileMsg'), Popularity: ${popOpt.isDefined} ('$popMsg')"
-        IO.raiseError(new Exception(s"获取歌曲 ${songID} 的核心数据失败: $errorDetails"))
-    }
+    for {
+      // 串行执行两个 IO 操作
+      profileResult <- GetSongProfile(userID, userToken, songID).send
+      popularityResult <- GetSongPopularity(userID, userToken, songID).send
+
+      // 对两个操作的结果元组进行 match
+      metrics <- (profileResult, popularityResult) match {
+        // 成功情况：两个 API 都返回了 Some(...)
+        case ((Some(profile), _), (Some(popularity), _)) =>
+          IO.pure(SongMetrics(songID, profile, popularity))
+
+        // 失败情况：任何一个或两个 API 调用失败
+        case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
+          val errorDetails = s"Profile: ${profileOpt.isDefined} ('$profileMsg'), Popularity: ${popOpt.isDefined} ('$popMsg')"
+          IO.raiseError(new Exception(s"获取歌曲 ${songID} 的核心数据失败: $errorDetails"))
+      }
+    } yield metrics
 
   private def rankSongsBySimilarity(userPortrait: Profile, candidates: List[SongMetrics]): List[RankedSong] = {
     candidates.map { song =>
@@ -87,7 +95,7 @@ object GetUserSongRecommendationsUtils {
 
   private def rankSongsByPopularity(songIDs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[List[RankedSong]] = {
     logInfo("正在并行获取所有歌曲的热度以进行热门推荐...")
-    songIDs.parTraverse { songID =>
+    songIDs.traverse { songID =>
       GetSongPopularity(userID, userToken, songID).send
         .map(r => RankedSong(songID, r._1.getOrElse(0.0)))
         .attempt // Use attempt to prevent one failure from failing all

@@ -55,7 +55,7 @@ object GetCreatorCreationTendencyUtils {
    */
   private def calculateGenreDistribution(songs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
     // 并行获取每首歌的曲风向量
-    songs.parTraverse { songId =>
+    songs.traverse { songId =>
       GetSongProfile(userID, userToken, songId).send.map {
         case (Some(profile), _) => profile.vector
         case (None, message) =>
