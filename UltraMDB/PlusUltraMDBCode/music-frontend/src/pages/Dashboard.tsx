@@ -7,6 +7,7 @@ import { musicService } from '../services/music.service';
 import { genreService } from '../services/genre.service';
 import { useArtistBand } from '../hooks/useArtistBand';
 import { Song, Genre, Profile } from '../types';
+import PlayButton from '../components/PlayButton';
 
 type SongWithPopularity = Song & { popularity: number };
 type GenreWithName = { GenreID: string; value: number; name: string };
@@ -328,12 +329,13 @@ const Dashboard: React.FC = () => {
                       {formatGenres(song.genres)}
                     </p>
                   </div>
-                  <button 
-                    className="play-btn"
-                    onClick={() => navigate('/songs')}
-                  >
-                    ▶
-                  </button>
+                  <PlayButton
+                    songID={song.songID}
+                    songName={song.name}
+                    size="small"
+                    onPlayStart={() => console.log(`开始播放: ${song.name}`)}
+                    onPlayError={(error) => console.error(`播放失败: ${error}`)}
+                  />
                 </div>
               ))}
             </div>
@@ -359,12 +361,13 @@ const Dashboard: React.FC = () => {
                       热度: {song.popularity.toFixed(1)} · {formatGenres(song.genres)}
                     </p>
                   </div>
-                  <button 
-                    className="play-btn"
-                    onClick={() => navigate('/songs')}
-                  >
-                    ▶
-                  </button>
+                  <PlayButton
+                    songID={song.songID}
+                    songName={song.name}
+                    size="small"
+                    onPlayStart={() => console.log(`开始播放: ${song.name}`)}
+                    onPlayError={(error) => console.error(`播放失败: ${error}`)}
+                  />
                 </div>
               ))}
             </div>
