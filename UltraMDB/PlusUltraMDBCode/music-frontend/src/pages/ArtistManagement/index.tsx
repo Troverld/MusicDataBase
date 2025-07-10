@@ -142,7 +142,6 @@ const ArtistManagement: React.FC = () => {
       
       <ArtistList
         artists={artists}
-        loading={loading}
         onEdit={handleEdit}
         onDelete={handleDelete}
         searchKeyword={searchKeyword}
