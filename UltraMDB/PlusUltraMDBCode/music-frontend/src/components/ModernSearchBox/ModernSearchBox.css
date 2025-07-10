@@ -1,0 +1,338 @@
+/* 现代化搜索组件样式 */
+
+.modern-search-container {
+    width: 100%;
+    margin-bottom: 24px;
+  }
+  
+  .modern-search-box {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    height: 56px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(0, 123, 255, 0.1);
+    border-radius: 28px;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 
+                0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .modern-search-box:hover {
+    border-color: rgba(0, 123, 255, 0.3);
+    box-shadow: 0 8px 30px rgba(0, 123, 255, 0.15), 
+                0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  .modern-search-box.focused {
+    border-color: rgba(0, 123, 255, 0.6);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1),
+                0 8px 30px rgba(0, 123, 255, 0.2),
+                0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  .modern-search-box.loading {
+    border-color: rgba(102, 126, 234, 0.5);
+    background: linear-gradient(45deg, rgba(255, 255, 255, 0.95), rgba(102, 126, 234, 0.05));
+  }
+  
+  .search-input-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    min-width: 0;
+  }
+  
+  .search-icon {
+    color: rgba(108, 117, 125, 0.7);
+    margin-right: 12px;
+    transition: color 0.3s ease;
+    flex-shrink: 0;
+  }
+  
+  .modern-search-box.focused .search-icon {
+    color: rgba(0, 123, 255, 0.8);
+  }
+  
+  .modern-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 16px;
+    color: #2c3e50;
+    font-weight: 400;
+    line-height: 1.5;
+    min-width: 0;
+    padding: 0;
+  }
+  
+  .modern-search-input::placeholder {
+    color: rgba(108, 117, 125, 0.6);
+    font-weight: 400;
+    transition: color 0.3s ease;
+  }
+  
+  .modern-search-box.focused .modern-search-input::placeholder {
+    color: rgba(0, 123, 255, 0.5);
+  }
+  
+  .modern-search-input:disabled {
+    color: rgba(108, 117, 125, 0.5);
+    cursor: not-allowed;
+  }
+  
+  .clear-button {
+    position: absolute;
+    right: 15px;
+    background: none;
+    border: none;
+    color: rgba(108, 117, 125, 0.6);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: scale(0.8);
+    animation: fadeInScale 0.3s ease forwards;
+  }
+  
+  @keyframes fadeInScale {
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .clear-button:hover {
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+    transform: scale(1.1);
+  }
+  
+  .loading-spinner {
+    position: absolute;
+    right: 15px;
+    color: rgba(0, 123, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  .modern-search-button {
+    position: relative;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 24px;
+    margin: 0;
+    min-width: 120px;
+    border-radius: 0 26px 26px 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  
+  .modern-search-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .modern-search-button:hover::before {
+    opacity: 1;
+  }
+  
+  .modern-search-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+    transform: translateX(2px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                0 4px 15px rgba(102, 126, 234, 0.4);
+  }
+  
+  .modern-search-button:active:not(:disabled) {
+    transform: translateX(1px) scale(0.98);
+  }
+  
+  .modern-search-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  }
+  
+  .modern-search-button.loading {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    cursor: wait;
+  }
+  
+  .button-loading-spinner {
+    animation: spin 1.5s linear infinite;
+  }
+  
+  .button-text {
+    transition: all 0.3s ease;
+    white-space: nowrap;
+  }
+  
+  .modern-search-button:disabled .button-text {
+    opacity: 0.8;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .modern-search-box {
+      height: 48px;
+      border-radius: 24px;
+    }
+    
+    .search-input-wrapper {
+      padding: 0 16px;
+    }
+    
+    .modern-search-input {
+      font-size: 15px;
+    }
+    
+    .modern-search-button {
+      padding: 0 20px;
+      min-width: 100px;
+      font-size: 14px;
+      border-radius: 0 22px 22px 0;
+    }
+    
+    .clear-button,
+    .loading-spinner {
+      right: 12px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .modern-search-box {
+      height: 44px;
+      border-radius: 22px;
+    }
+    
+    .search-input-wrapper {
+      padding: 0 14px;
+    }
+    
+    .modern-search-input {
+      font-size: 14px;
+    }
+    
+    .modern-search-button {
+      padding: 0 16px;
+      min-width: 80px;
+      font-size: 13px;
+      border-radius: 0 20px 20px 0;
+    }
+    
+    .button-text {
+      display: none;
+    }
+    
+    .modern-search-button {
+      min-width: 60px;
+    }
+  }
+  
+  /* 深色模式支持 */
+  @media (prefers-color-scheme: dark) {
+    .modern-search-box {
+      background: rgba(30, 30, 30, 0.95);
+      border-color: rgba(102, 126, 234, 0.3);
+    }
+    
+    .modern-search-input {
+      color: #e2e8f0;
+    }
+    
+    .modern-search-input::placeholder {
+      color: rgba(148, 163, 184, 0.7);
+    }
+    
+    .search-icon {
+      color: rgba(148, 163, 184, 0.8);
+    }
+    
+    .modern-search-box.focused .search-icon {
+      color: rgba(102, 126, 234, 0.9);
+    }
+  }
+  
+  /* 高对比度支持 */
+  @media (prefers-contrast: high) {
+    .modern-search-box {
+      border-width: 2px;
+      border-color: #0056b3;
+    }
+    
+    .modern-search-button {
+      background: #0056b3;
+    }
+    
+    .modern-search-button:hover:not(:disabled) {
+      background: #004494;
+    }
+  }
+  
+  /* 减少动画偏好支持 */
+  @media (prefers-reduced-motion: reduce) {
+    .modern-search-box,
+    .modern-search-button,
+    .clear-button,
+    .search-icon,
+    .modern-search-input::placeholder {
+      transition: none;
+    }
+    
+    .modern-search-box:hover,
+    .modern-search-box.focused {
+      transform: none;
+    }
+    
+    .button-loading-spinner {
+      animation: none;
+    }
+    
+    .clear-button {
+      animation: none;
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
