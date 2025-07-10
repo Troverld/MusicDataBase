@@ -23,7 +23,7 @@ import java.util.UUID
  * desc: 创建新的艺术家信息
  * @param adminID: String (管理员ID)
  * @param adminToken: String (管理员令牌)
- * @param artistName: String (艺术家名称)
+ * @param name: String (艺术家名称)
  * @param bio: String (艺术家简介)
  * @return (Option[String], String): (新建的艺术家ID, 错误信息)
  */
@@ -31,7 +31,7 @@ import java.util.UUID
 case class CreateArtistMessage(
   adminID: String,
   adminToken: String,
-  artistName: String,
+  name: String,
   bio: String
 ) extends API[(Option[String], String)](CreatorServiceCode)
 
