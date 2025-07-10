@@ -86,8 +86,7 @@ const UserProfile: React.FC = () => {
       
       const processedData = profile.vector
         .map(dim => {
-          // 修复：兼容后端的 GenreID 字段名（大写 G）
-          const genreID = (dim as any).GenreID || dim.genreID || (dim as any).genreid;
+          const genreID = dim.GenreID;
           
           if (!genreID) {
             console.warn('Missing genreID in dim:', dim);
