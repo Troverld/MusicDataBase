@@ -53,7 +53,7 @@ object GetUserPortraitUtils {
           rawProfile = mapReduceGenreScores(songInteractionScores, songProfilesMap)
 
           // [NEW] 在归一化之前，先将所有维度平移到正数区间
-//          shiftedProfile = StatisticsUtils.shiftToPositive(rawProfile)
+          //          shiftedProfile = StatisticsUtils.shiftToPositive(rawProfile)
 
           // 归一化
           finalProfile = StatisticsUtils.normalizeVector(rawProfile)
@@ -84,13 +84,19 @@ object GetUserPortraitUtils {
     }
   }
 
-  private def fetchGenresForSongs(songIds: Set[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Map[String, Profile]] = {
+  private def fetchGenresForSongs(
+                                   songIds: Set[String],
+                                   userID: String,
+                                   userToken: String
+                                 )(using planContext: PlanContext): IO[Map[String, Profile]] = {
     if (songIds.isEmpty) return IO.pure(Map.empty)
+
     logInfo(s"准备批量获取 ${songIds.size} 首歌曲的曲风Profile")
-    val songIdsList = songIds.toList
-    GetMultSongsProfiles(userID, userToken, songIdsList).send.flatMap {
-      case (Some(profiles), _) =>
-        IO.pure(songIdsList.zip(profiles).toMap)
+
+    GetMultSongsProfiles(userID, userToken, songIds.toList).send.flatMap {
+      case (Some(pairs), _) =>
+        IO.pure(pairs.toMap) // ✅ 安全使用 toMap
+
       case (None, message) =>
         logInfo(s"批量获取歌曲Profile失败: $message. 将回退到单曲获取方式") >>
           songIds.toList.traverse { songId =>
@@ -103,6 +109,8 @@ object GetUserPortraitUtils {
           }.map(_.toMap)
     }
   }
+
+
   private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
     IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
 }

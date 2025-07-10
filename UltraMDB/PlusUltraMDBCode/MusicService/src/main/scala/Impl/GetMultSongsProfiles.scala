@@ -20,10 +20,10 @@ case class GetMultSongsProfiles(
                                  userToken: String,
                                  songIDs: List[String],
                                  override val planContext: PlanContext
-                               ) extends Planner[(Option[List[Profile]], String)] {
+                               ) extends Planner[(Option[List[(String,Profile)]], String)] {
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using planContext: PlanContext): IO[(Option[List[Profile]], String)] = {
+  override def plan(using planContext: PlanContext): IO[(Option[List[(String, Profile)]], String)] = {
     for {
       (isValid, msg) <- validateUserMapping(userID, userToken).send
       _ <- if (!isValid) IO.raiseError(new Exception("User verification failed.")) else IO.unit
@@ -43,29 +43,30 @@ case class GetMultSongsProfiles(
         songIDs.map(id => SqlParameter("String", id))
       )
 
-      // Step 3: 对每一首歌，解析其 genres，构建 Profile
-      profiles <- songRows.traverse { json =>
+      // Step 3: 对每一首歌，解析其 genres，构建 (songID, Profile)
+      songProfiles <- songRows.traverse { json =>
         val id = decodeField[String](json, "song_id")
         val genreField = json.hcursor.downField("genres")
 
-        val genreSet: Set[String] = if (genreField.focus.exists(_.isString)) {
-          genreField.as[String]
-            .flatMap(s => parse(s).flatMap(_.as[List[String]]))
-            .getOrElse(Nil)
-            .toSet
-        } else {
-          genreField.as[List[String]].getOrElse(Nil).toSet
-        }
+        val genreSet: Set[String] =
+          if (genreField.focus.exists(_.isString)) {
+            genreField.as[String]
+              .flatMap(s => parse(s).flatMap(_.as[List[String]]))
+              .getOrElse(Nil)
+              .toSet
+          } else {
+            genreField.as[List[String]].getOrElse(Nil).toSet
+          }
 
-        // 构建向量
         val dims = allGenres.map { gid =>
           Dim(GenreID = gid, value = if (genreSet.contains(gid)) 1.0 else 0.0)
         }
 
-        IO.pure(Profile(dims, norm = false))
+        IO.pure((id, Profile(dims, norm = false)))
       }
 
-    } yield (Some(profiles), "")
+    } yield (Some(songProfiles), "")
   }
+
 
 }

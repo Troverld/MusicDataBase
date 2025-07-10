@@ -22,13 +22,13 @@ import scala.util.Try
  * @param userID: String (发起请求的用户ID)
  * @param userToken: String (用户的认证令牌)
  * @param songIDs: List[String] (要查询的所有歌曲的ID)
- * @return (Option[List[Profile]], String): (成功时包含歌曲信息，失败时为None；附带操作信息)
+ * @return (Option[List[(String,Profile)]], String): (成功时包含List[歌曲ID和信息构成的二元组]，失败时为None；附带操作信息)
  */
 case class GetMultSongsProfiles(
   userID: String,
   userToken: String,
   songIDs: List[String]
-) extends API[(Option[List[Profile]], String)](MusicServiceCode)
+) extends API[(Option[List[(String,Profile)]], String)](MusicServiceCode)
 
 case object GetMultSongsProfiles{
     
