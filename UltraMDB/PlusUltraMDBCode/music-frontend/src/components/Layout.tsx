@@ -42,19 +42,19 @@ const Layout: React.FC = () => {
       <nav className="navbar">
         <div className="navbar-content">
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <Link to="/" style={{ fontSize: '18px', fontWeight: 'bold' }}>
-              Music Management System
+            <Link to="/" style={{ fontSize: '22px', fontWeight: 'bold' }}>
+              音乐管理系统
             </Link>
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <Link to="/">Dashboard</Link>
-            <Link to="/songs">Songs</Link>
-            <Link to="/artists">Artists</Link>
-            <Link to="/bands">Bands</Link>
+            <Link to="/">仪表盘</Link>
+            <Link to="/songs">歌曲库</Link>
+            <Link to="/artists">艺术家</Link>
+            <Link to="/bands">乐队</Link>
             
             {/* 所有已认证用户都可以查看曲风 */}
-            {(isUser || isAdmin) && <Link to="/genres">Genres</Link>}
+            {(isUser || isAdmin) && <Link to="/genres">曲风</Link>}
             
             {/* 推荐功能链接 - 只有已认证用户可以访问 */}
             {(isUser || isAdmin) && (
@@ -171,7 +171,7 @@ const Layout: React.FC = () => {
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                Logout
+                登出
               </button>
             </div>
           </div>

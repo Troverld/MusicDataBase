@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { statisticsService } from '../../services/statistics.service';
 import { musicService } from '../../services/music.service';
+import { artistService } from '../../services/artist.service';
+import { bandService } from '../../services/band.service';
 import { Song } from '../../types';
 import SongList from '../../components/SongList';
 import ModernSearchBox from '../../components/ModernSearchBox';
@@ -17,21 +19,21 @@ interface RecommendationTab {
 const RECOMMENDATION_TABS: RecommendationTab[] = [
   {
     id: 'personal',
-    label: '个性化推荐',
-    icon: '🎯',
-    description: '基于您的音乐偏好推荐'
+    label: '为你推荐',
+    icon: '✨',
+    description: '基于你的听歌习惯'
   },
   {
     id: 'similar',
     label: '相似歌曲',
-    icon: '🔄',
-    description: '与指定歌曲相似的音乐'
+    icon: '🎵',
+    description: '找到风格相近的音乐'
   },
   {
     id: 'next',
-    label: '下一首推荐',
-    icon: '⏭️',
-    description: '根据当前歌曲推荐下一首'
+    label: '播放建议',
+    icon: '▶️',
+    description: '接下来听什么'
   }
 ];
 
@@ -50,6 +52,7 @@ const MusicRecommendations: React.FC = () => {
   const [selectedSongForNext, setSelectedSongForNext] = useState<Song | null>(null);
   const [searchSongs, setSearchSongs] = useState<Song[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [creatorNames, setCreatorNames] = useState<{ [key: string]: string }>({});
 
   const { isUser } = usePermissions();
   const pageSize = 20;
@@ -81,7 +84,7 @@ const MusicRecommendations: React.FC = () => {
         if (message && message !== 'Success') {
           setError(message);
         } else if (page === 1) {
-          setError('暂无推荐歌曲，请先多听一些歌曲并进行评分以生成个性化推荐');
+          setError('还没有足够的数据生成推荐，多听几首歌吧！');
         }
       }
     } catch (err: any) {
@@ -110,6 +113,34 @@ const MusicRecommendations: React.FC = () => {
       if (songIds && songIds.length > 0) {
         const songsData = await musicService.getSongsByIds(songIds);
         setSearchSongs(songsData);
+        
+        // 获取所有创作者的名称
+        const namesMap: { [key: string]: string } = {};
+        for (const song of songsData) {
+          if (song.creators) {
+            for (const creator of song.creators) {
+              const key = `${creator.creatorType}-${creator.id}`;
+              if (!namesMap[key]) {
+                try {
+                  if (creator.creatorType === 'artist') {
+                    const [artist] = await artistService.getArtistById(creator.id);
+                    if (artist) {
+                      namesMap[key] = artist.name;
+                    }
+                  } else if (creator.creatorType === 'band') {
+                    const [band] = await bandService.getBandById(creator.id);
+                    if (band) {
+                      namesMap[key] = band.name;
+                    }
+                  }
+                } catch (err) {
+                  console.warn(`Failed to fetch name for ${creator.id}`);
+                }
+              }
+            }
+          }
+        }
+        setCreatorNames(namesMap);
       } else {
         setSearchSongs([]);
       }
@@ -128,11 +159,9 @@ const MusicRecommendations: React.FC = () => {
     setSongs([]);
 
     try {
-      const [similarPairs, message] = await statisticsService.getSimilarSongs(songID, 20);
+      const [songIds, message] = await statisticsService.getSimilarSongs(songID, 20);
 
-      if (similarPairs && similarPairs.length > 0) {
-        // 提取歌曲ID（每个元组的第一个元素）
-        const songIds = similarPairs.map(pair => pair[0]);
+      if (songIds && songIds.length > 0) {
         const songsData = await musicService.getSongsByIds(songIds);
         setSongs(songsData);
         setSuccess(`找到 ${songsData.length} 首与《${songName}》相似的歌曲`);
@@ -162,7 +191,7 @@ const MusicRecommendations: React.FC = () => {
         const [songData, songMessage] = await musicService.getSongById(nextSongId);
         if (songData) {
           setSongs([songData]);
-          setSuccess(`基于《${currentSongName}》为您推荐的下一首歌曲：《${songData.name}》`);
+          setSuccess(`基于《${currentSongName}》推荐：《${songData.name}》`);
         } else {
           setError(songMessage || '推荐的歌曲信息获取失败');
         }
@@ -234,151 +263,166 @@ const MusicRecommendations: React.FC = () => {
   }, [isUser]);
 
   const handleEdit = (song: Song) => {
-    // 推荐页面通常不允许编辑，可以跳转到歌曲管理页面
     console.log('Edit song from recommendations:', song);
   };
 
   const handleDelete = (songID: string) => {
-    // 推荐页面通常不允许删除
     console.log('Delete song from recommendations:', songID);
   };
 
   if (!isUser) {
     return (
       <div className="recommendations-container">
-        <div className="permission-warning">
-          <h2>访问受限</h2>
-          <p>您需要登录并拥有用户权限才能查看音乐推荐。</p>
+        <div className="access-denied">
+          <div className="access-icon">🔒</div>
+          <h2>需要登录</h2>
+          <p>登录后即可获得个性化音乐推荐</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="recommendations-container">
-      <div className="recommendations-header">
-        <h1>🎵 音乐推荐</h1>
-        <p className="recommendations-subtitle">
-          发现您可能喜欢的音乐，探索更多精彩内容
+    <div style={{ 
+      background: '#f8f9fa', 
+      minHeight: 'calc(100vh - 70px)', 
+      padding: '40px 20px' 
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      {/* 页面标题和描述 */}
+      <div style={{ 
+        textAlign: 'center', 
+        animation: 'fadeIn 0.6s ease-out'
+      }}>
+        <h1 style={{ 
+          fontSize: '36px', 
+          fontWeight: '700',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          marginBottom: '12px'
+        }}>
+          音乐推荐
+        </h1>
+        <p style={{ 
+          color: '#6b7280', 
+          fontSize: '18px',
+          maxWidth: '600px',
+          margin: '0 auto',
+          lineHeight: '1.6'
+        }}>
+          管理系统中的音乐推荐，基于您的品味发现新音乐
         </p>
       </div>
+      </div>
 
-      {/* 标签页导航 */}
-      <div className="recommendations-tabs">
+      {/* 极简标签页 */}
+      <div className="recommendations-tabs-new">
         {RECOMMENDATION_TABS.map((tab) => (
           <button
             key={tab.id}
-            className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+            className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
             onClick={() => handleTabChange(tab.id)}
           >
             <span className="tab-icon">{tab.icon}</span>
-            <div className="tab-content">
-              <div className="tab-label">{tab.label}</div>
-              <div className="tab-description">{tab.description}</div>
-            </div>
+            <span className="tab-text">
+              <span className="tab-title">{tab.label}</span>
+              <span className="tab-desc">{tab.description}</span>
+            </span>
           </button>
         ))}
       </div>
 
-      {/* 搜索和选择区域 */}
+      {/* 搜索区域 - 更简洁的设计 */}
       {(activeTab === 'similar' || activeTab === 'next') && (
-        <div className="song-selection-section">
-          <div className="selection-header">
-            <h3>
-              {activeTab === 'similar' ? '🔍 选择参考歌曲' : '🎵 选择当前播放歌曲'}
-            </h3>
-            <p>
-              {activeTab === 'similar' 
-                ? '搜索并选择一首歌曲，系统将为您推荐相似的音乐' 
-                : '搜索并选择当前正在播放的歌曲，系统将推荐下一首歌曲'
-              }
-            </p>
-          </div>
-
-          <ModernSearchBox
-            searchKeyword={searchKeyword}
-            onSearchKeywordChange={setSearchKeyword}
-            onSearch={handleSearch}
-            loading={searchLoading}
-            placeholder={activeTab === 'similar' ? '搜索参考歌曲...' : '搜索当前播放歌曲...'}
-          />
-
-          {/* 显示选中的歌曲 */}
-          {(selectedSongForSimilar || selectedSongForNext) && (
-            <div className="selected-song-display">
-              <div className="selected-song-info">
-                <span className="selected-label">
-                  {activeTab === 'similar' ? '参考歌曲：' : '当前歌曲：'}
-                </span>
-                <span className="selected-song-name">
-                  {selectedSongForSimilar?.name || selectedSongForNext?.name}
-                </span>
-                <button
-                  className="clear-selection-btn"
-                  onClick={() => {
-                    setSelectedSongForSimilar(null);
-                    setSelectedSongForNext(null);
-                    setSongs([]);
-                    setError('');
-                    setSuccess('');
-                  }}
-                >
-                  ✕
-                </button>
+        <div className="search-section-new">
+          <h3>
+            {activeTab === 'similar' ? '选择参考歌曲' : '选择当前播放'}
+          </h3>
+          
+          {/* 已选择的歌曲展示 */}
+          {(activeTab === 'similar' ? selectedSongForSimilar : selectedSongForNext) && (
+            <div className="selected-song-card">
+              <div className="selected-info">
+                <h4>{activeTab === 'similar' ? selectedSongForSimilar?.name : selectedSongForNext?.name}</h4>
+                <p>已选择</p>
               </div>
+              <button 
+                className="change-btn"
+                onClick={() => {
+                  setSelectedSongForSimilar(null);
+                  setSelectedSongForNext(null);
+                  setSongs([]);
+                  setError('');
+                  setSuccess('');
+                }}
+              >
+                更换
+              </button>
             </div>
           )}
 
-          {/* 搜索结果 */}
-          {searchSongs.length > 0 && (
-            <div className="search-results">
-              <h4>搜索结果：</h4>
-              <div className="search-song-list">
-                {searchSongs.map((song) => (
-                  <div 
-                    key={song.songID} 
-                    className="search-song-item"
-                    onClick={() => handleSongSelect(song)}
-                  >
-                    <div className="search-song-name">{song.name}</div>
-                    <div className="search-song-meta">
-                      发布时间：{new Date(song.releaseTime).toLocaleDateString('zh-CN')}
+          {/* 搜索框 */}
+          {!selectedSongForSimilar && !selectedSongForNext && (
+            <>
+              <ModernSearchBox
+                searchKeyword={searchKeyword}
+                onSearchKeywordChange={setSearchKeyword}
+                onSearch={handleSearch}
+                loading={searchLoading}
+                placeholder="搜索歌曲名称..."
+              />
+
+              {/* 搜索结果 */}
+              {searchSongs.length > 0 && (
+                <div className="search-results-new">
+                  {searchSongs.slice(0, 5).map((song) => (
+                    <div
+                      key={song.songID}
+                      className="search-result-item"
+                      onClick={() => handleSongSelect(song)}
+                    >
+                      <div className="result-info">
+                        <h4>{song.name}</h4>
+                        <p>
+                          {song.creators && song.creators.length > 0
+                            ? song.creators.map(c => {
+                                const key = `${c.creatorType}-${c.id}`;
+                                return creatorNames[key] || c.id;
+                              }).join(', ')
+                            : '未知创作者'}
+                        </p>
+                      </div>
+                      <span className="select-icon">→</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {/* 消息显示 */}
+      {/* 消息提示 */}
       {error && (
-        <div className="message-card error">
-          <span className="message-icon">❌</span>
+        <div className="message-bar error">
           <span>{error}</span>
         </div>
       )}
-
+      
       {success && (
-        <div className="message-card success">
-          <span className="message-icon">✅</span>
+        <div className="message-bar success">
           <span>{success}</span>
-          <button 
-            className="message-close"
-            onClick={() => setSuccess('')}
-          >
-            ✕
-          </button>
         </div>
       )}
 
-      {/* 推荐结果 */}
+      {/* 内容区域 */}
       <div className="recommendations-content">
         {loading && songs.length === 0 ? (
-          <div className="loading-state">
+          <div className="loading-state-new">
             <div className="loading-spinner"></div>
-            <p>正在加载推荐内容...</p>
+            <p>正在为你寻找好音乐...</p>
           </div>
         ) : (
           <>
@@ -388,27 +432,15 @@ const MusicRecommendations: React.FC = () => {
               onDelete={handleDelete}
             />
 
-            {/* 加载更多按钮 */}
+            {/* 加载更多 - 更简洁的样式 */}
             {activeTab === 'personal' && hasMoreData && songs.length > 0 && (
-              <div className="load-more-section">
+              <div className="load-more-container">
                 <button
-                  className="load-more-btn"
+                  className="load-more-btn-new"
                   onClick={loadMore}
                   disabled={loading}
                 >
-                  {loading ? (
-                    <>
-                      <div className="loading-spinner-small"></div>
-                      <span>加载中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>加载更多推荐</span>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 15.5L6 9.5L7.5 8L12 12.5L16.5 8L18 9.5L12 15.5Z"/>
-                      </svg>
-                    </>
-                  )}
+                  {loading ? '加载中...' : '加载更多'}
                 </button>
               </div>
             )}

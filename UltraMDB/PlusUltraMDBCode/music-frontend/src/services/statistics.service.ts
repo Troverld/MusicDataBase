@@ -148,7 +148,7 @@ export const statisticsService = {
   },
 
   // 获取相似歌曲
-  async getSimilarSongs(songID: string, limit: number = 10): Promise<[Array<[string, string]> | null, string]> {
+  async getSimilarSongs(songID: string, limit: number = 10): Promise<[string[] | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
@@ -161,7 +161,7 @@ export const statisticsService = {
       limit
     };
 
-    return callAPI<[Array<[string, string]> | null, string]>('GetSimilarSongs', data);
+    return callAPI<[string[] | null, string]>('GetSimilarSongs', data);
   },
 
   // 获取相似创作者
