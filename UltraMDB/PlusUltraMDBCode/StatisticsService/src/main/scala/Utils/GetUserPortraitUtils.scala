@@ -45,6 +45,14 @@ object GetUserPortraitUtils {
       playedSongsList <- SearchUtils.fetchUserPlaybackHistory(userID) // 这是一个包含重复ID的列表
       ratedSongsMap <- SearchUtils.fetchUserRatingHistory(userID)
 
+      _ <- logInfo("Played Songs List:")
+      _ <- playedSongsList.traverse_(songID => logInfo(s"- $songID"))
+
+      _ <- logInfo("Rated Songs Map:")
+      _ <- ratedSongsMap.toList.traverse_ { case (songID, rating) =>
+        logInfo(s"- $songID -> $rating")
+      }
+
       // [REFACTORED] 从播放历史列表中计算每首歌的播放次数
       playedSongsCountMap = playedSongsList.groupBy(identity).view.mapValues(_.size).toMap
 
