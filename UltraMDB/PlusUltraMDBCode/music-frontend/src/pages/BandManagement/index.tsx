@@ -184,28 +184,6 @@ const BandManagement: React.FC = () => {
           onClose={() => setShowModal(false)}
         />
       )}
-
-      {/* 使用提示 */}
-      <div style={{ 
-        background: '#f8f9fa', 
-        padding: '25px', 
-        borderRadius: '8px', 
-        marginTop: '40px',
-        border: '1px solid #e9ecef'
-      }}>
-        <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 乐队管理提示</h3>
-        <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
-          <p><strong>查看详情:</strong> 点击乐队名称可以查看完整的乐队信息页面，包括成员详情。</p>
-          <p><strong>智能显示:</strong> 乐队成员现在显示艺术家的名称而不是ID，提供更直观的用户体验。</p>
-          <p><strong>权限管理:</strong> 只有管理员可以创建和删除乐队，乐队管理者可以编辑对应乐队的信息。</p>
-          <p><strong>搜索乐队:</strong> 在搜索框中输入乐队名称的关键词，支持模糊匹配。</p>
-          <p><strong>智能成员选择:</strong> 通过搜索选择艺术家作为乐队成员，系统使用 ID 进行精确匹配。</p>
-          <p><strong>创建乐队:</strong> 填写乐队名称、选择成员和详细简介。系统会自动验证成员的存在性。</p>
-          <p><strong>编辑乐队:</strong> 编辑模式下会智能加载现有成员信息，如有数据问题会提示重新选择。</p>
-          <p><strong>删除乐队:</strong> 删除操作不可撤销，仅管理员可执行，请确保该乐队未被歌曲或专辑引用。</p>
-          <p><strong>数据一致性:</strong> 系统使用艺术家 ID 管理乐队成员，同时在界面显示名称，确保数据准确性。</p>
-        </div>
-      </div>
     </div>
   );
 };

@@ -155,25 +155,6 @@ const ArtistManagement: React.FC = () => {
           onClose={() => setShowModal(false)}
         />
       )}
-
-      {/* 使用提示 */}
-      <div style={{ 
-        background: '#f8f9fa', 
-        padding: '25px', 
-        borderRadius: '8px', 
-        marginTop: '40px',
-        border: '1px solid #e9ecef'
-      }}>
-        <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 艺术家管理提示</h3>
-        <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
-          <p><strong>查看详情:</strong> 点击艺术家名称可以查看完整的艺术家信息页面。</p>
-          <p><strong>搜索艺术家:</strong> 在搜索框中输入艺术家名称的关键词，支持模糊匹配。</p>
-          <p><strong>权限管理:</strong> 只有管理员可以创建和删除艺术家，艺术家管理者可以编辑对应艺术家的信息。</p>
-          <p><strong>创建艺术家:</strong> 填写艺术家名称和详细简介，系统会自动生成唯一的艺术家ID。</p>
-          <p><strong>编辑艺术家:</strong> 只有有权限的用户才能看到"编辑"按钮并修改艺术家信息。</p>
-          <p><strong>删除艺术家:</strong> 删除操作不可撤销，仅管理员可执行，请确保该艺术家未被歌曲或专辑引用。</p>
-        </div>
-      </div>
     </div>
   );
 };

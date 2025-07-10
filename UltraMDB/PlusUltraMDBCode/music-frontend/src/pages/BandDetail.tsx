@@ -531,23 +531,6 @@ const BandDetail: React.FC = () => {
           )}
         </div>
       )}
-
-      {/* 提示信息 */}
-      <div style={{ 
-        background: '#f8f9fa', 
-        padding: '20px', 
-        borderRadius: '8px', 
-        marginTop: '20px',
-        border: '1px solid #e9ecef'
-      }}>
-        <h4 style={{ marginBottom: '10px', color: '#495057' }}>💡 乐队信息</h4>
-        <p style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6', margin: 0 }}>
-          这里显示了乐队的详细信息，包括乐队成员列表。如果您是该乐队的管理者，可以点击"编辑信息"按钮来修改乐队的基本信息和成员。
-          点击成员名称可以查看对应艺术家的详细信息。点击"查看该乐队的歌曲"可以查看所有由该乐队创作或参与的歌曲。
-          点击"查看相似创作者"可以发现与该乐队风格相近的其他创作者。
-          您可以编辑自己有权限的歌曲，删除操作需要管理员权限。
-        </p>
-      </div>
     </div>
   );
 };

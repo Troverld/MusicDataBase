@@ -105,31 +105,6 @@ const GenreManagement: React.FC = () => {
         genres={genres}
         isAdmin={isAdmin}
       />
-
-      {/* 使用提示 */}
-      <div style={{ 
-        background: '#f8f9fa', 
-        padding: '25px', 
-        borderRadius: '8px', 
-        marginTop: '40px',
-        border: '1px solid #e9ecef'
-      }}>
-        <h3 style={{ marginBottom: '15px', color: '#495057' }}>💡 曲风管理提示</h3>
-        <div style={{ fontSize: '14px', color: '#6c757d', lineHeight: '1.6' }}>
-          <p><strong>权限说明:</strong> {isAdmin ? '您拥有管理员权限，可以创建和删除曲风。' : '您当前是普通用户，只能查看曲风信息。'}</p>
-          {isAdmin && (
-            <>
-              <p><strong>添加曲风：</strong> 系统会自动生成唯一的曲风ID，您只需填写名称和描述即可。</p>
-              <p><strong>删除曲风：</strong> 从下拉框中选择要删除的曲风，删除前请确认没有歌曲正在使用该曲风。</p>
-            </>
-          )}
-          <p><strong>曲风使用：</strong> 用户在上传或编辑歌曲时，可以从当前曲风列表中多选曲风进行标记。</p>
-          <p><strong>数据一致性：</strong> 所有曲风操作都会立即同步到歌曲管理界面，确保数据一致性。</p>
-          {!isAdmin && (
-            <p><strong>权限申请:</strong> 如需管理曲风，请联系系统管理员申请相应权限。</p>
-          )}
-        </div>
-      </div>
     </div>
   );
 };
