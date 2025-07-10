@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getUser } from '../../utils/storage';
-import { usePermissions } from '../../hooks/usePermissions';
-import { statisticsService } from '../../services/statistics.service';
+import { getUser } from '../utils/storage';
+import { usePermissions } from '../hooks/usePermissions';
+import { statisticsService } from '../services/statistics.service';
 
 const Dashboard: React.FC = () => {
   const user = getUser();
