@@ -38,10 +38,11 @@ case class GetAverageRatingPlanner(
       _ <- validateUser()
 
       // 步骤 2: 验证歌曲是否存在
-      _ <- validateSong()
+      //暂时移除步骤 2 —— 因为步骤 3 是鲁棒的，所以为节省开销，不验证了。
+      //_ <- validateSong()
 
       // 步骤 3: 从数据库中获取平均评分和数量
-      result <- fetchAverageRatingFromDB()
+      result <- fetchAverageRating(songID)
 
     } yield result
 
@@ -74,14 +75,6 @@ case class GetAverageRatingPlanner(
         case (Some(_), _) => logInfo("歌曲存在性验证通过")
         case (None, message) => IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
       }
-  }
-
-  /**
-   * 从 song_rating 表中查询平均评分和评分总数。
-   */
-  private def fetchAverageRatingFromDB()(using PlanContext): IO[(Double, Int)] = {
-    logInfo(s"正在调用 SearchUtils 查询歌曲 ${songID} 的评分数据")
-    fetchAverageRating(songID)
   }
 
   private def logInfo(message: String): IO[Unit] =

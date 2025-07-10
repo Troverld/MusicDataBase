@@ -1,7 +1,7 @@
 package Utils
 
 import Common.API.PlanContext
-import APIs.MusicService.{FilterSongsByEntity, GetSongProfile}
+import APIs.MusicService.{FilterSongsByEntity, GetMultSongsProfiles}
 import Objects.CreatorService.CreatorID_Type
 import Objects.StatisticsService.{Dim, Profile}
 import cats.effect.IO
@@ -54,23 +54,33 @@ object GetCreatorCreationTendencyUtils {
    * 内部辅助方法：并行获取所有歌曲的曲风并聚合成一个未归一化的Profile。
    */
   private def calculateGenreDistribution(songs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
-    // 并行获取每首歌的曲风向量
-    songs.traverse { songId =>
-      GetSongProfile(userID, userToken, songId).send.map {
-        case (Some(profile), _) => profile.vector
-        case (None, message) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 ${songId} 的Profile失败: $message. 将跳过此歌曲.")
-          List.empty[Dim]
-      }
-    }.map { listOfVectors =>
-      // 聚合所有曲风
-      val allDims = listOfVectors.flatten
-      val genreCounts = allDims
-        .groupBy(_.GenreID)
-        .view.mapValues(dims => dims.map(_.value).sum)
-        .toList
-        .map { case (genreId, count) => Dim(genreId, count) }
-      Profile(genreCounts, norm = false)
+    // 如果没有歌曲，无需发起API调用
+    if (songs.isEmpty) {
+      return IO.pure(Profile(List.empty, norm = false))
+    }
+
+    // 使用批量API一次性获取所有歌曲的Profile
+    GetMultSongsProfiles(userID, userToken, songs).send.flatMap {
+      // 成功获取到Profile列表
+      case (Some(profiles), _) =>
+        IO {
+          // 从所有Profile中提取出所有的Dim
+          val allDims = profiles.flatMap(_.vector)
+
+          // 聚合所有曲风
+          val genreCounts = allDims
+            .groupBy(_.GenreID)
+            .view.mapValues(dims => dims.map(_.value).sum)
+            .toList
+            .map { case (genreId, count) => Dim(genreId, count) }
+
+          Profile(genreCounts, norm = false)
+        }
+
+      // 批量API调用失败
+      case (None, message) =>
+        logInfo(s"批量获取歌曲Profile失败: $message. 将返回空分布。") >>
+          IO.pure(Profile(List.empty, norm = false))
     }
   }
 

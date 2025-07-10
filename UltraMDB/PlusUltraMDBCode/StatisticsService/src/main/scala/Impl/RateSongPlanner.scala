@@ -36,7 +36,8 @@ case class RateSongPlanner(
       // 步骤 1: 执行 API 入口层的验证工作
       _ <- validateRating()
       _ <- validateUser()
-      _ <- validateSong()
+      // 暂时移除对歌曲的验证
+//      _ <- validateSong()
       
       // 步骤 2: 调用集中的业务逻辑服务来执行核心的“读后写”操作
       _ <- logInfo("验证通过，正在调用 RateSongUtils.rateSong")
