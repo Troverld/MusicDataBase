@@ -93,13 +93,11 @@ object GetUserSongRecommendationsUtils {
   }
 
   private def rankSongsByPopularity(songIDs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[List[RankedSong]] = {
-    logInfo("正在串行获取所有歌曲的热度以进行热门推荐...") // [COMMENT] Changed log message
-    songIDs.traverse { songID =>
-      GetSongPopularityUtils.calculatePopularity(songID)
-        .map(p => RankedSong(songID, p))
-        .attempt
-    }.map { results =>
-      results.collect { case Right(rankedSong) if rankedSong.score > 0 => rankedSong }.sortBy(-_.score)
+    logInfo(s"正在批量获取 ${songIDs.length} 首歌曲的热度...")
+    GetSongPopularityUtils.calculateBatchPopularity(songIDs).map { popularityMap =>
+      songIDs.map(id => RankedSong(id, popularityMap.getOrElse(id, 0.0)))
+        .filter(_.score > 0)
+        .sortBy(-_.score)
     }
   }
 

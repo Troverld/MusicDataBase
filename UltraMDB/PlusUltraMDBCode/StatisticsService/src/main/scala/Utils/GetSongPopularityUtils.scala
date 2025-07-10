@@ -6,6 +6,8 @@ import cats.effect.IO
 import cats.implicits._
 
 object GetSongPopularityUtils {
+  private val playCountCoefficient = 0.7
+  private val ratingCountCoefficient = 0.3
 
   /**
    * 计算一首歌的综合热度分数。
@@ -25,9 +27,26 @@ object GetSongPopularityUtils {
       (avgRating, ratingCount) <- SearchUtils.fetchAverageRating(songID)
       
       // 步骤3: 执行业务逻辑计算
-      popularity = playCount * 0.7 + avgRating * ratingCount * 0.3
+      popularity = playCount * playCountCoefficient + avgRating * ratingCount * ratingCountCoefficient
       
     } yield popularity
+  }
+
+  // In Utils/GetSongPopularityUtils.scala
+
+  def calculateBatchPopularity(songIDs: List[String])(using pc: PlanContext): IO[Map[String, Double]] = {
+    if (songIDs.isEmpty) IO.pure(Map.empty)
+    else for {
+      playCountsMap <- SearchUtils.fetchBatchPlayCounts(songIDs)
+      ratingsMap <- SearchUtils.fetchBatchAverageRatings(songIDs)
+    } yield {
+      songIDs.map { id =>
+        val playCount = playCountsMap.getOrElse(id, 0)
+        val (avgRating, ratingCount) = ratingsMap.getOrElse(id, (0.0, 0))
+        val popularity = playCount * playCountCoefficient + avgRating * ratingCount * ratingCountCoefficient
+        (id, popularity)
+      }.toMap
+    }
   }
 
   // 未来可以添加更多类似的可复用业务流程...

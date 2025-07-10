@@ -39,6 +39,65 @@ object SearchUtils {
     readDBInt(sql, List(SqlParameter("String", songID)))
   }
 
+
+  /**
+   * (新增方法)
+   * 批量获取多首歌曲的播放次数。
+   *
+   * @param songIDs 歌曲ID列表
+   * @return 一个Map，键是歌曲ID，值是播放次数
+   */
+  def fetchBatchPlayCounts(songIDs: List[String])(using planContext: PlanContext): IO[Map[String, Int]] = {
+    if (songIDs.isEmpty) {
+      IO.pure(Map.empty)
+    } else {
+      // 注意：直接拼接ID到SQL中，请确保ID来源是可信的，以防止SQL注入。
+      val idsInClause = songIDs.map(id => s"'$id'").mkString(",")
+      val sql = s"SELECT song_id, COUNT(*) as play_count FROM ${schemaName}.playback_log WHERE song_id IN ($idsInClause) GROUP BY song_id"
+
+      readDBRows(sql, List.empty).flatMap { rows =>
+        rows.traverse { row =>
+          for {
+            songId <- IO.fromEither(row.hcursor.get[String]("songID")
+              .leftMap(err => new Exception(s"批量解码 play_count.songID 失败: ${err.getMessage}", err)))
+            playCount <- IO.fromEither(row.hcursor.get[Int]("playCount")
+              .leftMap(err => new Exception(s"批量解码 play_count.playCount 失败: ${err.getMessage}", err)))
+          } yield (songId, playCount)
+        }.map(_.toMap)
+      }
+    }
+  }
+
+  /**
+   * (新增方法)
+   * 批量获取多首歌曲的平均分和评分次数。
+   *
+   * @param songIDs 歌曲ID列表
+   * @return 一个Map，键是歌曲ID，值是(平均分, 评分次数)的元组
+   */
+  def fetchBatchAverageRatings(songIDs: List[String])(using planContext: PlanContext): IO[Map[String, (Double, Int)]] = {
+    if (songIDs.isEmpty) {
+      IO.pure(Map.empty)
+    } else {
+      // 注意：直接拼接ID到SQL中，请确保ID来源是可信的，以防止SQL注入。
+      val idsInClause = songIDs.map(id => s"'$id'").mkString(",")
+      val sql = s"SELECT song_id, AVG(rating) as avg_rating, COUNT(rating) as rating_count FROM ${schemaName}.song_rating WHERE song_id IN ($idsInClause) GROUP BY song_id"
+
+      readDBRows(sql, List.empty).flatMap { rows =>
+        rows.traverse { row =>
+          for {
+            songId <- IO.fromEither(row.hcursor.get[String]("songID")
+              .leftMap(err => new Exception(s"批量解码 avg_rating.songID 失败: ${err.getMessage}", err)))
+            avgRatingOpt <- IO.fromEither(row.hcursor.get[Option[Double]]("avgRating")
+              .leftMap(err => new Exception(s"批量解码 avg_rating.avgRating 失败: ${err.getMessage}", err)))
+            ratingCount <- IO.fromEither(row.hcursor.get[Int]("ratingCount")
+              .leftMap(err => new Exception(s"批量解码 avg_rating.ratingCount 失败: ${err.getMessage}", err)))
+          } yield (songId, (avgRatingOpt.getOrElse(0.0), ratingCount))
+        }.map(_.toMap)
+      }
+    }
+  }
+
   def fetchUserPlaybackHistory(userID: String)(using planContext: PlanContext): IO[List[String]] = {
     val sql = s"SELECT song_id FROM ${schemaName}.playback_log WHERE user_id = ?"
     val params = List(SqlParameter("String", userID))
