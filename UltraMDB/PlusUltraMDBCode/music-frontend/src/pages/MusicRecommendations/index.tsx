@@ -122,7 +122,7 @@ const MusicRecommendations: React.FC = () => {
   };
 
   // 获取相似歌曲
-  const loadSimilarSongs = async (songID: string) => {
+  const loadSimilarSongs = async (songID: string, songName: string) => {
     setLoading(true);
     setError('');
     setSongs([]);
@@ -133,7 +133,7 @@ const MusicRecommendations: React.FC = () => {
       if (songIds && songIds.length > 0) {
         const songsData = await musicService.getSongsByIds(songIds);
         setSongs(songsData);
-        setSuccess(`找到 ${songsData.length} 首与《${selectedSongForSimilar?.name}》相似的歌曲`);
+        setSuccess(`找到 ${songsData.length} 首与《${songName}》相似的歌曲`);
       } else {
         setSongs([]);
         setError(message || '未找到相似歌曲');
@@ -148,7 +148,7 @@ const MusicRecommendations: React.FC = () => {
   };
 
   // 获取下一首推荐
-  const loadNextSongRecommendation = async (currentSongID: string) => {
+  const loadNextSongRecommendation = async (currentSongID: string, currentSongName: string) => {
     setLoading(true);
     setError('');
     setSongs([]);
@@ -160,7 +160,7 @@ const MusicRecommendations: React.FC = () => {
         const [songData, songMessage] = await musicService.getSongById(nextSongId);
         if (songData) {
           setSongs([songData]);
-          setSuccess(`为您推荐的下一首歌曲：《${songData.name}》`);
+          setSuccess(`基于《${currentSongName}》为您推荐的下一首歌曲：《${songData.name}》`);
         } else {
           setError(songMessage || '推荐的歌曲信息获取失败');
         }
@@ -210,12 +210,12 @@ const MusicRecommendations: React.FC = () => {
       setSelectedSongForSimilar(song);
       setSearchSongs([]);
       setSearchKeyword('');
-      loadSimilarSongs(song.songID);
+      loadSimilarSongs(song.songID, song.name);
     } else if (activeTab === 'next') {
       setSelectedSongForNext(song);
       setSearchSongs([]);
       setSearchKeyword('');
-      loadNextSongRecommendation(song.songID);
+      loadNextSongRecommendation(song.songID, song.name);
     }
   };
 
