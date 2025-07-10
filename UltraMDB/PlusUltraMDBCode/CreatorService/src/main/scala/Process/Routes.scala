@@ -115,42 +115,42 @@ object Routes:
       case "GetArtistByID" =>
         IO(
           decode[GetArtistByIDPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetArtistByID[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
       case "GetBandByID" =>
         IO(
           decode[GetBandByIDPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetBandByID[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
       case "SearchArtistByName" =>
         IO(
           decode[SearchArtistByNamePlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchArtistByName[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
       case "SearchBandByName" =>
         IO(
           decode[SearchBandByNamePlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchBandByName[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
       case "GetAllCreators" =>
         IO(
           decode[GetAllCreatorsPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for GetAllCreators[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
       case "SearchAllBelongingBands" =>
         IO(
           decode[SearchAllBelongingBandsPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for CreateArtistMessage[${err.getMessage}]")
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchAllBelongingBands[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
