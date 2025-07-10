@@ -1,4 +1,4 @@
-/* 布局样式 - 现代化版本 */
+/* 布局样式 - 现代化重构版本 */
 
 .container {
   max-width: 1200px;
@@ -9,27 +9,25 @@
 .auth-container {
   max-width: 400px;
   margin: 100px auto;
-  background: white;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
   padding: 40px;
-  border-radius: 16px;
-  box-shadow: 
-      0 20px 25px -5px rgba(0, 0, 0, 0.1),
-      0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1), 0 5px 15px rgba(0, 0, 0, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* ========================
- 导航栏 - 现代化设计
-======================== */
+/* 现代化导航栏 */
 .navbar {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  padding: 16px 0;
+  background: rgba(15, 15, 16, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0;
   color: white;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
   z-index: 1000;
-  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
 }
 
 .navbar-content {
@@ -38,167 +36,100 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
-}
-
-.navbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.navbar-brand > a {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: white;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.navbar-brand > a:hover {
-  opacity: 0.8;
-}
-
-.navbar-user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.875rem;
-}
-
-.navbar-user-name {
-  opacity: 0.9;
-  font-weight: 500;
-}
-
-.navbar-user-role {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-}
-
-.navbar-user-role.admin {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-}
-
-.navbar-user-role.user {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-}
-
-.navbar-user-role.loading {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-}
-
-.navbar-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  padding: 15px 20px;
 }
 
 .navbar a {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
   padding: 8px 16px;
   border-radius: 8px;
   transition: all 0.3s ease;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 14px;
   position: relative;
-  overflow: hidden;
-}
-
-.navbar a::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(167, 139, 250, 0.2) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
 }
 
 .navbar a:hover {
   color: white;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  text-decoration: none;
 }
 
-.navbar a:hover::before {
-  opacity: 1;
+/* Logo 样式 */
+.navbar a:first-child {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  padding: 0;
+  margin-right: 20px;
 }
 
-.navbar a.logout {
-  color: #fbbf24;
-  font-weight: 600;
+.navbar a:first-child:hover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.navbar a.logout:hover {
-  color: #f59e0b;
-  background: rgba(251, 191, 36, 0.1);
+/* 导航链接激活状态 */
+.navbar a.active {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
 }
 
-/* 权限加载提示 */
-.permission-loading-notice {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  color: #92400e;
-  padding: 12px 20px;
-  text-align: center;
-  font-size: 0.875rem;
-  border-bottom: 1px solid #f59e0b;
-  display: flex;
+/* 用户角色标签 */
+.navbar .user-role {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
 }
 
-.permission-error-notice {
-  background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
-  color: #991b1b;
-  padding: 12px 20px;
-  text-align: center;
-  font-size: 0.875rem;
-  border-bottom: 1px solid #dc2626;
-}
-
-.permission-loading-spinner-nav {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(146, 64, 14, 0.3);
-  border-top: 2px solid #92400e;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-/* ========================
- 内容区域
-======================== */
+/* 现代化歌曲列表 */
 .song-list {
   background: white;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .song-item {
   padding: 24px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
-  transition: background-color 0.3s ease;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.song-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.05) 50%, transparent 100%);
+  transition: left 0.5s ease;
 }
 
 .song-item:hover {
-  background-color: rgba(248, 250, 252, 0.8);
+  background-color: rgba(102, 126, 234, 0.02);
+  transform: translateX(4px);
+}
+
+.song-item:hover::before {
+  left: 100%;
 }
 
 .song-item:last-child {
@@ -208,47 +139,42 @@
 .song-actions {
   margin-top: 12px;
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .song-actions button {
-  margin-right: 0;
+  transition: all 0.3s ease;
 }
 
-/* ========================
- 搜索框样式
-======================== */
+/* 现代化搜索框 */
 .search-box {
   margin-bottom: 24px;
 }
 
 .search-box input {
   width: 100%;
-  padding: 16px 20px;
-  border: 2px solid rgba(226, 232, 240, 0.8);
+  padding: 14px 20px;
+  border: 2px solid rgba(0, 0, 0, 0.08);
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 16px;
   transition: all 0.3s ease;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
 }
 
 .search-box input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 
-      0 0 0 3px rgba(59, 130, 246, 0.1),
-      0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  transform: translateY(-2px);
 }
 
 .search-box input::placeholder {
-  color: #9ca3af;
+  color: rgba(0, 0, 0, 0.4);
 }
 
-/* ========================
- 表单行
-======================== */
+/* 表单行响应式布局 */
 .form-row {
   display: flex;
   gap: 20px;
@@ -258,99 +184,61 @@
   flex: 1;
 }
 
-/* ========================
- 响应式设计
-======================== */
-@media (max-width: 768px) {
-  .navbar-content {
-      padding: 0 16px;
-      flex-direction: column;
-      gap: 16px;
-  }
-
-  .navbar-brand {
-      width: 100%;
-      justify-content: center;
-  }
-
-  .navbar-nav {
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 4px;
-  }
-
-  .navbar a {
-      padding: 6px 12px;
-      font-size: 0.8125rem;
-  }
-
-  .form-row {
-      flex-direction: column;
-      gap: 0;
-  }
-
-  .container {
-      padding: 16px;
-  }
-
-  .auth-container {
-      margin: 50px auto;
-      padding: 32px 24px;
-  }
+/* 页面主体内容区域 */
+main {
+  min-height: calc(100vh - 70px);
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
-@media (max-width: 480px) {
-  .navbar-content {
-      padding: 0 12px;
-  }
-
-  .navbar-user-info {
-      flex-direction: column;
-      gap: 4px;
-      text-align: center;
-  }
-
-  .search-box input {
-      padding: 12px 16px;
-      font-size: 0.875rem;
-  }
-}
-
-/* ========================
- 辅助类
-======================== */
+/* 加载动画 */
 .loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(59, 130, 246, 0.3);
-  border-top: 2px solid #3b82f6;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(102, 126, 234, 0.1);
+  border-top: 3px solid #667eea;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  display: inline-block;
+  margin: 0 auto;
 }
 
 @keyframes spin {
-  from {
-      transform: rotate(0deg);
-  }
-  to {
-      transform: rotate(360deg);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-/* 减少动画偏好支持 */
-@media (prefers-reduced-motion: reduce) {
-  .navbar a,
-  .search-box input,
-  .song-item,
-  .loading-spinner,
-  .permission-loading-spinner-nav {
-      transition: none;
-      animation: none;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .navbar-content {
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
   }
   
-  .navbar a:hover,
-  .search-box input:focus {
-      transform: none;
+  .navbar-content > div {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .navbar a {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .container {
+    padding: 15px;
+  }
+  
+  .song-item {
+    padding: 16px;
+  }
+  
+  .auth-container {
+    margin: 50px 20px;
+    padding: 30px 25px;
   }
 }

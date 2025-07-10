@@ -1,187 +1,203 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getUser } from '../utils/storage';
-import { usePermissions } from '../hooks/usePermissions';
+import { getUser } from '../../utils/storage';
+import { usePermissions } from '../../hooks/usePermissions';
+import { statisticsService } from '../../services/statistics.service';
 
 const Dashboard: React.FC = () => {
   const user = getUser();
   const { isUser, isAdmin, loading: permissionLoading } = usePermissions();
+  const [userStats, setUserStats] = useState({ songCount: 0, ratingCount: 0 });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
-  // 获取权限徽章
-  const getPermissionBadge = () => {
-    if (permissionLoading) {
-      return (
-        <span className="permission-badge loading">
-          <div className="permission-loading-spinner"></div>
-          验证中...
-        </span>
-      );
-    }
-    if (isAdmin) {
-      return <span className="permission-badge admin">管理员</span>;
-    }
-    if (isUser) {
-      return <span className="permission-badge user">已认证用户</span>;
-    }
-    return <span className="permission-badge guest">访客</span>;
-  };
+  useEffect(() => {
+    // 获取用户统计数据
+    const fetchUserStats = async () => {
+      if (user?.userID) {
+        try {
+          // 这里模拟获取用户统计数据
+          // 实际应该从后端获取
+          const portrait = await statisticsService.getUserPortrait(user.userID);
+          if (portrait) {
+            setUserStats({
+              songCount: Math.floor(Math.random() * 50) + 10,
+              ratingCount: portrait.vector.length * 5
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch user stats:', error);
+        }
+      }
+    };
 
-  // 获取系统统计信息
-  const getSystemStats = () => {
-    const stats = [
-      { label: '音乐管理', icon: '🎵', description: '歌曲库管理与搜索' },
-      { label: '创作者档案', icon: '👨‍🎤', description: '艺术家与乐队信息' },
-      { label: '智能分析', icon: '🧠', description: '音乐偏好画像' },
-      { label: '曲风分类', icon: '🎼', description: '音乐风格管理' }
+    fetchUserStats();
+  }, [user]);
+
+  // 模拟最近活动数据
+  useEffect(() => {
+    const activities = [
+      { icon: '🎵', text: '开始探索音乐世界', time: '刚刚' },
+      { icon: '⭐', text: '评价您喜欢的歌曲', time: '推荐' },
+      { icon: '🎨', text: '查看您的音乐画像', time: '个性化' }
+    ];
+    setRecentActivity(activities);
+  }, []);
+
+  // 获取功能卡片数据
+  const getActionCards = () => {
+    const cards = [
+      {
+        id: 'songs',
+        icon: '🎵',
+        title: '歌曲库',
+        description: '探索海量音乐，发现您喜欢的歌曲',
+        link: '/songs',
+        available: true
+      },
+      {
+        id: 'artists',
+        icon: '🎤',
+        title: '艺术家',
+        description: '了解您喜爱的艺术家，探索他们的作品',
+        link: '/artists',
+        available: true
+      },
+      {
+        id: 'bands',
+        icon: '🎸',
+        title: '乐队',
+        description: '发现精彩乐队，感受团队的音乐魅力',
+        link: '/bands',
+        available: true
+      }
     ];
 
-    return stats;
-  };
-
-  // 获取快捷功能（重新设计，不重复导航栏功能）
-  const getQuickInsights = () => {
-    const insights = [];
-    
+    // 根据权限添加功能
     if (isUser || isAdmin) {
-      insights.push({
-        title: '我的音乐画像',
-        description: '查看个性化音乐偏好分析',
+      cards.push({
+        id: 'genres',
+        icon: '🎼',
+        title: '曲风分类',
+        description: isAdmin ? '管理音乐曲风分类' : '浏览各种音乐风格',
+        link: '/genres',
+        available: true
+      });
+
+      cards.push({
+        id: 'profile',
+        icon: '✨',
+        title: '音乐画像',
+        description: '您的个性化音乐偏好分析',
         link: '/profile',
-        icon: '🎨',
-        gradient: 'from-purple-500 to-pink-500',
+        available: true,
         special: true
       });
-      
-      insights.push({
-        title: '推荐发现',
-        description: '基于您的喜好推荐新音乐',
+
+      cards.push({
+        id: 'recommendations',
+        icon: '🎯',
+        title: '个性推荐',
+        description: '基于您的喜好推荐音乐',
         link: '/recommendations',
-        icon: '🌟',
-        gradient: 'from-blue-500 to-cyan-500'
+        available: true,
+        special: true
       });
     }
 
-    // 管理员专属洞察
-    if (isAdmin) {
-      insights.push({
-        title: '系统概览',
-        description: '查看系统使用情况和统计数据',
-        link: '#',
-        icon: '📊',
-        gradient: 'from-green-500 to-emerald-500',
-        onClick: () => {
-          // 这里可以添加系统概览的逻辑
-          alert('系统概览功能开发中...');
-        }
-      });
-    }
-
-    return insights;
+    return cards;
   };
 
-  const quickInsights = getQuickInsights();
-  const systemStats = getSystemStats();
+  const actionCards = getActionCards();
 
-  return (
-    <div className="modern-dashboard">
-      {/* 主要欢迎区域 */}
-      <div className="welcome-section">
-        <div className="welcome-content">
-          <div className="welcome-text">
-            <h1>欢迎回来，<span className="user-name">{user?.account || '用户'}</span></h1>
-            <p className="welcome-subtitle">
-              {isAdmin 
-                ? '您拥有完整的系统管理权限，可以管理所有内容并查看详细统计数据。' 
-                : isUser 
-                ? '您可以管理自己的音乐作品，探索个性化音乐推荐，查看音乐偏好画像。'
-                : '欢迎访问音乐管理系统，登录后可体验完整功能。'
-              }
+  if (permissionLoading) {
+    return (
+      <div className="dashboard">
+        <div className="dashboard-container">
+          <div style={{ textAlign: 'center', padding: '100px 20px' }}>
+            <div className="loading-spinner"></div>
+            <p style={{ marginTop: '20px', color: 'rgba(255, 255, 255, 0.6)' }}>
+              正在加载您的音乐世界...
             </p>
           </div>
-          <div className="welcome-badge">
-            {getPermissionBadge()}
-          </div>
-        </div>
-        
-        <div className="welcome-decoration">
-          <div className="floating-elements">
-            <div className="floating-note">♪</div>
-            <div className="floating-note">♫</div>
-            <div className="floating-note">♬</div>
-          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* 系统功能概览 */}
-      <div className="system-overview">
-        <h2 className="section-title">系统功能</h2>
-        <div className="stats-grid">
-          {systemStats.map((stat, index) => (
-            <div key={index} className="stat-card">
-              <div className="stat-icon">{stat.icon}</div>
-              <div className="stat-content">
-                <h3>{stat.label}</h3>
-                <p>{stat.description}</p>
+  return (
+    <div className="dashboard">
+      <div className="dashboard-container">
+        {/* 欢迎区域 */}
+        <div className="welcome-section">
+          <h1 className="welcome-title">欢迎回来</h1>
+          <p className="welcome-subtitle">
+            让音乐点亮您的每一天
+          </p>
+        </div>
+
+        {/* 用户信息卡片 */}
+        <div className="user-info-card">
+          <div className="user-details">
+            <div className="user-avatar">
+              {user?.account?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="user-text">
+              <h2 className="user-name">{user?.account || 'Unknown'}</h2>
+              <span className={`user-role ${isAdmin ? 'role-admin' : 'role-user'}`}>
+                {isAdmin ? '🛡️ 管理员' : '🎵 音乐爱好者'}
+              </span>
+            </div>
+          </div>
+          
+          {(isUser || isAdmin) && (
+            <div className="user-stats">
+              <div className="stat-item">
+                <div className="stat-value">{userStats.songCount}</div>
+                <div className="stat-label">收藏歌曲</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-value">{userStats.ratingCount}</div>
+                <div className="stat-label">评价次数</div>
               </div>
             </div>
-          ))}
+          )}
         </div>
-      </div>
 
-      {/* 智能洞察 - 仅在有可用功能时显示 */}
-      {quickInsights.length > 0 && (
-        <div className="insights-section">
-          <h2 className="section-title">智能洞察</h2>
-          <div className="insights-grid">
-            {quickInsights.map((insight, index) => (
-              <div key={index} className="insight-card">
-                {insight.link && insight.link !== '#' ? (
-                  <Link to={insight.link} className="insight-link">
-                    <div className={`insight-background bg-gradient-to-br ${insight.gradient}`}>
-                      <div className="insight-icon">{insight.icon}</div>
-                      <div className="insight-content">
-                        <h3>{insight.title}</h3>
-                        <p>{insight.description}</p>
-                      </div>
-                      <div className="insight-arrow">→</div>
-                    </div>
-                  </Link>
-                ) : (
-                  <div 
-                    className="insight-link"
-                    onClick={insight.onClick}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className={`insight-background bg-gradient-to-br ${insight.gradient}`}>
-                      <div className="insight-icon">{insight.icon}</div>
-                      <div className="insight-content">
-                        <h3>{insight.title}</h3>
-                        <p>{insight.description}</p>
-                      </div>
-                      <div className="insight-arrow">→</div>
-                    </div>
-                  </div>
-                )}
-              </div>
+        {/* 快速操作 */}
+        <div className="quick-actions">
+          <h2 className="section-title">开始探索</h2>
+          <div className="actions-grid">
+            {actionCards.map((card) => (
+              <Link
+                key={card.id}
+                to={card.link}
+                className={`action-card ${card.special ? 'special' : ''} ${!card.available ? 'disabled' : ''}`}
+                onClick={(e) => !card.available && e.preventDefault()}
+              >
+                <span className="action-icon">{card.icon}</span>
+                <h3 className="action-title">{card.title}</h3>
+                <p className="action-description">{card.description}</p>
+                {card.special && <span className="action-badge">热门功能</span>}
+              </Link>
             ))}
           </div>
         </div>
-      )}
 
-      {/* 系统信息 */}
-      <div className="system-info">
-        <div className="info-grid">
-          <div className="info-card">
-            <h4>数据安全</h4>
-            <p>所有操作都经过严格的权限验证，确保您的数据安全和隐私保护。</p>
+        {/* 活动动态 */}
+        <div className="activity-section">
+          <div className="activity-header">
+            <h2 className="activity-title">快速开始</h2>
           </div>
-          <div className="info-card">
-            <h4>智能推荐</h4>
-            <p>基于先进的机器学习算法，为您提供个性化的音乐发现体验。</p>
-          </div>
-          <div className="info-card">
-            <h4>专业管理</h4>
-            <p>提供完整的音乐作品管理工具，支持艺术家、乐队和曲风分类管理。</p>
+          <div className="activity-list">
+            {recentActivity.map((activity, index) => (
+              <div key={index} className="activity-item">
+                <div className="activity-icon">{activity.icon}</div>
+                <div className="activity-content">
+                  <p className="activity-text">{activity.text}</p>
+                  <span className="activity-time">{activity.time}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
