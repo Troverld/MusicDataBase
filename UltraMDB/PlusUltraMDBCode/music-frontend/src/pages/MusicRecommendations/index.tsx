@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { statisticsService } from '../../services/statistics.service';
 import { musicService } from '../../services/music.service';
 import { artistService } from '../../services/artist.service';
@@ -45,6 +46,7 @@ const MusicRecommendations: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMoreData, setHasMoreData] = useState(true);
+  const navigate = useNavigate();
   
   // 相似歌曲查询相关状态
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -263,11 +265,31 @@ const MusicRecommendations: React.FC = () => {
   }, [isUser]);
 
   const handleEdit = (song: Song) => {
-    console.log('Edit song from recommendations:', song);
+    navigate('/songs', { 
+      state: { 
+        showModal: true, 
+        editSong: song
+      } 
+    });
   };
 
   const handleDelete = (songID: string) => {
-    console.log('Delete song from recommendations:', songID);
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    musicService.deleteSong(songID)
+      .then(() => {
+        setSongs(prev => prev.filter(s => s.songID !== songID));
+        setSuccess('歌曲删除成功');
+      })
+      .catch(err => {
+        console.error('删除歌曲失败:', err);
+        setError(err.message || '删除歌曲失败');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   if (!isUser) {

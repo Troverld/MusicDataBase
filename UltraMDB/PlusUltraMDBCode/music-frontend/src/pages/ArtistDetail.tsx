@@ -77,6 +77,16 @@ const ArtistDetail: React.FC = () => {
   const fetchArtistSongs = async () => {
     if (!artistID) return;
 
+    if (showSongs) {
+      setShowSongs(false);
+      return;
+    }
+    
+    if (artistSongs.length > 0) {
+      setShowSongs(true);
+      return;
+    }
+
     setSongsLoading(true);
     try {
       const [songIds, message] = await musicService.filterSongsByEntity({id: artistID, type: 'artist'});
@@ -296,7 +306,7 @@ const ArtistDetail: React.FC = () => {
                 <circle cx="12" cy="12" r="10"/>
                 <polygon points="10 8 16 12 10 16 10 8"/>
               </svg>
-              {songsLoading ? '加载中...' : '查看作品'}
+              {songsLoading ? '加载中...' : (showSongs ? '收起作品' : '查看作品')}
             </button>
           </div>
         </div>
