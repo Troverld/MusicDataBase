@@ -1,126 +1,82 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getUser } from '../utils/storage';
 import { usePermissions } from '../hooks/usePermissions';
 import { statisticsService } from '../services/statistics.service';
-
-// 定义 ActionCard 接口
-interface ActionCard {
-  id: string;
-  icon: string;
-  title: string;
-  description: string;
-  link: string;
-  available: boolean;
-  special?: boolean;
-}
+import { musicService } from '../services/music.service';
+import { Song } from '../types';
 
 const Dashboard: React.FC = () => {
   const user = getUser();
+  const navigate = useNavigate();
   const { isUser, isAdmin, loading: permissionLoading } = usePermissions();
-  const [userStats, setUserStats] = useState({ songCount: 0, ratingCount: 0 });
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [recommendedSongs, setRecommendedSongs] = useState<Song[]>([]);
+  const [popularSongs, setPopularSongs] = useState<Song[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 获取用户统计数据
-    const fetchUserStats = async () => {
-      if (user?.userID) {
-        try {
-          // 这里模拟获取用户统计数据
-          // 实际应该从后端获取
-          const [portrait, message] = await statisticsService.getUserPortrait(user.userID);
-          if (portrait && portrait.vector) {
-            setUserStats({
-              songCount: Math.floor(Math.random() * 50) + 10,
-              ratingCount: portrait.vector.length * 5
-            });
-          }
-        } catch (error) {
-          console.error('Failed to fetch user stats:', error);
-        }
-      }
-    };
-
-    fetchUserStats();
-  }, [user]);
-
-  // 模拟最近活动数据
-  useEffect(() => {
-    const activities = [
-      { icon: '🎵', text: '开始探索音乐世界', time: '刚刚' },
-      { icon: '⭐', text: '评价您喜欢的歌曲', time: '推荐' },
-      { icon: '🎨', text: '查看您的音乐画像', time: '个性化' }
-    ];
-    setRecentActivity(activities);
-  }, []);
-
-  // 获取功能卡片数据
-  const getActionCards = (): ActionCard[] => {
-    const cards: ActionCard[] = [
-      {
-        id: 'songs',
-        icon: '🎵',
-        title: '歌曲库',
-        description: '探索海量音乐，发现您喜欢的歌曲',
-        link: '/songs',
-        available: true
-      },
-      {
-        id: 'artists',
-        icon: '🎤',
-        title: '艺术家',
-        description: '了解您喜爱的艺术家，探索他们的作品',
-        link: '/artists',
-        available: true
-      },
-      {
-        id: 'bands',
-        icon: '🎸',
-        title: '乐队',
-        description: '发现精彩乐队，感受团队的音乐魅力',
-        link: '/bands',
-        available: true
-      }
-    ];
-
-    // 根据权限添加功能
-    if (isUser || isAdmin) {
-      cards.push({
-        id: 'genres',
-        icon: '🎼',
-        title: '曲风分类',
-        description: isAdmin ? '管理音乐曲风分类' : '浏览各种音乐风格',
-        link: '/genres',
-        available: true
-      });
-
-      cards.push({
-        id: 'profile',
-        icon: '✨',
-        title: '音乐画像',
-        description: '您的个性化音乐偏好分析',
-        link: '/profile',
-        available: true,
-        special: true
-      });
-
-      cards.push({
-        id: 'recommendations',
-        icon: '🎯',
-        title: '个性推荐',
-        description: '基于您的喜好推荐音乐',
-        link: '/recommendations',
-        available: true,
-        special: true
-      });
+    if (user?.userID && (isUser || isAdmin)) {
+      fetchDashboardData();
+    } else {
+      setLoading(false);
     }
+  }, [user, isUser, isAdmin]);
 
-    return cards;
+  const fetchDashboardData = async () => {
+    try {
+      // 获取用户画像
+      const [portrait, portraitMessage] = await statisticsService.getUserPortrait(user!.userID);
+      if (portrait) {
+        setUserProfile(portrait);
+      }
+
+      // 获取推荐歌曲（只获取前6首展示）
+      const [recommendations, recMessage] = await statisticsService.getUserSongRecommendations(1, 6);
+      if (recommendations) {
+        // 获取歌曲详情
+        const songDetails = await Promise.all(
+          recommendations.map(async (songID) => {
+            const [song, message] = await musicService.getSongByID(songID);
+            return song;
+          })
+        );
+        setRecommendedSongs(songDetails.filter(song => song !== null) as Song[]);
+      }
+
+      // 获取所有歌曲用于展示热门歌曲
+      const [allSongs, allSongsMessage] = await musicService.getSongList(1, 100);
+      if (allSongs) {
+        // 获取每首歌的热度并排序
+        const songsWithPopularity = await Promise.all(
+          allSongs.slice(0, 20).map(async (song) => {
+            const [popularity] = await statisticsService.getSongPopularity(song.songID);
+            return { ...song, popularity: popularity || 0 };
+          })
+        );
+        
+        // 按热度排序并取前6首
+        const sortedSongs = songsWithPopularity
+          .sort((a, b) => b.popularity - a.popularity)
+          .slice(0, 6);
+        
+        setPopularSongs(sortedSongs);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const actionCards = getActionCards();
+  const getTopGenres = () => {
+    if (!userProfile || !userProfile.vector) return [];
+    return userProfile.vector
+      .sort((a: any, b: any) => b.value - a.value)
+      .slice(0, 3);
+  };
 
-  if (permissionLoading) {
+  if (permissionLoading || loading) {
     return (
       <div className="dashboard">
         <div className="dashboard-container">
@@ -140,9 +96,9 @@ const Dashboard: React.FC = () => {
       <div className="dashboard-container">
         {/* 欢迎区域 */}
         <div className="welcome-section">
-          <h1 className="welcome-title">欢迎回来</h1>
+          <h1 className="welcome-title">欢迎回来，{user?.account}</h1>
           <p className="welcome-subtitle">
-            让音乐点亮您的每一天
+            {isAdmin ? '管理您的音乐王国' : '探索属于您的音乐世界'}
           </p>
         </div>
 
@@ -155,62 +111,141 @@ const Dashboard: React.FC = () => {
             <div className="user-text">
               <h2 className="user-name">{user?.account || 'Unknown'}</h2>
               <span className={`user-role ${isAdmin ? 'role-admin' : 'role-user'}`}>
-                {isAdmin ? '🛡️ 管理员' : '🎵 音乐爱好者'}
+                {isAdmin ? '🛡️ 系统管理员' : '🎵 音乐爱好者'}
               </span>
             </div>
           </div>
           
-          {(isUser || isAdmin) && (
+          {userProfile && userProfile.vector && userProfile.vector.length > 0 && (
             <div className="user-stats">
               <div className="stat-item">
-                <div className="stat-value">{userStats.songCount}</div>
-                <div className="stat-label">收藏歌曲</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">{userStats.ratingCount}</div>
-                <div className="stat-label">评价次数</div>
+                <div className="stat-label">您的音乐偏好</div>
+                <div className="genre-tags">
+                  {getTopGenres().map((genre: any, index: number) => (
+                    <span key={index} className="genre-tag">
+                      {genre.GenreID}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* 快速操作 */}
-        <div className="quick-actions">
-          <h2 className="section-title">开始探索</h2>
-          <div className="actions-grid">
-            {actionCards.map((card) => (
-              <Link
-                key={card.id}
-                to={card.link}
-                className={`action-card ${card.special ? 'special' : ''} ${!card.available ? 'disabled' : ''}`}
-                onClick={(e) => !card.available && e.preventDefault()}
-              >
-                <span className="action-icon">{card.icon}</span>
-                <h3 className="action-title">{card.title}</h3>
-                <p className="action-description">{card.description}</p>
-                {card.special && <span className="action-badge">热门功能</span>}
-              </Link>
-            ))}
+        {/* 功能导航 */}
+        <div className="quick-nav">
+          <h2 className="section-title">功能导航</h2>
+          <div className="nav-grid">
+            <Link to="/songs" className="nav-card">
+              <span className="nav-icon">🎵</span>
+              <h3 className="nav-title">歌曲管理</h3>
+              <p className="nav-description">浏览、搜索和管理音乐库</p>
+            </Link>
+            
+            <Link to="/artists" className="nav-card">
+              <span className="nav-icon">🎤</span>
+              <h3 className="nav-title">艺术家</h3>
+              <p className="nav-description">探索艺术家信息</p>
+            </Link>
+            
+            <Link to="/bands" className="nav-card">
+              <span className="nav-icon">🎸</span>
+              <h3 className="nav-title">乐队</h3>
+              <p className="nav-description">了解乐队详情</p>
+            </Link>
+            
+            {(isUser || isAdmin) && (
+              <>
+                <Link to="/genres" className="nav-card">
+                  <span className="nav-icon">🎼</span>
+                  <h3 className="nav-title">曲风管理</h3>
+                  <p className="nav-description">
+                    {isAdmin ? '管理音乐分类' : '浏览曲风分类'}
+                  </p>
+                </Link>
+                
+                <Link to="/profile" className="nav-card special">
+                  <span className="nav-icon">✨</span>
+                  <h3 className="nav-title">音乐画像</h3>
+                  <p className="nav-description">查看个性化分析</p>
+                </Link>
+                
+                <Link to="/recommendations" className="nav-card special">
+                  <span className="nav-icon">🎯</span>
+                  <h3 className="nav-title">个性推荐</h3>
+                  <p className="nav-description">发现新音乐</p>
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
-        {/* 活动动态 */}
-        <div className="activity-section">
-          <div className="activity-header">
-            <h2 className="activity-title">快速开始</h2>
-          </div>
-          <div className="activity-list">
-            {recentActivity.map((activity, index) => (
-              <div key={index} className="activity-item">
-                <div className="activity-icon">{activity.icon}</div>
-                <div className="activity-content">
-                  <p className="activity-text">{activity.text}</p>
-                  <span className="activity-time">{activity.time}</span>
+        {/* 推荐歌曲 */}
+        {recommendedSongs.length > 0 && (
+          <div className="recommendation-section">
+            <div className="section-header">
+              <h2 className="section-title">为您推荐</h2>
+              <Link to="/recommendations" className="see-more">查看更多 →</Link>
+            </div>
+            <div className="songs-grid">
+              {recommendedSongs.map((song) => (
+                <div key={song.songID} className="song-card">
+                  <div className="song-info">
+                    <h4 className="song-name">{song.name}</h4>
+                    <p className="song-meta">
+                      {song.genres.join(' · ')}
+                    </p>
+                  </div>
+                  <button 
+                    className="play-btn"
+                    onClick={() => navigate('/songs')}
+                  >
+                    ▶
+                  </button>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* 热门歌曲 */}
+        {popularSongs.length > 0 && (
+          <div className="popular-section">
+            <div className="section-header">
+              <h2 className="section-title">热门歌曲</h2>
+              <Link to="/songs" className="see-more">探索更多 →</Link>
+            </div>
+            <div className="songs-grid">
+              {popularSongs.map((song: any) => (
+                <div key={song.songID} className="song-card">
+                  <div className="song-info">
+                    <h4 className="song-name">{song.name}</h4>
+                    <p className="song-meta">
+                      热度: {song.popularity.toFixed(1)}
+                    </p>
+                  </div>
+                  <button 
+                    className="play-btn"
+                    onClick={() => navigate('/songs')}
+                  >
+                    ▶
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 如果没有认证，显示提示 */}
+        {!isUser && !isAdmin && (
+          <div className="auth-prompt">
+            <h3>🔒 权限受限</h3>
+            <p>登录后可以查看个性化推荐和音乐画像</p>
+            <button onClick={() => navigate('/login')} className="auth-btn">
+              立即登录
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
