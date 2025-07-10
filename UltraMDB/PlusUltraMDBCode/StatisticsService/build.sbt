@@ -91,7 +91,7 @@ libraryDependencies ++= Seq(
   "com.zaxxer" % "HikariCP" % "5.1.0",
   "org.postgresql" % "postgresql" % "42.7.2",
 
-  //  "org.scalameta" %% "scalameta" % "4.13.2",
+    "org.scalameta" %% "scalameta" % "4.13.2",
 )
 
 // 引入 jackson 辅助 json 序列化

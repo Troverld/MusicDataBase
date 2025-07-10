@@ -24,13 +24,13 @@ import Objects.CreatorService.Artist
  * desc: 根据提供的艺术家ID，获取完整的艺术家元数据。需要用户认证。
  * @param userID: String (发起请求的用户ID)
  * @param userToken: String (用户的认证令牌)
- * @param artistName: String (要模糊查询的艺术家名称)
+ * @param name: String (要模糊查询的艺术家名称)
  * @return (Option[List[String]], String): (成功时包含艺术家id列表，失败时为None；附带操作信息)
  */
 case class SearchArtistByName(
   userID: String,
   userToken: String,
-  artistName: String
+  name: String
 ) extends API[(Option[List[String]], String)](CreatorServiceCode)
 
 case object SearchArtistByName{

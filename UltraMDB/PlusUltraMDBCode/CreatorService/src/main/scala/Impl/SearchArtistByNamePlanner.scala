@@ -21,13 +21,13 @@ import org.slf4j.LoggerFactory
  *
  * @param userID     The ID of the user making the request.
  * @param userToken  The user's authentication token.
- * @param artistName The partial or full name of the artist to search for.
+ * @param name The partial or full name of the artist to search for.
  * @param planContext The implicit execution context.
  */
 case class SearchArtistByNamePlanner(
   userID: String,
   userToken: String,
-  artistName: String,
+  name: String,
   override val planContext: PlanContext
 ) extends Planner[(Option[List[String]], String)] {
 
@@ -51,7 +51,7 @@ case class SearchArtistByNamePlanner(
 
     // Unified error handling for the entire process.
     logic.handleErrorWith { error =>
-      logError(s"搜索艺术家 '${artistName}' 的操作失败", error) >>
+      logError(s"搜索艺术家 '${name}' 的操作失败", error) >>
         IO.pure((None, error.getMessage))
     }
   }
@@ -72,10 +72,10 @@ case class SearchArtistByNamePlanner(
    */
   private def validateInputs()(using PlanContext): IO[Unit] = {
     logInfo("正在验证输入参数...")
-    if (artistName.trim.isEmpty) {
+    if (name.trim.isEmpty) {
       IO.raiseError(new IllegalArgumentException("艺术家搜索名称不能为空"))
     } else {
-      logInfo(s"搜索词验证通过: '${artistName}'")
+      logInfo(s"搜索词验证通过: '${name}'")
     }
   }
 
@@ -84,9 +84,9 @@ case class SearchArtistByNamePlanner(
    * @return A list of matching artist IDs.
    */
   private def searchArtistsInDB()(using PlanContext): IO[List[String]] = {
-    logInfo(s"正在数据库中模糊搜索艺术家: name LIKE '%${artistName}%'")
+    logInfo(s"正在数据库中模糊搜索艺术家: name LIKE '%${name}%'")
     val query = s"""SELECT artist_id FROM "${schemaName}"."artist_table" WHERE name LIKE ?"""
-    val searchParam = s"%$artistName%"
+    val searchParam = s"%$name%"
 
     readDBRows(query, List(SqlParameter("String", searchParam))).flatMap { rows =>
       // Safely traverse the list of JSON results and decode the 'artist_id' from each.
