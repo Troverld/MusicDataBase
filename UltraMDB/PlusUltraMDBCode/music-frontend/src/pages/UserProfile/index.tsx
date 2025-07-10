@@ -45,98 +45,85 @@ const UserProfile: React.FC = () => {
       }
     };
     
-    // 只在 user 存在且有效时执行一次
     if (user && user.userID && user.userToken) {
       initialize();
     } else {
       setError('用户未登录');
       setLoading(false);
     }
-  }, [user?.userID]);
+  }, []);
 
-  // 重新加载用户画像的函数（用于重试按钮）
-  const reloadUserPortrait = async () => {
-    if (!user) {
-      setError('用户未登录');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError('');
-      
-      const [portraitData, message] = await statisticsService.getUserPortrait();
-      
-      if (portraitData) {
-        setProfile(portraitData);
-      } else {
-        setError(message || '获取用户画像失败');
-      }
-    } catch (err: any) {
-      setError(err.message || '获取用户画像失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 曲风数据变化后重新处理排序数据
+  // 处理和排序数据
   useEffect(() => {
-    if (profile && profile.vector && profile.vector.length > 0) {
-      console.log('Profile data received:', profile);
-      
+    if (profile && profile.vector && !genresLoading) {
       const processedData = profile.vector
-        .map(dim => {
-          // 兼容后端的 GenreID 字段名（大写 G）
-          const genreID = dim.GenreID;
-          
-          if (!genreID) {
-            console.warn('Missing genreID in dim:', dim);
-            return null;
-          }
-          
-          return {
-            genreID: genreID,
-            value: dim.value,
-            name: getGenreNameById(genreID) || `未知曲风(${genreID})`
-          };
-        })
-        .filter(item => item !== null)
-        .sort((a, b) => b!.value - a!.value) as Array<{genreID: string, value: number, name: string}>;
+        .map(dim => ({
+          genreID: dim.GenreID,
+          value: dim.value || 0,
+          name: getGenreNameById(dim.GenreID) || `Genre ${dim.GenreID}`
+        }))
+        .sort((a, b) => b.value - a.value);
       
-      console.log('Processed data:', processedData);
       setSortedData(processedData);
-    } else {
-      setSortedData([]);
     }
-  }, [profile, getGenreNameById]);
+  }, [profile, genresLoading, getGenreNameById]);
 
-  // 格式化偏好度显示
-  const formatPreference = (value: number): string => {
-    return (value * 100).toFixed(1) + '%';
+  // 格式化百分比
+  const formatPercentage = (value: number): string => {
+    return `${(value * 100).toFixed(1)}%`;
   };
 
-  // 获取渐变颜色
-  const getGradientColor = (value: number, index: number): string => {
+  // 获取颜色
+  const getColor = (index: number): string => {
     const colors = [
-      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-      'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
-      'linear-gradient(135deg, #ff8a80 0%, #ea4c46 100%)',
+      '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', 
+      '#3b82f6', '#f87171', '#34d399', '#fbbf24', '#a78bfa'
     ];
     return colors[index % colors.length];
   };
 
+  // 计算总和（用于饼图）
+  const total = sortedData.reduce((sum, item) => sum + item.value, 0);
+
+  // 获取洞察数据
+  const getInsights = () => {
+    if (!sortedData.length) return null;
+
+    const significantGenres = sortedData.filter(item => item.value > 0.05);
+    const topGenre = sortedData[0];
+    const hasStrongPreference = topGenre && topGenre.value > 0.3;
+    const isDiverse = significantGenres.length >= 3;
+    
+    // 计算集中度（HHI指数）
+    const hhi = sortedData.reduce((sum, item) => sum + Math.pow(item.value, 2), 0);
+    const concentration = hhi > 0.5 ? '高度集中' : hhi > 0.3 ? '中度集中' : '分散均衡';
+
+    // 获取相关推荐
+    const recommendations = [];
+    if (topGenre) {
+      if (topGenre.name.includes('流行')) recommendations.push('探索独立音乐');
+      if (topGenre.name.includes('摇滚')) recommendations.push('尝试电子音乐');
+      if (topGenre.name.includes('古典')) recommendations.push('发现世界音乐');
+    }
+
+    return {
+      topGenre,
+      significantGenres,
+      hasStrongPreference,
+      isDiverse,
+      concentration,
+      recommendations
+    };
+  };
+
+  const insights = getInsights();
+
   if (loading || genresLoading) {
     return (
       <div className="user-profile">
-        <h1>用户音乐画像</h1>
         <div className="profile-loading">
           <div className="loading-spinner"></div>
-          <p>正在加载您的音乐画像...</p>
+          <p>正在加载用户画像...</p>
         </div>
       </div>
     );
@@ -145,26 +132,19 @@ const UserProfile: React.FC = () => {
   if (error) {
     return (
       <div className="user-profile">
-        <h1>用户音乐画像</h1>
         <div className="profile-error">
-          <p>❌ {error}</p>
-          <button className="btn btn-primary" onClick={reloadUserPortrait}>
-            重新加载
-          </button>
+          <p>{error}</p>
         </div>
       </div>
     );
   }
 
-  if (!profile || !profile.vector || sortedData.length === 0) {
+  if (!profile || sortedData.length === 0) {
     return (
       <div className="user-profile">
-        <h1>用户音乐画像</h1>
         <div className="profile-empty">
-          <p>🎵 暂无音乐画像数据</p>
-          <p className="empty-tip">
-            多听一些歌曲并进行评分，系统将为您生成个性化的音乐画像！
-          </p>
+          <p>还没有足够的数据生成您的音乐画像</p>
+          <p className="empty-tip">多听听歌，我们会为您生成个性化的音乐偏好分析</p>
         </div>
       </div>
     );
@@ -172,161 +152,141 @@ const UserProfile: React.FC = () => {
 
   return (
     <div className="user-profile">
-      <div className="profile-header">
-        <h1>🎼 用户音乐画像</h1>
-        <div className="profile-info">
-          <div className="user-info">
-            <strong>{user?.account}</strong> 的音乐偏好分析
-          </div>
-          <div className="profile-stats">
-            <span className="stat-item">
-              📊 {profile.norm ? '已归一化' : '未归一化'}
-            </span>
-            <span className="stat-item">
-              🎵 {sortedData.length} 种曲风
-            </span>
-          </div>
-        </div>
+      {/* 简约的头部 */}
+      <div className="profile-header-simple">
+        <h1>音乐画像</h1>
+        <p className="user-subtitle">{user?.account} 的音乐品味分析</p>
       </div>
       
-      <div className="profile-content">
-        {/* 现代化水平条形图 */}
-        <div className="chart-section">
+      <div className="profile-main-content">
+        {/* 主要图表区域 - 使用饼图 */}
+        <div className="chart-container">
           <h2>音乐偏好分布</h2>
-          <div className="modern-chart-container">
-            {sortedData.map((item, index) => (
-              <div key={item.genreID} className="horizontal-bar-item">
-                <div className="bar-info">
-                  <span className="genre-name">{item.name}</span>
-                  <span className="preference-value">{formatPreference(item.value)}</span>
+          <div className="pie-chart-section">
+            <div className="pie-chart-wrapper">
+              <svg viewBox="0 0 200 200" className="pie-chart">
+                {/* 背景圆 */}
+                <circle cx="100" cy="100" r="90" fill="#f8f9fa" />
+                
+                {/* 饼图扇形 */}
+                {sortedData.map((item, index) => {
+                  const startAngle = sortedData.slice(0, index).reduce((sum, d) => sum + (d.value / total) * 360, -90);
+                  const endAngle = startAngle + (item.value / total) * 360;
+                  const largeArcFlag = (item.value / total) > 0.5 ? 1 : 0;
+                  
+                  const x1 = 100 + 90 * Math.cos(startAngle * Math.PI / 180);
+                  const y1 = 100 + 90 * Math.sin(startAngle * Math.PI / 180);
+                  const x2 = 100 + 90 * Math.cos(endAngle * Math.PI / 180);
+                  const y2 = 100 + 90 * Math.sin(endAngle * Math.PI / 180);
+                  
+                  return (
+                    <g key={item.genreID}>
+                      <path
+                        d={`M 100 100 L ${x1} ${y1} A 90 90 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
+                        fill={getColor(index)}
+                        stroke="#fff"
+                        strokeWidth="2"
+                        className="pie-slice"
+                        opacity={item.value === 0 ? 0.3 : 1}
+                      />
+                    </g>
+                  );
+                })}
+                
+                {/* 中心圆（甜甜圈效果） */}
+                <circle cx="100" cy="100" r="40" fill="#fff" />
+                <text x="100" y="105" textAnchor="middle" className="center-text">
+                  {sortedData.length} 种曲风
+                </text>
+              </svg>
+            </div>
+            
+            {/* 图例 */}
+            <div className="chart-legend">
+              {sortedData.slice(0, 10).map((item, index) => (
+                <div key={item.genreID} className="legend-item">
+                  <span 
+                    className="legend-color" 
+                    style={{ backgroundColor: getColor(index) }}
+                  />
+                  <span className="legend-label">{item.name}</span>
+                  <span className="legend-value">{formatPercentage(item.value)}</span>
                 </div>
-                <div className="bar-track">
-                  <div 
-                    className="bar-fill"
-                    style={{
-                      width: `${Math.max(item.value * 100, 2)}%`,
-                      background: getGradientColor(item.value, index),
-                      animationDelay: `${index * 0.1}s`
-                    }}
-                  >
-                    <div className="bar-shine"></div>
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* 圆环图风格的概览 */}
-        <div className="chart-section">
-          <h2>偏好强度概览</h2>
-          <div className="circular-chart-container">
-            {sortedData.slice(0, 6).map((item, index) => (
-              <div key={item.genreID} className="circular-item">
-                <div className="circular-progress">
-                  <svg className="progress-ring" width="120" height="120">
-                    <circle
-                      className="progress-ring-circle-bg"
-                      stroke="#e9ecef"
-                      strokeWidth="8"
-                      fill="transparent"
-                      r="50"
-                      cx="60"
-                      cy="60"
-                    />
-                    <circle
-                      className="progress-ring-circle"
-                      stroke={`url(#gradient${index})`}
-                      strokeWidth="8"
-                      fill="transparent"
-                      r="50"
-                      cx="60"
-                      cy="60"
-                      strokeDasharray={`${item.value * 314} 314`}
-                      strokeDashoffset="0"
-                      style={{
-                        animationDelay: `${index * 0.2}s`
-                      }}
-                    />
-                    <defs>
-                      <linearGradient id={`gradient${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#667eea" />
-                        <stop offset="100%" stopColor="#764ba2" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="progress-text">
-                    <span className="percentage">{formatPreference(item.value)}</span>
-                    <span className="genre">{item.name}</span>
+        {/* 优化后的洞察区域 */}
+        {insights && (
+          <div className="insights-container">
+            <h2>个性化洞察</h2>
+            <div className="insights-grid">
+              {/* 音乐DNA */}
+              <div className="insight-card dna">
+                <h3>🧬 音乐DNA</h3>
+                <div className="dna-content">
+                  <div className="primary-taste">
+                    <span className="label">核心品味</span>
+                    <span className="value">{insights.topGenre.name}</span>
+                  </div>
+                  <div className="taste-mix">
+                    <span className="label">品味组合</span>
+                    <div className="mix-tags">
+                      {insights.significantGenres.slice(0, 3).map((genre, idx) => (
+                        <span key={idx} className="mix-tag" style={{ backgroundColor: getColor(idx) + '20', color: getColor(idx) }}>
+                          {genre.name}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* 详细数据表格（简化版） */}
-        <div className="data-section">
-          <h2>详细偏好数据</h2>
-          <div className="modern-table">
-            {sortedData.map((item, index) => (
-              <div key={item.genreID} className="table-item">
-                <div className="rank-badge">#{index + 1}</div>
-                <div className="genre-info">
-                  <h4>{item.name}</h4>
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill"
-                      style={{
-                        width: `${item.value * 100}%`,
-                        background: getGradientColor(item.value, index)
-                      }}
-                    />
+
+              {/* 听歌特征 */}
+              <div className="insight-card characteristics">
+                <h3>🎯 听歌特征</h3>
+                <div className="characteristics-content">
+                  <div className="characteristic">
+                    <span className="char-label">偏好集中度</span>
+                    <span className="char-value">{insights.concentration}</span>
+                  </div>
+                  <div className="characteristic">
+                    <span className="char-label">品味多样性</span>
+                    <span className="char-value">{insights.isDiverse ? '探索型' : '专一型'}</span>
+                  </div>
+                  <div className="characteristic">
+                    <span className="char-label">偏好强度</span>
+                    <span className="char-value">{insights.hasStrongPreference ? '鲜明' : '均衡'}</span>
                   </div>
                 </div>
-                <div className="preference-badge">{formatPreference(item.value)}</div>
               </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* 用户画像洞察 */}
-        <div className="insights-section">
-          <h2>音乐偏好洞察</h2>
-          <div className="insights-grid">
-            <div className="insight-card primary">
-              <div className="insight-icon">🎵</div>
-              <h3>主要偏好</h3>
-              <p className="primary-genre">{sortedData[0]?.name || '暂无'}</p>
-              <p className="preference-level">偏好度：{sortedData[0] ? 
-                formatPreference(sortedData[0].value) : '0%'}</p>
-            </div>
-            
-            <div className="insight-card diversity">
-              <div className="insight-icon">🎨</div>
-              <h3>偏好多样性</h3>
-              <div className="diversity-score">
-                {sortedData.filter(item => item.value > 0.1).length >= 3 ? (
-                  <span className="high-diversity">🌈 多样化偏好</span>
-                ) : (
-                  <span className="focused-preference">🎯 专注偏好</span>
-                )}
-              </div>
-            </div>
-            
-            <div className="insight-card strength">
-              <div className="insight-icon">📈</div>
-              <h3>偏好强度</h3>
-              <div className="preference-strength">
-                {sortedData[0]?.value > 0.3 ? (
-                  <span className="strong-preference">💪 偏好明显</span>
-                ) : (
-                  <span className="balanced-preference">⚖️ 偏好均衡</span>
-                )}
+
+              {/* 探索建议 */}
+              <div className="insight-card suggestions">
+                <h3>💡 探索建议</h3>
+                <div className="suggestions-content">
+                  {insights.recommendations.length > 0 ? (
+                    insights.recommendations.map((rec, idx) => (
+                      <div key={idx} className="suggestion-item">
+                        <span className="suggestion-icon">→</span>
+                        <span>{rec}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="suggestion-item">
+                      <span className="suggestion-icon">→</span>
+                      <span>继续探索更多音乐风格</span>
+                    </div>
+                  )}
+                  <div className="exploration-tip">
+                    基于您的 {insights.topGenre.name} 偏好推荐
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -128,9 +128,11 @@ const MusicRecommendations: React.FC = () => {
     setSongs([]);
 
     try {
-      const [songIds, message] = await statisticsService.getSimilarSongs(songID, 20);
+      const [similarPairs, message] = await statisticsService.getSimilarSongs(songID, 20);
 
-      if (songIds && songIds.length > 0) {
+      if (similarPairs && similarPairs.length > 0) {
+        // 提取歌曲ID（每个元组的第一个元素）
+        const songIds = similarPairs.map(pair => pair[0]);
         const songsData = await musicService.getSongsByIds(songIds);
         setSongs(songsData);
         setSuccess(`找到 ${songsData.length} 首与《${songName}》相似的歌曲`);

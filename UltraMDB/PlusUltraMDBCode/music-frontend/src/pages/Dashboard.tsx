@@ -10,7 +10,6 @@ import { Song, Genre, Profile } from '../types';
 import PlayButton from '../components/PlayButton';
 
 type SongWithPopularity = Song & { popularity: number };
-type GenreWithName = { GenreID: string; value: number; name: string };
 
 const Dashboard: React.FC = () => {
   const user = getUser();
@@ -27,12 +26,10 @@ const Dashboard: React.FC = () => {
   const hasFetchedData = useRef(false);
 
   useEffect(() => {
-    // 只在权限加载完成且有权限且还未获取数据时调用
     if (!permissionLoading && user?.userID && (isUser || isAdmin) && !hasFetchedData.current) {
       hasFetchedData.current = true;
       fetchDashboardData();
     } else if (!permissionLoading && (!user?.userID || (!isUser && !isAdmin))) {
-      // 如果没有权限，直接设置加载完成
       setLoading(false);
     }
   }, [user?.userID, isUser, isAdmin, permissionLoading]);
@@ -49,9 +46,9 @@ const Dashboard: React.FC = () => {
         console.error('Failed to fetch genres:', error);
       }
 
-      // 获取用户画像
+      // 获取用户画像 - 修复：不传递参数
       try {
-        const [portrait, portraitMessage] = await statisticsService.getUserPortrait(user!.userID);
+        const [portrait, portraitMessage] = await statisticsService.getUserPortrait();
         if (portrait) {
           setUserProfile(portrait);
         }
@@ -59,12 +56,11 @@ const Dashboard: React.FC = () => {
         console.error('Failed to fetch user portrait:', error);
       }
 
-      // 获取推荐歌曲（只获取前6首展示）
+      // 获取推荐歌曲
       let allSongs: Song[] = [];
       try {
         const [recommendations, recMessage] = await statisticsService.getUserSongRecommendations(1, 6);
         if (recommendations && recommendations.length > 0) {
-          // 获取歌曲详情
           const songDetails = await Promise.all(
             recommendations.map(async (songID): Promise<Song | null> => {
               try {
@@ -84,14 +80,12 @@ const Dashboard: React.FC = () => {
         console.error('Failed to fetch recommendations:', error);
       }
 
-      // 获取热门歌曲 - 使用搜索功能获取一些歌曲
+      // 获取热门歌曲
       try {
         const [searchResults, searchMessage] = await musicService.searchSongs('');
         if (searchResults && searchResults.length > 0) {
-          // 只取前10个歌曲ID（减少API调用）
           const songIds = searchResults.slice(0, 10);
           
-          // 获取每首歌的详情和热度
           const songsWithPopularity = await Promise.all(
             songIds.map(async (songID): Promise<SongWithPopularity | null> => {
               try {
@@ -114,7 +108,6 @@ const Dashboard: React.FC = () => {
             })
           );
           
-          // 过滤掉null值，按热度排序并取前6首
           const validSongs = songsWithPopularity.filter((song): song is SongWithPopularity => song !== null);
           const sortedSongs = validSongs
             .sort((a, b) => b.popularity - a.popularity)
@@ -138,7 +131,6 @@ const Dashboard: React.FC = () => {
 
   const fetchCreatorNames = async (songs: Song[]) => {
     try {
-      // 收集所有唯一的创作者
       const creatorSet = new Map<string, { id: string; type: 'artist' | 'band' }>();
       
       songs.forEach(song => {
@@ -152,7 +144,6 @@ const Dashboard: React.FC = () => {
         }
       });
 
-      // 批量获取创作者名称
       const creators = Array.from(creatorSet.values());
       if (creators.length > 0) {
         const results = await getArtistBandsByIds(creators);
@@ -170,7 +161,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const getTopGenres = (): GenreWithName[] => {
+  const getTopGenres = () => {
     if (!userProfile || !userProfile.vector) return [];
     return userProfile.vector
       .sort((a, b) => b.value - a.value)
@@ -208,183 +199,176 @@ const Dashboard: React.FC = () => {
 
   if (permissionLoading || loading) {
     return (
-      <div className="dashboard">
-        <div className="dashboard-container">
-          <div style={{ textAlign: 'center', padding: '100px 20px' }}>
-            <div className="loading-spinner"></div>
-            <p style={{ marginTop: '20px', color: 'rgba(255, 255, 255, 0.6)' }}>
-              正在加载您的音乐世界...
-            </p>
-          </div>
+      <div className="dashboard-modern">
+        <div className="dashboard-loading">
+          <div className="loading-pulse"></div>
+          <p>正在准备您的音乐世界...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="dashboard">
-      <div className="dashboard-container">
-        {/* 欢迎区域 */}
-        <div className="welcome-section">
-          <h1 className="welcome-title">欢迎回来，{user?.account}</h1>
-          <p className="welcome-subtitle">
-            {isAdmin ? '管理您的音乐王国' : '探索属于您的音乐世界'}
-          </p>
-        </div>
-
-        {/* 用户信息卡片 */}
-        <div className="user-info-card">
-          <div className="user-details">
-            <div className="user-avatar">
-              {user?.account?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <div className="user-text">
-              <h2 className="user-name">{user?.account || 'Unknown'}</h2>
-              <span className={`user-role ${isAdmin ? 'role-admin' : 'role-user'}`}>
-                {isAdmin ? '🛡️ 系统管理员' : '🎵 音乐爱好者'}
-              </span>
-            </div>
+    <div className="dashboard-modern">
+      {/* 极简头部 */}
+      <header className="dashboard-header">
+        <div className="header-content">
+          <div className="greeting">
+            <h1>Hi, {user?.account} 👋</h1>
+            <p className="subtitle">
+              {new Date().getHours() < 12 ? '早上好' : 
+               new Date().getHours() < 18 ? '下午好' : '晚上好'}
+              ，今天想听什么音乐？
+            </p>
           </div>
           
-          {userProfile && userProfile.vector && userProfile.vector.length > 0 && (
-            <div className="user-stats">
-              <div className="stat-item">
-                <div className="stat-label">您的音乐偏好</div>
-                <div className="genre-tags">
-                  {getTopGenres().map((genre, index) => (
-                    <span key={index} className="genre-tag">
-                      {genre.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 功能导航 */}
-        <div className="quick-nav">
-          <h2 className="section-title">功能导航</h2>
-          <div className="nav-grid">
-            <Link to="/songs" className="nav-card">
-              <span className="nav-icon">🎵</span>
-              <h3 className="nav-title">歌曲管理</h3>
-              <p className="nav-description">浏览、搜索和管理音乐库</p>
+          {/* 快捷操作 */}
+          <div className="quick-actions">
+            <Link to="/songs" className="quick-action-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+              <span>浏览歌曲</span>
             </Link>
-            
-            <Link to="/artists" className="nav-card">
-              <span className="nav-icon">🎤</span>
-              <h3 className="nav-title">艺术家</h3>
-              <p className="nav-description">探索艺术家信息</p>
+            <Link to="/profile" className="quick-action-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span>我的画像</span>
             </Link>
-            
-            <Link to="/bands" className="nav-card">
-              <span className="nav-icon">🎸</span>
-              <h3 className="nav-title">乐队</h3>
-              <p className="nav-description">了解乐队详情</p>
-            </Link>
-            
-            {(isUser || isAdmin) && (
-              <>
-                <Link to="/genres" className="nav-card">
-                  <span className="nav-icon">🎼</span>
-                  <h3 className="nav-title">曲风管理</h3>
-                  <p className="nav-description">
-                    {isAdmin ? '管理音乐分类' : '浏览曲风分类'}
-                  </p>
-                </Link>
-                
-                <Link to="/profile" className="nav-card special">
-                  <span className="nav-icon">✨</span>
-                  <h3 className="nav-title">音乐画像</h3>
-                  <p className="nav-description">查看个性化分析</p>
-                </Link>
-                
-                <Link to="/recommendations" className="nav-card special">
-                  <span className="nav-icon">🎯</span>
-                  <h3 className="nav-title">个性推荐</h3>
-                  <p className="nav-description">发现新音乐</p>
-                </Link>
-              </>
+            {isAdmin && (
+              <Link to="/genres" className="quick-action-btn admin">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M12 1v6m0 6v6m6-12h6M6 12H0m16.24-4.24l-4.24 4.24m-8 0L3.76 7.76m12.48 8.48l4.24 4.24m-16.72 0L7.76 16.24"/>
+                </svg>
+                <span>管理曲风</span>
+              </Link>
             )}
           </div>
         </div>
+      </header>
 
-        {/* 推荐歌曲 */}
-        {recommendedSongs.length > 0 && (
-          <div className="recommendation-section">
+      {/* 主内容区 */}
+      <main className="dashboard-main">
+        {/* 音乐品味卡片 */}
+        {isUser && userProfile && userProfile.vector.length > 0 && (
+          <section className="taste-section">
             <div className="section-header">
-              <h2 className="section-title">为您推荐</h2>
-              <Link to="/recommendations" className="see-more">查看更多 →</Link>
+              <h2>你的音乐品味</h2>
+              <Link to="/profile" className="view-more">查看完整画像 →</Link>
             </div>
-            <div className="songs-grid">
-              {recommendedSongs.map((song) => (
-                <div key={song.songID} className="song-card">
-                  <div className="song-info">
-                    <h4 className="song-name">{song.name}</h4>
-                    <p className="song-meta">
-                      {formatCreators(song)}
-                    </p>
-                    <p className="song-meta" style={{ fontSize: '12px', opacity: 0.7 }}>
-                      {formatGenres(song.genres)}
-                    </p>
+            <div className="taste-cards">
+              {getTopGenres().map((genre, index) => (
+                <div key={genre.GenreID} className="taste-card">
+                  <div className="taste-rank">#{index + 1}</div>
+                  <div className="taste-name">{genre.name}</div>
+                  <div className="taste-score">
+                    <div className="score-bar">
+                      <div 
+                        className="score-fill" 
+                        style={{ 
+                          width: `${genre.value * 100}%`,
+                          backgroundColor: ['#6366f1', '#8b5cf6', '#ec4899'][index]
+                        }}
+                      />
+                    </div>
+                    <span className="score-text">{(genre.value * 100).toFixed(0)}%</span>
                   </div>
-                  <PlayButton
-                    songID={song.songID}
-                    songName={song.name}
-                    size="small"
-                    onPlayStart={() => console.log(`开始播放: ${song.name}`)}
-                    onPlayError={(error) => console.error(`播放失败: ${error}`)}
-                  />
                 </div>
               ))}
             </div>
-          </div>
+          </section>
+        )}
+
+        {/* 个性化推荐 */}
+        {recommendedSongs.length > 0 && (
+          <section className="recommendations-section">
+            <div className="section-header">
+              <h2>为你推荐</h2>
+              <Link to="/recommendations" className="view-more">更多推荐 →</Link>
+            </div>
+            <div className="songs-grid">
+              {recommendedSongs.map((song) => (
+                <article key={song.songID} className="song-card-minimal">
+                  <div className="song-card-content">
+                    <div className="song-main-info">
+                      <h3 className="song-title">{song.name}</h3>
+                      <p className="song-artist">{formatCreators(song)}</p>
+                      <div className="song-tags">
+                        {formatGenres(song.genres).split(' · ').map((genre, idx) => (
+                          <span key={idx} className="genre-tag">{genre}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="song-play-action">
+                      <PlayButton
+                        songID={song.songID}
+                        songName={song.name}
+                        size="medium"
+                        onPlayStart={() => console.log(`播放: ${song.name}`)}
+                        onPlayError={(error) => console.error(`播放失败: ${error}`)}
+                      />
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* 热门歌曲 */}
         {popularSongs.length > 0 && (
-          <div className="popular-section">
+          <section className="popular-section">
             <div className="section-header">
-              <h2 className="section-title">热门歌曲</h2>
-              <Link to="/songs" className="see-more">探索更多 →</Link>
+              <h2>当前热门</h2>
+              <span className="section-subtitle">大家都在听</span>
             </div>
-            <div className="songs-grid">
-              {popularSongs.map((song) => (
-                <div key={song.songID} className="song-card">
-                  <div className="song-info">
-                    <h4 className="song-name">{song.name}</h4>
-                    <p className="song-meta">
-                      {formatCreators(song)}
-                    </p>
-                    <p className="song-meta" style={{ fontSize: '12px', opacity: 0.7 }}>
-                      热度: {song.popularity.toFixed(1)} · {formatGenres(song.genres)}
-                    </p>
+            <div className="popular-list">
+              {popularSongs.map((song, index) => (
+                <div key={song.songID} className="popular-item">
+                  <div className="popular-rank">{index + 1}</div>
+                  <div className="popular-main">
+                    <div className="popular-info">
+                      <h4>{song.name}</h4>
+                      <p>{formatCreators(song)}</p>
+                    </div>
+                    <div className="popular-stats">
+                      <span className="popularity-badge">
+                        🔥 {song.popularity.toFixed(0)}
+                      </span>
+                    </div>
                   </div>
                   <PlayButton
                     songID={song.songID}
                     songName={song.name}
                     size="small"
-                    onPlayStart={() => console.log(`开始播放: ${song.name}`)}
+                    onPlayStart={() => console.log(`播放: ${song.name}`)}
                     onPlayError={(error) => console.error(`播放失败: ${error}`)}
                   />
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* 如果没有认证，显示提示 */}
+        {/* 未登录提示 */}
         {!isUser && !isAdmin && (
-          <div className="auth-prompt">
-            <h3>🔒 权限受限</h3>
-            <p>登录后可以查看个性化推荐和音乐画像</p>
-            <button onClick={() => navigate('/login')} className="auth-btn">
+          <div className="empty-state-modern">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M9 11V6a3 3 0 1 1 6 0v5m-6 8h6a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2z"/>
+            </svg>
+            <h3>解锁完整体验</h3>
+            <p>登录后获得个性化推荐和音乐品味分析</p>
+            <button onClick={() => navigate('/login')} className="login-btn-modern">
               立即登录
             </button>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };

@@ -1,0 +1,609 @@
+/* BandDetail.css - 乐队详情页样式 */
+
+/* 页面容器 */
+.band-detail-page {
+    min-height: 100vh;
+    background: #f8f9fa;
+  }
+  
+  /* 英雄区域 */
+  .band-hero {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    position: relative;
+    overflow: hidden;
+    color: white;
+  }
+  
+  /* 背景装饰 */
+  .band-hero::before {
+    content: '';
+    position: absolute;
+    width: 150%;
+    height: 150%;
+    top: -25%;
+    left: -25%;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    animation: float 20s linear infinite;
+  }
+  
+  @keyframes float {
+    from { transform: translate(0, 0) rotate(0deg); }
+    to { transform: translate(-100px, -100px) rotate(360deg); }
+  }
+  
+  .band-hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 80px 24px 40px;
+  }
+  
+  /* 头部信息 */
+  .band-header-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 40px;
+    margin-bottom: 40px;
+  }
+  
+  /* 乐队头像 */
+  .band-avatar-large {
+    width: 180px;
+    height: 180px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+    font-weight: 700;
+    color: white;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .band-avatar-large::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: shimmer 3s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%); }
+    100% { transform: translateX(100%) translateY(100%); }
+  }
+  
+  /* 乐队核心信息 */
+  .band-core-info {
+    flex: 1;
+    padding-top: 20px;
+  }
+  
+  .band-name-large {
+    font-size: 48px;
+    font-weight: 800;
+    margin: 0 0 12px 0;
+    line-height: 1.2;
+  }
+  
+  .band-id-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    margin-bottom: 20px;
+  }
+  
+  .band-stats {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  
+  .band-stat {
+    text-align: center;
+  }
+  
+  .band-stat-value {
+    display: block;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  
+  .band-stat-label {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+  
+  /* 成员展示 */
+  .band-members-preview {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  
+  .member-avatar-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+  }
+  
+  .member-avatar-small:hover {
+    transform: scale(1.1);
+    border-color: white;
+  }
+  
+  /* 成员卡片网格 */
+  .members-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  
+  .member-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+  }
+  
+  .member-card:hover {
+    background: white;
+    border-color: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  
+  .member-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    flex-shrink: 0;
+  }
+  
+  .member-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .member-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .member-role {
+    font-size: 14px;
+    color: #718096;
+    margin-bottom: 8px;
+  }
+  
+  .member-bio {
+    font-size: 12px;
+    color: #a0aec0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* 成员占位符状态 */
+  .member-card.placeholder {
+    background: #f1f3f5;
+    cursor: default;
+  }
+  
+  .member-card.placeholder:hover {
+    background: #f1f3f5;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .member-card.placeholder .member-avatar {
+    background: #dee2e6;
+    color: #adb5bd;
+  }
+  
+  .member-card.placeholder .member-name {
+    color: #868e96;
+  }
+  
+  /* 主内容区 */
+  .band-content {
+    max-width: 1200px;
+    margin: -20px auto 0;
+    padding: 0 24px 48px;
+    position: relative;
+    z-index: 2;
+  }
+  
+  /* 内容网格 */
+  .band-content-grid {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 32px;
+    margin-top: 32px;
+  }
+  
+  /* 主要内容列 */
+  .band-main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  
+  /* 侧边栏 */
+  .band-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  /* 操作按钮 - 复用 artist 的样式 */
+  .hero-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+  }
+  
+  .hero-btn-primary {
+    background: white;
+    color: #f093fb;
+  }
+  
+  .hero-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  }
+  
+  .hero-btn-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    backdrop-filter: blur(10px);
+  }
+  
+  .hero-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+  /* 内容卡片 */
+  .content-card {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  
+  .content-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  
+  .content-card-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+  }
+  
+  .content-card-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #f093fb;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+  
+  .content-card-action:hover {
+    transform: translateX(4px);
+  }
+  
+  /* 简介内容 */
+  .bio-content {
+    font-size: 16px;
+    line-height: 1.8;
+    color: #4a5568;
+  }
+  
+  .bio-empty {
+    color: #a0aec0;
+    font-style: italic;
+  }
+  
+  /* 快速信息 */
+  .quick-info-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  .quick-info-item:last-child {
+    border-bottom: none;
+  }
+  
+  .quick-info-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #f7fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f093fb;
+    flex-shrink: 0;
+  }
+  
+  .quick-info-content {
+    flex: 1;
+  }
+  
+  .quick-info-label {
+    font-size: 12px;
+    color: #718096;
+    margin-bottom: 2px;
+  }
+  
+  .quick-info-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2d3748;
+  }
+  
+  /* 相似创作者 */
+  .similar-creators-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  
+  .similar-creator-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+  }
+  
+  .similar-creator-card:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  
+  .similar-creator-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    flex-shrink: 0;
+  }
+  
+  .similar-creator-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .similar-creator-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #2d3748;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .similar-creator-type {
+    font-size: 12px;
+    color: #718096;
+  }
+  
+  /* 空状态 */
+  .empty-state-card {
+    text-align: center;
+    padding: 48px;
+    color: #718096;
+  }
+  
+  .empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+  
+  .empty-state-text {
+    font-size: 16px;
+  }
+  
+  /* 加载状态 */
+  .loading-card {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 48px;
+    color: #718096;
+  }
+  
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(240, 147, 251, 0.2);
+    border-top-color: #f093fb;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 12px;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* 消息提示 */
+  .message-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  .message-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    min-width: 300px;
+  }
+  
+  .message-success {
+    background: #10b981;
+    color: white;
+  }
+  
+  .message-error {
+    background: #ef4444;
+    color: white;
+  }
+  
+  .message-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+  }
+  
+  .message-close:hover {
+    opacity: 1;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 1024px) {
+    .band-content-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .band-sidebar {
+      order: -1;
+    }
+    
+    .members-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .band-header-info {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 24px;
+    }
+    
+    .band-name-large {
+      font-size: 36px;
+    }
+    
+    .band-avatar-large {
+      width: 140px;
+      height: 140px;
+      font-size: 56px;
+    }
+    
+    .band-stats {
+      justify-content: center;
+    }
+    
+    .band-members-preview {
+      justify-content: center;
+    }
+    
+    .content-card {
+      padding: 24px;
+    }
+  }

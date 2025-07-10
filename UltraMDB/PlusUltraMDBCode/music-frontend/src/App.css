@@ -13,3 +13,5 @@
 @import './components/ModernEmptyState/ModernEmptyState.css';
 @import './pages/UserProfile/UserProfile.css';
 @import './pages/MusicRecommendations/MusicRecommendations.css';
+@import './components/ArtistCard/ModernArtistCard.css';
+@import './components/BandCard/ModernBandCard.css';

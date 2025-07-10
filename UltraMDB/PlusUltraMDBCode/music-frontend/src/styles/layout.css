@@ -47,7 +47,7 @@
   border-radius: 8px;
   transition: all 0.3s ease;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 16px;  /* 从 14px 调整为 16px */
   position: relative;
 }
 
@@ -76,12 +76,14 @@
   background-clip: text;
 }
 
-/* 导航链接激活状态 */
+/* 移除导航链接激活状态的紫色高亮 */
+/*
 .navbar a.active {
   background: rgba(102, 126, 234, 0.15);
   color: #667eea;
   font-weight: 600;
 }
+*/
 
 /* 用户角色标签 */
 .navbar .user-role {
@@ -231,7 +233,7 @@ main > div:not(.dashboard) {
   }
   
   .navbar a {
-    font-size: 13px;
+    font-size: 14px;  /* 移动端保持稍小的字号 */
     padding: 6px 12px;
   }
   

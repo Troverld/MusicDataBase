@@ -1,12 +1,19 @@
 import React from 'react';
 import { Band } from '../../types';
-import BandItem from './BandItem';
+import ModernBandCard from '../../components/BandCard/ModernBandCard';
 import ModernEmptyState from '../../components/ModernEmptyState';
+
+// 新增接口定义
+interface BandMemberDetails {
+  id: string;
+  name: string;
+}
 
 interface BandListProps {
   bands: Band[];
   loading: boolean;
   memberNamesDisplay: { [bandID: string]: string[] };
+  memberDetailsDisplay?: { [bandID: string]: BandMemberDetails[] }; // 新增
   onEdit: (band: Band) => void;
   onDelete: (bandID: string) => void;
   searchKeyword: string;
@@ -16,6 +23,7 @@ const BandList: React.FC<BandListProps> = ({
   bands,
   loading,
   memberNamesDisplay,
+  memberDetailsDisplay,
   onEdit,
   onDelete,
   searchKeyword
@@ -31,11 +39,9 @@ const BandList: React.FC<BandListProps> = ({
   if (bands.length === 0) {
     const bandIcon = (
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-        <path d="M9 12l2 2 4-4"></path>
-        <path d="M21 12c.552 0 1-.48 1-1.067 0-.586-.448-1.066-1-1.066s-1 .48-1 1.066c0 .587.448 1.067 1 1.067z"></path>
-        <path d="M3 12c.552 0 1-.48 1-1.067 0-.586-.448-1.066-1-1.066s-1 .48-1 1.066c0 .587.448 1.067 1 1.067z"></path>
-        <path d="M15 6c.552 0 1-.48 1-1.067 0-.586-.448-1.066-1-1.066s-1 .48-1 1.066c0 .587.448 1.067 1 1.067z"></path>
-        <path d="M9 18c.552 0 1-.48 1-1.067 0-.586-.448-1.066-1-1.066s-1 .48-1 1.066c0 .587.448 1.067 1 1.067z"></path>
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+        <polyline points="10 17 15 12 10 7"/>
+        <line x1="15" y1="12" x2="3" y2="12"/>
       </svg>
     );
 
@@ -49,14 +55,15 @@ const BandList: React.FC<BandListProps> = ({
   }
 
   return (
-    <div className="song-list">
+    <div className="band-cards-grid">
       {bands.map((band) => (
-        <BandItem
+        <ModernBandCard
           key={band.bandID}
           band={band}
+          memberNames={memberNamesDisplay[band.bandID] || []}
+          memberDetails={memberDetailsDisplay?.[band.bandID]} // 传递成员详情
           onEdit={onEdit}
           onDelete={onDelete}
-          memberNamesDisplay={memberNamesDisplay}
         />
       ))}
     </div>

@@ -1,5 +1,5 @@
 import { callAPI } from './api';
-import { Profile, SongRating } from '../types';
+import { Profile, CreatorID_Type, SongRating } from '../types';
 import { getUser } from '../utils/storage';
 
 export const statisticsService = {
@@ -51,7 +51,7 @@ export const statisticsService = {
     return this.getSongRate(user.userID, songID);
   },
 
-  // 获取歌曲平均评分
+  // 获取歌曲的平均评分和评分人数
   async getAverageRating(songID: string): Promise<[[number, number], string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -67,7 +67,7 @@ export const statisticsService = {
     return callAPI<[[number, number], string]>('GetAverageRating', data);
   },
 
-  // 获取歌曲热度
+  // 获取歌曲的热度
   async getSongPopularity(songID: string): Promise<[number | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -83,7 +83,7 @@ export const statisticsService = {
     return callAPI<[number | null, string]>('GetSongPopularity', data);
   },
 
-  // 记录播放行为
+  // 记录播放历史
   async logPlayback(songID: string): Promise<[boolean, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -99,22 +99,22 @@ export const statisticsService = {
     return callAPI<[boolean, string]>('LogPlayback', data);
   },
 
-  // 获取用户画像
-  async getUserPortrait(userID?: string): Promise<[Profile | null, string]> {
+  // 获取用户画像（支持查看其他用户画像）
+  async getUserPortrait(targetUserID?: string): Promise<[Profile | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
 
     const data = {
-      userID: userID || user.userID,  // 支持查看其他用户画像
+      userID: targetUserID || user.userID,  // 支持查看其他用户画像，默认为当前用户
       userToken: user.userToken
     };
 
     return callAPI<[Profile | null, string]>('GetUserPortrait', data);
   },
-  
-  // 获取用户歌曲推荐列表
+
+  // 获取用户的歌曲推荐
   async getUserSongRecommendations(pageNumber: number = 1, pageSize: number = 20): Promise<[string[] | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -131,7 +131,7 @@ export const statisticsService = {
     return callAPI<[string[] | null, string]>('GetUserSongRecommendations', data);
   },
 
-  // 获取下一首歌曲推荐
+  // 获取下一首推荐歌曲
   async getNextSongRecommendation(currentSongID: string): Promise<[string | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -148,7 +148,7 @@ export const statisticsService = {
   },
 
   // 获取相似歌曲
-  async getSimilarSongs(songID: string, limit: number = 10): Promise<[string[] | null, string]> {
+  async getSimilarSongs(songID: string, limit: number = 10): Promise<[Array<[string, string]> | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
@@ -161,25 +161,27 @@ export const statisticsService = {
       limit
     };
 
-    return callAPI<[string[] | null, string]>('GetSimilarSongs', data);
+    return callAPI<[Array<[string, string]> | null, string]>('GetSimilarSongs', data);
   },
 
   // 获取相似创作者
-  async getSimilarCreators(creatorID: string, creatorType: 'artist' | 'band', limit: number = 10): Promise<[Array<[string, string]> | null, string]> {
+  async getSimilarCreators(creatorId: string, creatorType: 'artist' | 'band', limit: number = 5): Promise<[CreatorID_Type[] | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
       throw new Error('User not authenticated');
     }
-
+  
     const data = {
       userID: user.userID,
       userToken: user.userToken,
-      creatorID,
-      creatorType: creatorType === 'artist' ? 'Artist' : 'Band', // 后端期望首字母大写
+      creatorID: {
+        creatorType: creatorType,
+        id: creatorId
+      },
       limit
     };
-
-    return callAPI<[Array<[string, string]> | null, string]>('GetSimilarCreators', data);
+  
+    return callAPI<[CreatorID_Type[] | null, string]>('GetSimilarCreators', data);
   },
 
   // 综合获取歌曲评分信息

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Artist } from '../../types';
-import ArtistItem from './ArtistItem';
+import ModernArtistCard from '../../components/ArtistCard/ModernArtistCard';
 import ModernEmptyState from '../../components/ModernEmptyState';
 
 interface ArtistListProps {
@@ -34,9 +34,9 @@ const ArtistList: React.FC<ArtistListProps> = ({
   }
 
   return (
-    <div className="song-list">
+    <div className="artist-cards-grid">
       {artists.map((artist) => (
-        <ArtistItem
+        <ModernArtistCard
           key={artist.artistID}
           artist={artist}
           onEdit={onEdit}

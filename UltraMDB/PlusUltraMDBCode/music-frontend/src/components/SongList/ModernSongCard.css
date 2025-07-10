@@ -1,453 +1,390 @@
-/* 现代化歌曲卡片样式 */
+/* 现代化歌曲卡片样式 - 优化版 */
 
 .modern-song-card {
-  position: relative;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(0, 123, 255, 0.1);
-  border-radius: 20px;
-  margin-bottom: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  margin-bottom: 16px;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 
-              0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .modern-song-card:hover {
-  border-color: rgba(0, 123, 255, 0.3);
-  box-shadow: 0 8px 30px rgba(0, 123, 255, 0.15), 
-              0 2px 8px rgba(0, 0, 0, 0.1);
-  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
-.song-card-content {
-  padding: 24px;
-}
-
-/* 头部区域 */
-.song-card-header {
+.song-card-main {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-  gap: 20px;
+  align-items: stretch;
+  padding: 24px 28px;
+  gap: 24px;
 }
 
-.song-title-section {
+/* 左侧主要信息区 */
+.song-main-info {
   flex: 1;
   min-width: 0;
 }
 
-.song-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #2c3e50;
-  margin: 0 0 8px 0;
-  line-height: 1.3;
-  background: linear-gradient(135deg, #2c3e50 0%, #667eea 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  word-break: break-word;
+.song-header {
+  margin-bottom: 16px;
 }
 
-.song-metadata {
+.song-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-meta {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 6px;
+  flex-wrap: wrap;
 }
 
 .release-date {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* 曲风标签 */
+.genre-pills {
   display: flex;
-  align-items: center;
   gap: 6px;
-  font-size: 0.875rem;
-  color: rgba(108, 117, 125, 0.8);
-  font-weight: 500;
-}
-
-.release-date svg {
-  opacity: 0.7;
-  transition: opacity 0.3s ease;
-}
-
-.song-play-section {
-  flex-shrink: 0;
-}
-
-/* 统一的角色信息区域 */
-.song-roles-section {
-  background: rgba(102, 126, 234, 0.05);
-  border: 1px solid rgba(102, 126, 234, 0.1);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
-}
-
-.role-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding: 6px 0;
-}
-
-.role-item:last-child {
-  margin-bottom: 0;
-}
-
-.role-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: #667eea;
-  font-size: 0.875rem;
-  min-width: 80px;
-  flex-shrink: 0;
-}
-
-.role-label svg {
-  opacity: 0.8;
-}
-
-.role-value {
-  color: #34495e;
-  font-weight: 500;
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
-
-/* 曲风标签区域 */
-.song-genres-section {
-  margin-bottom: 20px;
-}
-
-.genres-container {
-  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
 }
 
-.modern-genre-tag {
-  display: inline-flex;
+.genre-pill {
+  display: inline-block;
+  padding: 3px 12px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.genre-pill:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+/* 角色信息 */
+.song-credits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.credit-item {
+  display: flex;
   align-items: center;
-  padding: 6px 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 20px;
-  border: none;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  gap: 8px;
+}
+
+.credit-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #f9fafb;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.credit-icon svg {
+  color: #6b7280;
+  transition: color 0.2s ease;
+}
+
+.credit-item:hover .credit-icon svg {
+  color: #4b5563;
+}
+
+.credit-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.credit-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.modern-genre-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.modern-genre-tag.empty {
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-  color: white;
-  opacity: 0.8;
-  box-shadow: 0 2px 8px rgba(148, 163, 184, 0.3);
-}
-
-/* 评分区域 */
-.song-rating-section {
-  margin-bottom: 16px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(0, 123, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-}
-
-/* 上传信息 */
-.upload-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: rgba(108, 117, 125, 0.7);
+.credit-value {
+  font-size: 14px;
+  color: #374151;
   font-weight: 500;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: rgba(248, 249, 250, 0.8);
-  border-radius: 8px;
-  border: 1px solid rgba(233, 236, 239, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.upload-info svg {
-  opacity: 0.6;
-}
-
-/* 卡片底部 */
-.song-card-footer {
+/* 右侧操作区 */
+.song-actions {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 16px 24px;
-  background: rgba(248, 249, 250, 0.8);
-  border-top: 1px solid rgba(233, 236, 239, 0.6);
-  backdrop-filter: blur(10px);
+  gap: 16px;
+  padding-left: 24px;
+  border-left: 1px solid #f3f4f6;
 }
 
-/* 权限信息 */
-.permission-loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: rgba(102, 126, 234, 0.8);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.permission-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: rgba(34, 197, 94, 0.8);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.permission-info svg {
-  opacity: 0.8;
-}
-
-.loading-spinner-small {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(102, 126, 234, 0.3);
-  border-top: 2px solid rgba(102, 126, 234, 0.8);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+/* 评分统计 */
+.song-stats {
+  text-align: center;
 }
 
 /* 操作按钮 */
 .action-buttons {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: 8px;
 }
 
-.modern-btn {
-  display: inline-flex;
+.action-btn {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #f9fafb;
   border: none;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
-.modern-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, rgba(255, 255, 255, 0.2), transparent);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.action-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  transform: scale(1.05);
 }
 
-.modern-btn:hover::before {
-  opacity: 1;
+.action-btn:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
-.modern-btn-secondary {
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
-}
-
-.modern-btn-secondary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #475569 0%, #334155 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(100, 116, 139, 0.4);
-}
-
-.modern-btn-danger {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-}
-
-.modern-btn-danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
-}
-
-.modern-btn:disabled {
-  opacity: 0.6;
+.action-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
 }
 
-.modern-btn svg {
-  flex-shrink: 0;
+.action-btn svg {
+  color: #6b7280;
+  transition: color 0.2s ease;
 }
 
-/* 现代化歌曲列表容器 */
-.modern-song-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+.edit-btn:hover:not(:disabled) svg {
+  color: #3b82f6;
 }
 
-/* 动画定义 */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.delete-btn:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.delete-btn:hover:not(:disabled) svg {
+  color: #ef4444;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .song-card-header {
+  .song-card-main {
     flex-direction: column;
-    align-items: stretch;
+    padding: 20px;
     gap: 16px;
   }
   
+  .song-actions {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: none;
+    border-top: 1px solid #f3f4f6;
+    width: 100%;
+  }
+  
+  .song-credits {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
   .song-title {
-    font-size: 1.3rem;
+    font-size: 18px;
   }
   
-  .role-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  
-  .role-label {
-    min-width: auto;
-  }
-  
-  .song-card-footer {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-  
-  .action-buttons {
-    justify-content: center;
+  .genre-pills {
+    margin-top: 8px;
   }
 }
 
 @media (max-width: 480px) {
-  .song-card-content {
-    padding: 20px 16px;
-  }
-  
-  .song-card-footer {
+  .song-card-main {
     padding: 16px;
   }
   
-  .modern-btn {
-    padding: 8px 14px;
-    font-size: 0.8rem;
+  .credit-icon {
+    width: 32px;
+    height: 32px;
   }
   
-  .modern-genre-tag {
-    font-size: 0.7rem;
-    padding: 4px 10px;
+  .credit-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .action-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .action-btn svg {
+    width: 18px;
+    height: 18px;
   }
 }
 
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
   .modern-song-card {
-    background: rgba(30, 30, 30, 0.95);
-    border-color: rgba(102, 126, 234, 0.3);
+    background: #1f2937;
+    border-color: #374151;
   }
   
   .song-title {
-    color: #e2e8f0;
-    background: linear-gradient(135deg, #e2e8f0 0%, #667eea 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #f9fafb;
   }
   
-  .role-value {
-    color: #cbd5e1;
+  .release-date {
+    color: #9ca3af;
   }
   
-  .song-card-footer {
-    background: rgba(15, 15, 15, 0.8);
-    border-color: rgba(102, 126, 234, 0.2);
+  .genre-pill {
+    background: #374151;
+    color: #d1d5db;
   }
   
-  .upload-info {
-    background: rgba(15, 15, 15, 0.6);
-    border-color: rgba(102, 126, 234, 0.2);
-    color: rgba(148, 163, 184, 0.8);
+  .genre-pill:hover {
+    background: #4b5563;
+    color: #e5e7eb;
   }
   
-  .song-rating-section {
-    background: rgba(15, 15, 15, 0.4);
-    border-color: rgba(102, 126, 234, 0.2);
+  .credit-icon {
+    background: #374151;
+  }
+  
+  .credit-icon svg {
+    color: #9ca3af;
+  }
+  
+  .credit-item:hover .credit-icon svg {
+    color: #d1d5db;
+  }
+  
+  .credit-label {
+    color: #6b7280;
+  }
+  
+  .credit-value {
+    color: #e5e7eb;
+  }
+  
+  .song-actions {
+    border-left-color: #374151;
+  }
+  
+  .action-btn {
+    background: #374151;
+  }
+  
+  .action-btn:hover:not(:disabled) {
+    background: #4b5563;
+  }
+  
+  .action-btn svg {
+    color: #9ca3af;
+  }
+  
+  .edit-btn:hover:not(:disabled) svg {
+    color: #60a5fa;
+  }
+  
+  .delete-btn:hover:not(:disabled) {
+    background: #7f1d1d;
+  }
+  
+  .delete-btn:hover:not(:disabled) svg {
+    color: #f87171;
   }
 }
 
-/* 高对比度支持 */
-@media (prefers-contrast: high) {
-  .modern-song-card {
-    border-width: 2px;
-    border-color: #0056b3;
+/* 动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  
-  .modern-genre-tag {
-    background: #0056b3;
-  }
-  
-  .modern-btn-secondary {
-    background: #495057;
-  }
-  
-  .modern-btn-danger {
-    background: #dc3545;
-  }
-  
-  .role-label {
-    color: #0056b3;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* 减少动画偏好支持 */
-@media (prefers-reduced-motion: reduce) {
-  .modern-song-card,
-  .modern-btn,
-  .modern-genre-tag,
-  .role-label,
-  .release-date svg {
-    transition: none;
-  }
-  
-  .modern-song-card:hover {
-    transform: none;
-  }
-  
-  .modern-btn:hover,
-  .modern-genre-tag:hover {
-    transform: none;
-  }
-  
-  .loading-spinner-small {
-    animation: none;
-  }
+.modern-song-card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 加载状态 */
+.permission-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.loading-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 权限提示 */
+.permission-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  padding: 6px 14px;
+  background: #f9fafb;
+  border-radius: 16px;
+}
+
+.permission-info svg {
+  width: 16px;
+  height: 16px;
 }

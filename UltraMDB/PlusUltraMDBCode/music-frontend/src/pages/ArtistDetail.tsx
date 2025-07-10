@@ -3,10 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { artistService } from '../services/artist.service';
 import { musicService } from '../services/music.service';
 import { statisticsService } from '../services/statistics.service';
-import { Artist, Song } from '../types';
+import { Artist, Song, CreatorID_Type } from '../types';
 import { useArtistPermission, usePermissions } from '../hooks/usePermissions';
 import { useArtistBand, ArtistBandItem } from '../hooks/useArtistBand';
 import SongList from '../components/SongList';
+import './ArtistDetail.css';
 
 const ArtistDetail: React.FC = () => {
   const { artistID } = useParams<{ artistID: string }>();
@@ -22,12 +23,15 @@ const ArtistDetail: React.FC = () => {
   // 相似创作者相关状态
   const [similarCreators, setSimilarCreators] = useState<ArtistBandItem[]>([]);
   const [similarCreatorsLoading, setSimilarCreatorsLoading] = useState(false);
-  const [showSimilarCreators, setShowSimilarCreators] = useState(false);
 
   // 检查编辑权限
   const { canEdit, loading: permissionLoading } = useArtistPermission(artistID || '');
   const { isAdmin } = usePermissions();
   const { getArtistBandsByIds } = useArtistBand();
+
+  // 统计数据
+  const [songCount, setSongCount] = useState(0);
+  const [bandCount, setBandCount] = useState(0);
 
   useEffect(() => {
     const fetchArtist = async () => {
@@ -44,6 +48,18 @@ const ArtistDetail: React.FC = () => {
         if (artistData) {
           setArtist(artistData);
           setError('');
+          
+          // 获取歌曲数量
+          const [songIds] = await musicService.filterSongsByEntity({id: artistID, type: 'artist'});
+          if (songIds) {
+            setSongCount(songIds.length);
+          }
+          
+          // 获取所属乐队数量
+          const [bandIds] = await artistService.searchAllBelongingBands(artistID);
+          if (bandIds) {
+            setBandCount(bandIds.length);
+          }
         } else {
           setError(message || '未找到艺术家信息');
         }
@@ -63,22 +79,23 @@ const ArtistDetail: React.FC = () => {
 
     setSongsLoading(true);
     try {
-      // 使用 filterSongsByEntity 获取该艺术家的所有歌曲
-      const [songIds, message] = await musicService.filterSongsByEntity(
-        { id: artistID, type: 'artist' },
-        undefined
-      );
+      const [songIds, message] = await musicService.filterSongsByEntity({id: artistID, type: 'artist'});
 
       if (songIds && songIds.length > 0) {
-        // 获取歌曲详情
-        const songs = await musicService.getSongsByIds(songIds);
-        setArtistSongs(songs);
+        const songsData = await musicService.getSongsByIds(songIds);
+        setArtistSongs(songsData);
+        setShowSongs(true);
       } else {
         setArtistSongs([]);
+        setShowSongs(true);
+        if (message && message !== 'Success') {
+          setError(message);
+        }
       }
-    } catch (error: any) {
-      console.error('Failed to fetch artist songs:', error);
-      setError('获取艺术家歌曲失败');
+    } catch (err: any) {
+      console.error('Failed to fetch artist songs:', err);
+      setError('获取歌曲列表失败');
+      setArtistSongs([]);
     } finally {
       setSongsLoading(false);
     }
@@ -90,53 +107,46 @@ const ArtistDetail: React.FC = () => {
 
     setSimilarCreatorsLoading(true);
     try {
-      const [similarList, message] = await statisticsService.getSimilarCreators(
-        artistID,
-        'artist',
-        5 // 获取5个相似创作者
-      );
+      const [creatorIds, message] = await statisticsService.getSimilarCreators(artistID, 'artist', 6);
 
-      if (similarList && similarList.length > 0) {
-        // 将返回的 (ID, 类型) 列表转换为需要的格式
-        const creatorRequests = similarList.map(([id, type]) => ({
-          id,
-          type: type.toLowerCase() as 'artist' | 'band'
+      if (creatorIds && creatorIds.length > 0) {
+        // 转换 CreatorID_Type[] 为 getArtistBandsByIds 需要的格式
+        const creatorRequests = creatorIds.map((creator: CreatorID_Type) => ({
+          id: creator.id,
+          type: creator.creatorType as 'artist' | 'band'
         }));
-
-        // 获取创作者详细信息
-        const creatorDetails = await getArtistBandsByIds(creatorRequests);
-        setSimilarCreators(creatorDetails);
+        
+        const creators = await getArtistBandsByIds(creatorRequests);
+        setSimilarCreators(creators.slice(0, 6)); // 限制显示6个
       } else {
         setSimilarCreators([]);
       }
-    } catch (error: any) {
-      console.error('Failed to fetch similar creators:', error);
-      setError('获取相似创作者失败');
+    } catch (err: any) {
+      console.error('Failed to fetch similar creators:', err);
+      setSimilarCreators([]);
     } finally {
       setSimilarCreatorsLoading(false);
     }
   };
 
-  const handleShowSongs = () => {
-    if (!showSongs && artistSongs.length === 0) {
-      fetchArtistSongs();
-    }
-    setShowSongs(!showSongs);
-  };
-
-  const handleShowSimilarCreators = () => {
-    if (!showSimilarCreators && similarCreators.length === 0) {
+  useEffect(() => {
+    if (artist) {
       fetchSimilarCreators();
     }
-    setShowSimilarCreators(!showSimilarCreators);
-  };
+  }, [artist]);
 
   const handleEdit = () => {
-    navigate('/artists', { state: { editArtist: artist } });
+    if (artist) {
+      navigate('/artists', { 
+        state: { 
+          showModal: true, 
+          editingArtist: artist 
+        } 
+      });
+    }
   };
 
   const handleEditSong = (song: Song) => {
-    // 传递歌曲数据到歌曲管理页面进行编辑
     navigate('/songs', { 
       state: { 
         editSong: song,
@@ -147,7 +157,6 @@ const ArtistDetail: React.FC = () => {
   };
 
   const handleDeleteSong = async (songID: string) => {
-    // 确认删除操作
     const songToDelete = artistSongs.find(song => song.songID === songID);
     if (!songToDelete) {
       setError('未找到要删除的歌曲');
@@ -163,39 +172,32 @@ const ArtistDetail: React.FC = () => {
       setError('');
       setSuccess('');
       
-      // 调用删除API
-      const [deleteSuccess, message] = await musicService.deleteSong(songID);
+      const [success, message] = await musicService.deleteSong(songID);
       
-      if (deleteSuccess) {
-        // 从本地状态中移除删除的歌曲
+      if (success) {
+        setSuccess(`歌曲《${songToDelete.name}》删除成功`);
+        // 从列表中移除已删除的歌曲
         setArtistSongs(prevSongs => prevSongs.filter(song => song.songID !== songID));
-        setSuccess(`歌曲《${songToDelete.name}》已成功删除`);
-        
-        // 3秒后清除成功消息
-        setTimeout(() => {
-          setSuccess('');
-        }, 3000);
+        setSongCount(prev => prev - 1);
       } else {
         setError(message || '删除歌曲失败');
       }
-    } catch (error: any) {
-      console.error('Failed to delete song:', error);
-      setError(error.message || '删除歌曲时发生错误');
+    } catch (err: any) {
+      setError(err.message || '删除歌曲失败');
     }
   };
 
-  // 清除消息
   const clearMessages = () => {
     setError('');
     setSuccess('');
   };
 
-  if (loading) {
+  if (loading || permissionLoading) {
     return (
-      <div className="container">
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+      <div className="artist-detail-page">
+        <div className="loading-card">
           <div className="loading-spinner"></div>
-          正在加载艺术家信息...
+          <span>加载中...</span>
         </div>
       </div>
     );
@@ -203,257 +205,238 @@ const ArtistDetail: React.FC = () => {
 
   if (error && !artist) {
     return (
-      <div className="container">
-        <div className="back-button">
-          <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-            ← 返回
+      <div className="artist-detail-page">
+        <div className="content-card" style={{ textAlign: 'center', margin: '40px auto', maxWidth: '600px' }}>
+          <div className="empty-state-icon">❌</div>
+          <h3>{error}</h3>
+          <button className="btn btn-primary" onClick={() => navigate('/artists')}>
+            返回艺术家列表
           </button>
-        </div>
-        <div className="empty-state">
-          <h3>艺术家信息获取失败</h3>
-          <p>{error}</p>
-          <Link to="/artists" className="btn btn-primary" style={{ marginTop: '20px' }}>
-            前往艺术家管理
-          </Link>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="container">
-      <div className="back-button">
-        <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-          ← 返回
-        </button>
-      </div>
+  const getArtistInitial = (name: string) => {
+    return name ? name.charAt(0).toUpperCase() : 'A';
+  };
 
-      {/* 显示错误和成功消息 */}
+  return (
+    <div className="artist-detail-page">
+      {/* 消息提示 */}
       {error && (
-        <div className="error-message" style={{ marginBottom: '20px' }}>
-          {error}
-          <button 
-            onClick={clearMessages}
-            style={{ 
-              marginLeft: '10px', 
-              background: 'none', 
-              border: 'none', 
-              color: 'inherit', 
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            ×
-          </button>
+        <div className="message-toast">
+          <div className="message-content message-error">
+            <span>{error}</span>
+            <button className="message-close" onClick={clearMessages}>×</button>
+          </div>
         </div>
       )}
       
       {success && (
-        <div className="success-message" style={{ marginBottom: '20px' }}>
-          {success}
-          <button 
-            onClick={clearMessages}
-            style={{ 
-              marginLeft: '10px', 
-              background: 'none', 
-              border: 'none', 
-              color: 'inherit', 
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            ×
-          </button>
+        <div className="message-toast">
+          <div className="message-content message-success">
+            <span>{success}</span>
+            <button className="message-close" onClick={clearMessages}>×</button>
+          </div>
         </div>
       )}
 
-      <div className="detail-header">
-        <div className="detail-title">{artist?.name}</div>
-        <div className="detail-subtitle">🎤 艺术家</div>
-      </div>
-
-      <div className="detail-content">
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-start',
-          marginBottom: '20px'
-        }}>
-          <div>
-            <h3 style={{ marginBottom: '15px' }}>基本信息</h3>
-            <p><strong>艺术家ID:</strong> 
-              <span style={{ 
-                fontFamily: 'monospace', 
-                backgroundColor: '#f8f9fa', 
-                padding: '2px 6px', 
-                borderRadius: '3px',
-                marginLeft: '8px',
-                fontSize: '12px'
-              }}>
-                {artist?.artistID}
-              </span>
-            </p>
-          </div>
-          
-          {canEdit && !permissionLoading && (
-            <button 
-              className="btn btn-primary"
-              onClick={handleEdit}
-              title="编辑艺术家信息"
-            >
-              编辑信息
-            </button>
-          )}
-        </div>
-
-        <div>
-          <h4 style={{ marginBottom: '15px' }}>艺术家简介</h4>
-          <div className="detail-bio">
-            {artist?.bio || '暂无简介信息'}
-          </div>
-        </div>
-
-        {/* 操作按钮区域 */}
-        <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button 
-            className="btn btn-secondary"
-            onClick={handleShowSongs}
-            disabled={songsLoading}
-          >
-            {songsLoading ? '加载中...' : (showSongs ? '隐藏歌曲' : '查看该艺术家的歌曲')}
-          </button>
-          
-          <button 
-            className="btn btn-secondary"
-            onClick={handleShowSimilarCreators}
-            disabled={similarCreatorsLoading}
-          >
-            {similarCreatorsLoading ? '加载中...' : (showSimilarCreators ? '隐藏相似创作者' : '查看相似创作者')}
-          </button>
-        </div>
-      </div>
-
-      {/* 艺术家的歌曲列表 */}
-      {showSongs && (
-        <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '20px' }}>
-            {artist?.name} 的歌曲 
-            {!songsLoading && `(${artistSongs.length} 首)`}
-          </h3>
-          
-          {songsLoading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
-              <div className="loading-spinner"></div>
-              正在加载歌曲...
+      {/* 英雄区域 */}
+      <div className="artist-hero">
+        <div className="artist-hero-content">
+          <div className="artist-header-info">
+            <div className="artist-avatar-large">
+              {getArtistInitial(artist?.name || '')}
             </div>
-          ) : artistSongs.length > 0 ? (
-            <>
-              {/* 权限提示 */}
-              {!isAdmin && (
-                <div className="permission-warning" style={{ marginBottom: '15px' }}>
-                  💡 提示：您可以编辑自己上传的歌曲，删除操作需要管理员权限。点击"编辑"将跳转到歌曲管理页面。
+            
+            <div className="artist-core-info">
+              <h1 className="artist-name-large">{artist?.name}</h1>
+              <div className="artist-id-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2L2 7v10c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V7l-10-5z"/>
+                </svg>
+                ID: {artist?.artistID}
+              </div>
+              
+              <div className="artist-stats">
+                <div className="artist-stat">
+                  <span className="artist-stat-value">{songCount}</span>
+                  <span className="artist-stat-label">首歌曲</span>
+                </div>
+                <div className="artist-stat">
+                  <span className="artist-stat-value">{bandCount}</span>
+                  <span className="artist-stat-label">个乐队</span>
+                </div>
+                <div className="artist-stat">
+                  <span className="artist-stat-value">{similarCreators.length}</span>
+                  <span className="artist-stat-label">相似艺术家</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="artist-hero-actions">
+            {canEdit && !permissionLoading && (
+              <button className="hero-btn hero-btn-primary" onClick={handleEdit}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                编辑信息
+              </button>
+            )}
+            
+            <button 
+              className="hero-btn hero-btn-secondary"
+              onClick={fetchArtistSongs}
+              disabled={songsLoading}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polygon points="10 8 16 12 10 16 10 8"/>
+              </svg>
+              {songsLoading ? '加载中...' : '查看作品'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 主内容区 */}
+      <div className="artist-content">
+        <div className="artist-content-grid">
+          {/* 主要内容列 */}
+          <div className="artist-main-content">
+            {/* 简介卡片 */}
+            <div className="content-card">
+              <div className="content-card-header">
+                <h2 className="content-card-title">艺术家简介</h2>
+              </div>
+              <div className={artist?.bio ? 'bio-content' : 'bio-content bio-empty'}>
+                {artist?.bio || '这位艺术家还没有添加简介...'}
+              </div>
+            </div>
+
+            {/* 歌曲列表 */}
+            {showSongs && (
+              <div className="content-card">
+                <div className="content-card-header">
+                  <h2 className="content-card-title">
+                    作品列表 ({artistSongs.length})
+                  </h2>
+                </div>
+                {artistSongs.length > 0 ? (
+                  <SongList 
+                    songs={artistSongs} 
+                    onEdit={handleEditSong}
+                    onDelete={handleDeleteSong}
+                  />
+                ) : (
+                  <div className="empty-state-card">
+                    <div className="empty-state-icon">🎵</div>
+                    <div className="empty-state-text">暂无作品</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 侧边栏 */}
+          <div className="artist-sidebar">
+            {/* 快速信息 */}
+            <div className="content-card">
+              <div className="content-card-header">
+                <h3 className="content-card-title" style={{ fontSize: '18px' }}>快速信息</h3>
+              </div>
+              
+              <div className="quick-info-item">
+                <div className="quick-info-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <div className="quick-info-content">
+                  <div className="quick-info-label">身份</div>
+                  <div className="quick-info-value">独立艺术家</div>
+                </div>
+              </div>
+              
+              <div className="quick-info-item">
+                <div className="quick-info-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+                <div className="quick-info-content">
+                  <div className="quick-info-label">作品数量</div>
+                  <div className="quick-info-value">{songCount} 首歌曲</div>
+                </div>
+              </div>
+              
+              <div className="quick-info-item">
+                <div className="quick-info-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <div className="quick-info-content">
+                  <div className="quick-info-label">所属乐队</div>
+                  <div className="quick-info-value">{bandCount} 个</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 相似艺术家 */}
+            <div className="content-card">
+              <div className="content-card-header">
+                <h3 className="content-card-title" style={{ fontSize: '18px' }}>相似艺术家</h3>
+                <Link to="/artists" className="content-card-action">
+                  查看全部
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </Link>
+              </div>
+              
+              {similarCreatorsLoading ? (
+                <div className="loading-card" style={{ padding: '24px' }}>
+                  <div className="loading-spinner"></div>
+                </div>
+              ) : similarCreators.length > 0 ? (
+                <div className="similar-creators-grid">
+                  {similarCreators.map((creator) => (
+                    <Link
+                      key={`${creator.type}-${creator.id}`}
+                      to={creator.type === 'artist' ? `/artists/${creator.id}` : `/bands/${creator.id}`}
+                      className="similar-creator-card"
+                    >
+                      <div className="similar-creator-avatar">
+                        {creator.type === 'artist' ? '🎤' : '🎸'}
+                      </div>
+                      <div className="similar-creator-info">
+                        <div className="similar-creator-name">{creator.name}</div>
+                        <div className="similar-creator-type">
+                          {creator.type === 'artist' ? '艺术家' : '乐队'}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state-card" style={{ padding: '24px' }}>
+                  <div className="empty-state-text">暂无相似艺术家</div>
                 </div>
               )}
-              
-              <SongList 
-                songs={artistSongs} 
-                onEdit={handleEditSong} 
-                onDelete={handleDeleteSong} 
-              />
-            </>
-          ) : (
-            <div className="empty-state">
-              <p>该艺术家暂无歌曲</p>
-              <Link 
-                to="/songs" 
-                className="btn btn-primary"
-                style={{ marginTop: '15px' }}
-              >
-                去上传歌曲
-              </Link>
             </div>
-          )}
+          </div>
         </div>
-      )}
-
-      {/* 相似创作者 */}
-      {showSimilarCreators && (
-        <div style={{ marginTop: '30px' }}>
-          <h3 style={{ marginBottom: '20px' }}>
-            相似创作者
-            {!similarCreatorsLoading && ` (${similarCreators.length} 个)`}
-          </h3>
-          
-          {similarCreatorsLoading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
-              <div className="loading-spinner"></div>
-              正在加载相似创作者...
-            </div>
-          ) : similarCreators.length > 0 ? (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '20px'
-            }}>
-              {similarCreators.map((creator) => (
-                <Link
-                  key={creator.id}
-                  to={creator.type === 'artist' ? `/artists/${creator.id}` : `/bands/${creator.id}`}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    height: '100%'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                      <span style={{ fontSize: '24px' }}>
-                        {creator.type === 'artist' ? '🎤' : '🎸'}
-                      </span>
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-                          {creator.name}
-                        </h4>
-                        <p style={{ margin: 0, fontSize: '12px', color: '#6c757d' }}>
-                          {creator.type === 'artist' ? '艺术家' : '乐队'}
-                        </p>
-                      </div>
-                    </div>
-                    <p style={{ 
-                      fontSize: '14px', 
-                      color: '#6c757d', 
-                      lineHeight: '1.5',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical'
-                    }}>
-                      {creator.bio || '暂无简介'}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <p>暂无相似的创作者</p>
-            </div>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 };

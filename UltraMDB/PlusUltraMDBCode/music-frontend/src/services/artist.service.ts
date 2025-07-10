@@ -101,6 +101,23 @@ export const artistService = {
     return callAPI<[Artist[] | null, string]>('GetAllCreators', data);
   },
 
+  // 搜索艺术家所属的所有乐队
+  async searchAllBelongingBands(artistID: string): Promise<[string[] | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      artistID
+    };
+
+    const [bandIDs, message] = await callAPI<[string[] | null, string]>('SearchAllBelongingBands', data);
+    return [bandIDs || [], message];
+  },
+
   // 批量获取艺术家信息
   async getArtistsByIds(artistIDs: string[]): Promise<Artist[]> {
     if (!artistIDs || artistIDs.length === 0) {

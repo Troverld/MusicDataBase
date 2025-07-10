@@ -45,28 +45,6 @@ const Layout: React.FC = () => {
             <Link to="/" style={{ fontSize: '18px', fontWeight: 'bold' }}>
               Music Management System
             </Link>
-            
-            {/* 用户角色显示 */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              fontSize: '14px'
-            }}>
-              <span style={{ opacity: 0.8 }}>
-                {user?.account}
-              </span>
-              <span style={{ 
-                backgroundColor: getUserRoleColor(),
-                color: 'white',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              }}>
-                {getUserRoleText()}
-              </span>
-            </div>
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -137,82 +115,68 @@ const Layout: React.FC = () => {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <span>🎼</span>
+                <span>👤</span>
                 <span>我的画像</span>
               </Link>
             )}
             
-            {/* 权限加载中时显示加载状态 */}
-            {permissionLoading && (
-              <span 
-                style={{ 
-                  color: '#6c757d', 
-                  fontSize: '14px',
-                  padding: '8px 12px'
-                }}
-              >
-                <div className="loading-spinner" style={{ marginRight: '4px' }}></div>
-                Loading...
+            {/* 用户名和角色标签显示 - 移到 Logout 按钮左边 */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px',
+              marginLeft: '10px',
+              paddingLeft: '10px',
+              borderLeft: '1px solid rgba(0, 0, 0, 0.1)'
+            }}>
+              <span style={{ 
+                fontSize: '14px',
+                color: '#374151',
+                fontWeight: '500'
+              }}>
+                {user?.account}
               </span>
-            )}
-            
-            {/* 权限验证失败时显示禁用状态 */}
-            {!permissionLoading && !isUser && !isAdmin && (
-              <span 
-                style={{ 
-                  color: '#6c757d', 
-                  fontSize: '14px',
-                  cursor: 'not-allowed',
-                  padding: '8px 12px'
-                }}
-                title="需要用户权限"
-              >
-                Genres
-              </span>
-            )}
-            
-            <a 
-              href="#" 
-              onClick={handleLogout}
-              style={{ 
-                color: '#ffc107',
+              
+              {/* 用户角色标签 - 现在在用户名右边 */}
+              <span style={{ 
+                backgroundColor: getUserRoleColor(),
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '12px',
                 fontWeight: 'bold'
-              }}
-            >
-              Logout
-            </a>
+              }}>
+                {getUserRoleText()}
+              </span>
+              
+              <button 
+                onClick={handleLogout}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 16px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#dc2626';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#ef4444';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </nav>
-      
-      {/* 权限加载提示 */}
-      {permissionLoading && (
-        <div style={{
-          backgroundColor: '#fff3cd',
-          color: '#856404',
-          padding: '8px 20px',
-          textAlign: 'center',
-          fontSize: '14px',
-          borderBottom: '1px solid #ffeaa7'
-        }}>
-          <div className="loading-spinner" style={{ marginRight: '8px' }}></div>
-          正在验证用户权限...
-        </div>
-      )}
-      
-      {/* 权限不足提示 */}
-      {!permissionLoading && !isUser && !isAdmin && (
-        <div style={{
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          padding: '12px 20px',
-          textAlign: 'center',
-          fontSize: '14px',
-          borderBottom: '1px solid #f5c6cb'
-        }}>
-          ⚠️ 权限验证失败，某些功能可能受限。如有问题请重新登录或联系管理员。
-        </div>
-      )}
       
       <div className="container">
         <Outlet />
