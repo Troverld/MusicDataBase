@@ -1,4 +1,4 @@
-// ===== src/main/scala/APIs/StatisticsService/PurgeSongStatisticsMessage.scala (NEW FILE) =====
+// ===== src/main/scala/APIs/StatisticsService/PurgeSongStatistics.scala (NEW FILE) =====
 
 package APIs.StatisticsService
 
@@ -13,7 +13,7 @@ import com.fasterxml.jackson.core.`type`.TypeReference
 import Common.Serialize.JacksonSerializeUtils
 
 /**
- * PurgeSongStatisticsMessage
+ * PurgeSongStatistics
  * desc: (管理操作) 清理与特定歌曲相关的所有统计数据，包括所有用户的评分和播放记录。
  * 这通常在歌曲从系统中被永久删除时调用。
  * @param adminID: String (管理员ID，用于验证权限。)
@@ -21,33 +21,33 @@ import Common.Serialize.JacksonSerializeUtils
  * @param songID: String (要清理数据的歌曲的ID。)
  * @return (Boolean, String): (操作是否成功, 附带信息)
  */
-case class PurgeSongStatisticsMessage(
+case class PurgeSongStatistics(
   adminID: String,
   adminToken: String,
   songID: String
 ) extends API[(Boolean, String)](StatisticsServiceCode)
 
-case object PurgeSongStatisticsMessage {
+case object PurgeSongStatistics {
   // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[PurgeSongStatisticsMessage] = deriveEncoder
-  private val circeDecoder: Decoder[PurgeSongStatisticsMessage] = deriveDecoder
+  private val circeEncoder: Encoder[PurgeSongStatistics] = deriveEncoder
+  private val circeDecoder: Decoder[PurgeSongStatistics] = deriveDecoder
 
   // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[PurgeSongStatisticsMessage] = Encoder.instance { currentObj =>
+  private val jacksonEncoder: Encoder[PurgeSongStatistics] = Encoder.instance { currentObj =>
     Json.fromString(JacksonSerializeUtils.serialize(currentObj))
   }
 
-  private val jacksonDecoder: Decoder[PurgeSongStatisticsMessage] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[PurgeSongStatisticsMessage]() {})) }
+  private val jacksonDecoder: Decoder[PurgeSongStatistics] = Decoder.instance { cursor =>
+    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[PurgeSongStatistics]() {})) }
     catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
   }
 
   // Circe + Jackson 兜底的 Encoder 和 Decoder
-  given purgeSongStatisticsMessageEncoder: Encoder[PurgeSongStatisticsMessage] = Encoder.instance { config =>
+  given purgeSongStatisticsEncoder: Encoder[PurgeSongStatistics] = Encoder.instance { config =>
     Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
   }
 
-  given purgeSongStatisticsMessageDecoder: Decoder[PurgeSongStatisticsMessage] = Decoder.instance { cursor =>
+  given purgeSongStatisticsDecoder: Decoder[PurgeSongStatistics] = Decoder.instance { cursor =>
     circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
   }
 }
