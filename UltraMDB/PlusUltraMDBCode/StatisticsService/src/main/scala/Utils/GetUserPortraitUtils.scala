@@ -9,9 +9,28 @@ import cats.effect.IO
 import cats.implicits._
 import org.slf4j.LoggerFactory
 import io.circe.generic.auto._
+import java.io.{FileWriter, PrintWriter}
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 object GetUserPortraitUtils {
-  private val logger = DebugLoggerFactory.getLogger(getClass)
+//  private val logger = DebugLoggerFactory.getLogger(getClass)
+  private val logFile = new FileWriter("output.txt", true)
+  private val writer = new PrintWriter(logFile, true)
+
+  private val timestampFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO {
+    val timestamp = LocalDateTime.now().format(timestampFmt)
+    val tid = pc.traceID.id
+    writer.println(s"[$timestamp] INFO TID=$tid -- $message")
+  }
+
+  private def logWarn(message: String)(using pc: PlanContext): IO[Unit] = IO {
+    val timestamp = LocalDateTime.now().format(timestampFmt)
+    val tid = pc.traceID.id
+    writer.println(s"[$timestamp] WARN TID=$tid -- $message")
+  }
 
   // [REFACTORED] 新的评分函数
   private def ratingToBonus(rating: Int): Double = {
@@ -97,12 +116,12 @@ object GetUserPortraitUtils {
             GetSongProfile(userID, userToken, songId).send.map {
               case (Some(profile), _) => songId -> profile
               case (None, message) =>
-                logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
+                logInfo(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
                 songId -> Profile(List.empty, norm = true)
             }
           }.map(_.toMap)
     }
   }
-  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
-    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+//  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
+//    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
 }
