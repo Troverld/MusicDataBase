@@ -145,11 +145,37 @@ const UserProfile: React.FC = () => {
   }
 
   return (
-    <div className="profile-container">
-      {/* 极简头部 */}
-      <div className="profile-header-new">
-        <h1>音乐画像</h1>
-        <p>{user?.account} 的个人音乐品味分析</p>
+    <div style={{ 
+      background: '#f8f9fa', 
+      minHeight: 'calc(100vh - 70px)', 
+      padding: '40px 20px' 
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* 页面标题和描述 */}
+        <div style={{ 
+          textAlign: 'center', 
+          animation: 'fadeIn 0.6s ease-out'
+        }}>
+        <h1 style={{ 
+          fontSize: '36px', 
+          fontWeight: '700',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          marginBottom: '12px'
+        }}>
+        音乐画像</h1>
+        <p style={{ 
+          color: '#6b7280', 
+          fontSize: '18px',
+          maxWidth: '600px',
+          margin: '0 auto',
+          lineHeight: '1.6'
+        }}>
+        {user?.account} 的个人音乐品味分析
+        </p>
+        </div>
       </div>
       
       <div className="profile-content">
