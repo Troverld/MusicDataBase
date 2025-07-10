@@ -222,4 +222,38 @@ object SearchUtils {
       ))
     } yield ()
   }
+
+  /**
+   * (新增方法)
+   * 删除指定用户对指定歌曲的评分记录。
+   */
+  def deleteUserSongRating(userID: String, songID: String)(using planContext: PlanContext): IO[Unit] = {
+    val sql = s"DELETE FROM ${schemaName}.song_rating WHERE user_id = ? AND song_id = ?"
+    val params = List(
+      SqlParameter("String", userID),
+      SqlParameter("String", songID)
+    )
+    // [FIX] Convert IO[String] to IO[Unit]
+    writeDB(sql, params).void
+  }
+
+  /**
+   * (新增方法)
+   * 删除一首歌的所有评分记录。
+   */
+  def deleteAllRatingsForSong(songID: String)(using planContext: PlanContext): IO[Unit] = {
+    val sql = s"DELETE FROM ${schemaName}.song_rating WHERE song_id = ?"
+    // [FIX] Convert IO[String] to IO[Unit]
+    writeDB(sql, List(SqlParameter("String", songID))).void
+  }
+
+  /**
+   * (新增方法)
+   * 删除一首歌的所有播放记录。
+   */
+  def deleteAllPlaybackLogsForSong(songID: String)(using planContext: PlanContext): IO[Unit] = {
+    val sql = s"DELETE FROM ${schemaName}.playback_log WHERE song_id = ?"
+    // [FIX] Convert IO[String] to IO[Unit]
+    writeDB(sql, List(SqlParameter("String", songID))).void
+  }
 }

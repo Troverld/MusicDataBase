@@ -1,4 +1,4 @@
-// 提取时间: 2025-07-05 13:49:15
+// 提取时间: 2025-07-10 20:28:08
 // 源目录: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs
 
 
@@ -109,6 +109,29 @@ case class DeleteBandMessage(
 
 
 // ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\GetAllCreators.scala
+// ============================================
+
+
+
+// 类名: GetAllCreators
+
+
+/**
+ * GetAllCreators
+desc: 获取所有创作者（包括艺术家和乐队）的列表。
+@param userID: String (发起请求的用户的ID，用于身份验证。)
+@param userToken: String (用户的认证令牌。)
+@return (Option[List[CreatorID_Type]], String): (成功时包含所有创作者的CreatorID_Type列表，失败时为None；附带操作信息)
+ */
+
+case class GetAllCreators(
+  userID: String,
+  userToken: String
+) extends API[(Option[List[CreatorID_Type]], String)](CreatorServiceCode)
+
+
+// ============================================
 // 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\CreatorService\GetArtistByID.scala
 // ============================================
 
@@ -203,14 +226,14 @@ case class SearchAllBelongingBands(
 desc: 根据提供的艺术家ID，获取完整的艺术家元数据。需要用户认证。
 @param userID: String (发起请求的用户ID)
 @param userToken: String (用户的认证令牌)
-@param artistName: String (要模糊查询的艺术家名称)
+@param name: String (要模糊查询的艺术家名称)
 @return (Option[List[String]], String): (成功时包含艺术家id列表，失败时为None；附带操作信息)
  */
 
 case class SearchArtistByName(
   userID: String,
   userToken: String,
-  artistName: String
+  name: String
 ) extends API[(Option[List[String]], String)](CreatorServiceCode)
 
 
@@ -388,21 +411,45 @@ case class DeleteSong(
 /**
  * FilterSongsByEntity
 desc: 按照实体（artist/band）或曲风筛选歌曲。
+
 @param userID: String (用户的唯一标识。)
 @param userToken: String (用于验证用户身份的令牌。)
-@param entityID: Option[String] (实体（艺术家或乐队）的唯一ID，可选。)
-@param entityType: Option[String] (实体的类型: 'artist' 或 'band'，可选。)
+@param creator: Option[CreatorID_Type] (可选，表示筛选 creator。)
 @param genres: Option[String] (曲风ID，可选，表示筛选曲风。)
 @return (Option[List[String]], String): (符合条件的歌曲ID列表, 错误信息)
  */
 
 case class FilterSongsByEntity(
   userID: String,
-  userToken: String,
-  entityID: Option[String] = None,
-  entityType: Option[String] = None,
-  genres: Option[String] = None
+                                userToken: String,
+                                creator: Option[CreatorID_Type] = None,
+                                genres: Option[String] = None
 ) extends API[(Option[List[String]], String)](MusicServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\GetMultSongsProfiles.scala
+// ============================================
+
+
+
+// 类名: GetMultSongsProfiles
+
+
+/**
+ * GetMultSongsProfiles
+desc: 根据提供的歌曲ID，获取歌曲 profile
+@param userID: String (发起请求的用户ID)
+@param userToken: String (用户的认证令牌)
+@param songIDs: List[String] (要查询的所有歌曲的ID)
+@return (Option[List[(String,Profile)]], String): (成功时包含List[歌曲ID和信息构成的二元组]，失败时为None；附带操作信息)
+ */
+
+case class GetMultSongsProfiles(
+  userID: String,
+  userToken: String,
+  songIDs: List[String]
+) extends API[(Option[List[(String,Profile)]], String)](MusicServiceCode)
 
 
 // ============================================
@@ -428,6 +475,29 @@ case class GetSongByID(
   userToken: String,
   songID: String
 ) extends API[(Option[Song], String)](MusicServiceCode)
+
+
+// ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\MusicService\GetSongList.scala
+// ============================================
+
+
+
+// 类名: GetSongList
+
+
+/**
+ * GetSongList
+desc: 获取所有歌曲。需要用户认证。
+@param userID: String (发起请求的用户ID)
+@param userToken: String (用户的认证令牌)
+@return (Option[List[String]], String): (成功时包含歌曲ID，失败时为None；附带操作信息)
+ */
+
+case class GetSongList(
+  userID: String,
+  userToken: String
+) extends API[(Option[List[String]], String)](MusicServiceCode)
 
 
 // ============================================
@@ -497,7 +567,7 @@ desc: 更新已有的歌曲信息，包括元数据和相关引用信息。
 @param songID: String (需要更新的歌曲ID)
 @param name: Option[String] (需要更新的歌曲名称)
 @param releaseTime: Option[DateTime] (需要更新的歌曲发布时间)
-@param creators: List[String] (需要更新的创作者列表)
+@param creators: List[CreatorID_Type] (需要更新的创作者列表)
 @param performers: List[String] (需要更新的演唱者列表)
 @param lyricists: List[String] (需要更新的作词者列表)
 @param composers: List[String] (需要更新的作曲者列表)
@@ -509,17 +579,17 @@ desc: 更新已有的歌曲信息，包括元数据和相关引用信息。
 
 case class UpdateSongMetadata(
   userID: String,
-  userToken: String,
-  songID: String,
-  name: Option[String] = None,
-  releaseTime: Option[DateTime] = None,
-  creators: Option[List[String]] = None,
-  performers: Option[List[String]] = None,
-  lyricists: Option[List[String]] = None,
-  composers: Option[List[String]] = None,
-  arrangers: Option[List[String]] = None,
-  instrumentalists: Option[List[String]] = None,
-  genres: Option[List[String]] = None
+                               userToken: String,
+                               songID: String,
+                               name: Option[String] = None,
+                               releaseTime: Option[DateTime] = None,
+                               creators: Option[List[CreatorID_Type]] = None,
+                               performers: Option[List[String]] = None,
+                               lyricists: Option[List[String]] = None,
+                               composers: Option[List[String]] = None,
+                               arrangers: Option[List[String]] = None,
+                               instrumentalists: Option[List[String]] = None,
+                               genres: Option[List[String]] = None
 ) extends API[(Boolean, String)](MusicServiceCode)
 
 
@@ -539,7 +609,7 @@ desc: 上传新歌曲的接口。
 @param userToken: String (用户令牌，用于验证用户身份。)
 @param name: String (歌曲名称。)
 @param releaseTime: DateTime (歌曲的发布日期。)
-@param creators: List[String] (创作者ID列表。)
+@param creators: List[CreatorID_Type] (创作者ID列表。)
 @param performers: List[String] (演唱者ID列表。)
 @param lyricists: List[String] (作词者ID列表。)
 @param arrangers: List[String] (编曲者ID列表。)
@@ -554,7 +624,7 @@ case class UploadNewSong(
   userToken: String,
   name: String,
   releaseTime: DateTime,
-  creators: List[String],
+  creators: List[CreatorID_Type],
   performers: List[String],
   lyricists: List[String],
   arrangers: List[String],
@@ -721,16 +791,14 @@ case class GetAverageRating(
 desc: 获取指定创作者（艺术家或乐队）的创作倾向。通过 `creatorType` 参数区分目标是艺术家（"Artist"）还是乐队（"Band"）。该倾向表现为一个关于音乐曲风的归一化向量，其中每一项是 (GenreID, 倾向度) 的二元组，所有倾向度相加为1.0。
 @param userID: String (发起请求的用户的ID，用于身份验证。)
 @param userToken: String (用户的认证令牌。)
-@param creatorID: String (要分析的创作者（艺术家或乐队）的ID。)
-@param creatorType: String (创作者的类型。其值为 "Artist" 或 "Band"，用于区分 `creatorID` 指代的是艺术家还是乐队。)
+@param creator: CreatorID_Type (创作者的智能ID对象，封装了ID和类型。)
 @return (Option[Profile], String): (创作者的创作倾向向量, 错误信息)
  */
 
 case class GetCreatorCreationTendency(
   userID: String,
   userToken: String,
-  creatorID: String,
-  creatorType: String
+  creator: CreatorID_Type
 ) extends API[(Option[Profile], String)](StatisticsServiceCode)
 
 
@@ -748,16 +816,14 @@ case class GetCreatorCreationTendency(
 desc: 获取指定创作者（艺术家或乐队）在各个曲风下的创作实力。实力值是一个非归一化的正实数，由该创作者在该曲风下所有歌曲的热度综合计算得出。
 @param userID: String (发起请求的用户的ID，用于身份验证。)
 @param userToken: String (用户的认证令牌。)
-@param creatorID: String (要分析的创作者（艺术家或乐队）的ID。)
-@param creatorType: String (创作者的类型。其值为 "Artist" 或 "Band"，用于区分 `creatorID` 指代的是艺术家还是乐队。)
+@param creator: CreatorID_Type (创作者的智能ID对象，封装了ID和类型。)
 @return (Option[Profile], String): (创作者的曲风实力向量, 错误信息)
  */
 
 case class GetCreatorGenreStrength(
   userID: String,
   userToken: String,
-  creatorID: String,
-  creatorType: String
+  creator: CreatorID_Type // 使用新的 CreatorID_Type
 ) extends API[(Option[Profile], String)](StatisticsServiceCode)
 
 
@@ -868,6 +934,33 @@ case class GetSongPopularity(
 
 
 // ============================================
+// 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetSongRate.scala
+// ============================================
+
+
+
+// 类名: GetSongRate
+
+
+/**
+ * GetSongRate
+desc: 查询指定用户对某首歌曲的评分。
+@param userID: String (发起请求的用户的ID，用于身份验证。)
+@param userToken: String (用户的认证令牌。)
+@param targetUserID: String (被查询评分的目标用户ID。)
+@param songID: String (被查询评分的歌曲ID。)
+@return (Int, String): (用户的评分（1-5），如果未评分则为0；附带操作信息)
+ */
+
+case class GetSongRate(
+  userID: String,
+                        userToken: String,
+                        targetUserID: String,
+                        songID: String
+) extends API[(Int, String)](StatisticsServiceCode)
+
+
+// ============================================
 // 文件: D:\workspace\DaigakuObjects\Front2Back\MusicDataBase\UltraMDB\PlusUltraMDBCode\StatisticsService\src\main\scala\APIs\StatisticsService\GetUserPortrait.scala
 // ============================================
 
@@ -971,8 +1064,8 @@ case class RateSong(
 
 // ============================================
 // 提取完成!
-// 共扫描 36 个Scala文件
-// 找到 36 个匹配的case class定义
+// 共扫描 40 个Scala文件
+// 找到 40 个匹配的case class定义
 // ============================================
 
 
