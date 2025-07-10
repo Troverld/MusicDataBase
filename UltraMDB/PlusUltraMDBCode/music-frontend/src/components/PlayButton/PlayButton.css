@@ -1,105 +1,278 @@
+/* PlayButton 现代化样式 */
+
 .play-button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  gap: 8px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.25);
   font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.play-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.play-button:hover:not(.disabled):not(.playing)::before {
+  opacity: 1;
 }
 
 .play-button:hover:not(.disabled):not(.playing) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
 }
 
 .play-button:active:not(.disabled):not(.playing) {
   transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.25);
 }
 
 .play-button.playing {
-  background: linear-gradient(135deg, #4ecdc4 0%, #26d0ce 100%);
-  animation: playingPulse 1.5s ease-in-out infinite;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  animation: playingPulse 2s ease-in-out infinite;
   cursor: default;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.25);
 }
 
 .play-button.disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  box-shadow: 0 2px 4px -1px rgba(156, 163, 175, 0.25);
 }
 
-/* 不同尺寸 */
+.play-button.disabled::before {
+  display: none;
+}
+
+/* ========================
+   按钮尺寸变体
+======================== */
 .play-button.small {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  border-radius: 8px;
+  gap: 6px;
 }
 
 .play-button.small .play-icon {
-  font-size: 10px;
+  font-size: 0.75rem;
 }
 
 .play-button.medium {
-  padding: 8px 16px;
-  font-size: 14px;
-  border-radius: 20px;
+  padding: 10px 18px;
+  font-size: 0.875rem;
+  border-radius: 12px;
+  gap: 8px;
 }
 
 .play-button.medium .play-icon {
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .play-button.large {
-  padding: 12px 24px;
-  font-size: 16px;
-  border-radius: 25px;
+  padding: 14px 24px;
+  font-size: 1rem;
+  border-radius: 16px;
+  gap: 10px;
 }
 
 .play-button.large .play-icon {
-  font-size: 16px;
+  font-size: 1.125rem;
 }
 
+/* ========================
+   按钮内容
+======================== */
 .play-icon {
   display: inline-block;
   line-height: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .play-text {
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
-/* 播放动画 */
+/* ========================
+   播放状态动画
+======================== */
 @keyframes playingPulse {
   0% {
     transform: scale(1);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(78, 205, 196, 0.7);
+    box-shadow: 
+      0 4px 6px -1px rgba(16, 185, 129, 0.25), 
+      0 0 0 0 rgba(16, 185, 129, 0.7);
   }
   50% {
-    transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2), 0 0 0 8px rgba(78, 205, 196, 0.3);
+    transform: scale(1.02);
+    box-shadow: 
+      0 10px 15px -3px rgba(16, 185, 129, 0.4), 
+      0 0 0 8px rgba(16, 185, 129, 0.2);
   }
   100% {
     transform: scale(1);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(78, 205, 196, 0);
+    box-shadow: 
+      0 4px 6px -1px rgba(16, 185, 129, 0.25), 
+      0 0 0 0 rgba(16, 185, 129, 0);
   }
 }
 
-/* 响应式设计 */
+/* ========================
+   变体样式
+======================== */
+.play-button.outline {
+  background: transparent;
+  color: #3b82f6;
+  border: 2px solid #3b82f6;
+  box-shadow: none;
+}
+
+.play-button.outline:hover:not(.disabled):not(.playing) {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+}
+
+.play-button.outline.playing {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-color: #10b981;
+}
+
+.play-button.ghost {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  box-shadow: none;
+  backdrop-filter: blur(10px);
+}
+
+.play-button.ghost:hover:not(.disabled):not(.playing) {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.15);
+}
+
+.play-button.ghost.playing {
+  background: rgba(16, 185, 129, 0.2);
+  color: #059669;
+}
+
+/* ========================
+   响应式设计
+======================== */
 @media (max-width: 768px) {
+  .play-button.large {
+    padding: 12px 20px;
+    font-size: 0.9375rem;
+  }
+  
   .play-button.medium {
-    padding: 6px 12px;
-    font-size: 12px;
+    padding: 8px 14px;
+    font-size: 0.8125rem;
+  }
+  
+  .play-button.small {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .play-button {
+    min-width: 44px; /* 触摸友好的最小尺寸 */
+    min-height: 44px;
   }
   
   .play-button.large {
-    padding: 8px 16px;
-    font-size: 14px;
+    padding: 10px 16px;
+    font-size: 0.875rem;
   }
+  
+  .play-button.medium {
+    padding: 8px 12px;
+    font-size: 0.8125rem;
+  }
+}
+
+/* ========================
+   高对比度支持
+======================== */
+@media (prefers-contrast: high) {
+  .play-button {
+    border: 2px solid currentColor;
+  }
+  
+  .play-button.playing {
+    background: #047857;
+    border-color: #047857;
+  }
+  
+  .play-button.disabled {
+    background: #6b7280;
+    border-color: #6b7280;
+  }
+}
+
+/* ========================
+   减少动画偏好支持
+======================== */
+@media (prefers-reduced-motion: reduce) {
+  .play-button,
+  .play-button::before {
+    transition: none;
+    animation: none;
+  }
+  
+  .play-button:hover,
+  .play-button:active {
+    transform: none;
+  }
+  
+  .play-button.playing {
+    animation: none;
+  }
+}
+
+/* ========================
+   聚焦状态（无障碍支持）
+======================== */
+.play-button:focus {
+  outline: none;
+  box-shadow: 
+    0 0 0 3px rgba(59, 130, 246, 0.3),
+    0 4px 6px -1px rgba(59, 130, 246, 0.25);
+}
+
+.play-button.playing:focus {
+  box-shadow: 
+    0 0 0 3px rgba(16, 185, 129, 0.3),
+    0 4px 6px -1px rgba(16, 185, 129, 0.25);
+}
+
+.play-button:focus:not(.disabled):not(.playing) {
+  transform: translateY(-1px);
 }

@@ -41,13 +41,13 @@ export const statisticsService = {
     return callAPI<[number, string]>('GetSongRate', data);
   },
 
-  // 获取当前用户对歌曲的评分（简化版本）
+  // 获取当前用户对歌曲的评分
   async getCurrentUserSongRate(songID: string): Promise<[number, string]> {
     const user = getUser();
-    if (!user || !user.userID) {
-      return [0, 'User not authenticated'];
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
     }
-    
+
     return this.getSongRate(user.userID, songID);
   },
 
@@ -99,7 +99,7 @@ export const statisticsService = {
     return callAPI<[boolean, string]>('LogPlayback', data);
   },
 
-  // 获取用户画像 - 新增方法
+  // 获取用户画像
   async getUserPortrait(userID?: string): Promise<[Profile | null, string]> {
     const user = getUser();
     if (!user || !user.userToken || !user.userID) {
@@ -112,6 +112,74 @@ export const statisticsService = {
     };
 
     return callAPI<[Profile | null, string]>('GetUserPortrait', data);
+  },
+  
+  // 获取用户歌曲推荐列表
+  async getUserSongRecommendations(pageNumber: number = 1, pageSize: number = 20): Promise<[string[] | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      pageNumber,
+      pageSize
+    };
+
+    return callAPI<[string[] | null, string]>('GetUserSongRecommendations', data);
+  },
+
+  // 获取下一首歌曲推荐
+  async getNextSongRecommendation(currentSongID: string): Promise<[string | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      currentSongID
+    };
+
+    return callAPI<[string | null, string]>('GetNextSongRecommendation', data);
+  },
+
+  // 获取相似歌曲
+  async getSimilarSongs(songID: string, limit: number = 10): Promise<[string[] | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      songID,
+      limit
+    };
+
+    return callAPI<[string[] | null, string]>('GetSimilarSongs', data);
+  },
+
+  // 获取相似创作者
+  async getSimilarCreators(creatorID: string, creatorType: 'artist' | 'band', limit: number = 10): Promise<[Array<[string, string]> | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      creatorID,
+      creatorType: creatorType === 'artist' ? 'Artist' : 'Band', // 后端期望首字母大写
+      limit
+    };
+
+    return callAPI<[Array<[string, string]> | null, string]>('GetSimilarCreators', data);
   },
 
   // 综合获取歌曲评分信息
