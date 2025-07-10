@@ -25,7 +25,7 @@ import Common.Object.SqlParameter
 import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateAdminMapping
-import APIs.StatisticsService.PurgeSongStatisticsMessage
+import APIs.StatisticsService.PurgeSongStatistics
 import io.circe.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
@@ -58,9 +58,10 @@ case class DeleteSongPlanner(
 //        _ <- if (isReferenced) IO.raiseError(new Exception("歌曲被引用，无法删除")) else IO.unit
 
         // Step 4: 删除歌曲记录
+        _ <- IO(logger.info(s"删除songID歌曲播放记录: ${songID}"))
+        (del, msg2) <- PurgeSongStatistics(adminID,adminToken,songID).send
         _ <- IO(logger.info(s"从SongTable删除歌曲记录, songID: ${songID}"))
         deleteResult <- deleteSong(songID)
-        (del, msg2) <- PurgeSongStatisticsMessage(adminID,adminToken,songID).send
         _ <- IO(logger.info(s"删除结果: ${deleteResult}"))
       } yield (true, "") // 成功时返回 true 和空字符串
       ).handleErrorWith { e =>
