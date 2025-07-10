@@ -3,6 +3,18 @@ import { Link } from 'react-router-dom';
 import { getUser } from '../utils/storage';
 import { usePermissions } from '../hooks/usePermissions';
 import { statisticsService } from '../services/statistics.service';
+import './Dashboard.css';
+
+// 定义 ActionCard 接口
+interface ActionCard {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  link: string;
+  available: boolean;
+  special?: boolean;
+}
 
 const Dashboard: React.FC = () => {
   const user = getUser();
@@ -17,8 +29,8 @@ const Dashboard: React.FC = () => {
         try {
           // 这里模拟获取用户统计数据
           // 实际应该从后端获取
-          const portrait = await statisticsService.getUserPortrait(user.userID);
-          if (portrait) {
+          const [portrait, message] = await statisticsService.getUserPortrait(user.userID);
+          if (portrait && portrait.vector) {
             setUserStats({
               songCount: Math.floor(Math.random() * 50) + 10,
               ratingCount: portrait.vector.length * 5
@@ -44,8 +56,8 @@ const Dashboard: React.FC = () => {
   }, []);
 
   // 获取功能卡片数据
-  const getActionCards = () => {
-    const cards = [
+  const getActionCards = (): ActionCard[] => {
+    const cards: ActionCard[] = [
       {
         id: 'songs',
         icon: '🎵',
