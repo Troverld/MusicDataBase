@@ -35,7 +35,8 @@ case class GetCreatorCreationTendencyPlanner(
 
       // 步骤 1: 执行 API 入口层的验证工作
       _ <- validateUser()
-      _ <- validateCreator()
+      // 暂时移除对 creator 的验证。
+      // _ <- validateCreator()
 
       // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
       _ <- logInfo(s"验证通过，正在调用 GetCreatorCreationTendencyUtils.generateTendencyProfile")
