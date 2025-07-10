@@ -1,7 +1,7 @@
 import React from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { authService } from '../services/auth.service';
-import { clearAuth, getUser } from '../utils/storage';
+import { getUser, clearAuth } from '../utils/storage';
 import { usePermissions } from '../hooks/usePermissions';
 
 const Layout: React.FC = () => {
@@ -83,26 +83,30 @@ const Layout: React.FC = () => {
               <Link 
                 to="/recommendations" 
                 style={{ 
-                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                  padding: '6px 12px',
+                  background: 'linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%)',
+                  padding: '6px 14px',
                   borderRadius: '16px',
                   fontSize: '13px',
-                  fontWeight: '500',
+                  fontWeight: '600',
                   textDecoration: 'none',
-                  color: 'white !important',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  transition: 'all 0.3s ease'
+                  color: '#2c3e50',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  transition: 'all 0.3s ease',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,201,255,0.3)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                🎵 推荐
+                <span>🎵</span>
+                <span>推荐</span>
               </Link>
             )}
             
@@ -112,25 +116,29 @@ const Layout: React.FC = () => {
                 to="/profile" 
                 style={{ 
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  padding: '6px 12px',
+                  padding: '6px 14px',
                   borderRadius: '16px',
                   fontSize: '13px',
-                  fontWeight: '500',
+                  fontWeight: '600',
                   textDecoration: 'none',
-                  color: 'white !important',
+                  color: 'white',
                   border: '1px solid rgba(255,255,255,0.2)',
-                  transition: 'all 0.3s ease'
+                  transition: 'all 0.3s ease',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(102,126,234,0.4)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                🎼 我的画像
+                <span>🎼</span>
+                <span>我的画像</span>
               </Link>
             )}
             
