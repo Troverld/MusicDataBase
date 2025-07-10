@@ -15,7 +15,7 @@ object GetUserPortraitUtils {
 
   // [REFACTORED] 新的评分函数
   private def ratingToBonus(rating: Int): Double = {
-    (rating * rating) - 8.0
+    (rating * rating)
   }
 
   def generateUserProfile(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
@@ -53,14 +53,13 @@ object GetUserPortraitUtils {
           rawProfile = mapReduceGenreScores(songInteractionScores, songProfilesMap)
 
           // [NEW] 在归一化之前，先将所有维度平移到正数区间
-          shiftedProfile = StatisticsUtils.shiftToPositive(rawProfile)
+//          shiftedProfile = StatisticsUtils.shiftToPositive(rawProfile)
 
           // 归一化
-          finalProfile = StatisticsUtils.normalizeVector(shiftedProfile)
+          finalProfile = StatisticsUtils.normalizeVector(rawProfile)
 
           _ <- logInfo(s"计算出用户画像，包含 ${finalProfile.vector.length} 个曲风偏好")
           _ <- logInfo(s"原始Profile（可能含负数）: ${rawProfile.vector.take(5)}...")
-          _ <- logInfo(s"平移后Profile: ${shiftedProfile.vector.take(5)}...")
           _ <- logInfo(s"最终归一化Profile: ${finalProfile.vector.take(5)}...")
         } yield finalProfile
       }
