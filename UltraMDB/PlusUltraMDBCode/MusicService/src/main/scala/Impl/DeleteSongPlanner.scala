@@ -3,30 +3,31 @@ package Impl
 
 import APIs.OrganizeService.validateAdminMapping
 import Common.API.{PlanContext, Planner}
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.Object.SqlParameter
 import Common.ServiceUtils.schemaName
 import cats.effect.IO
 import org.slf4j.LoggerFactory
-import io.circe.syntax._
-import io.circe.generic.auto._
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 import org.joda.time.DateTime
 import cats.implicits.*
 import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.auto._
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.auto.*
 import org.joda.time.DateTime
 import cats.implicits.*
-import Common.DBAPI._
+import Common.DBAPI.*
 import Common.API.{PlanContext, Planner}
 import cats.effect.IO
 import Common.Object.SqlParameter
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 import Common.ServiceUtils.schemaName
 import APIs.OrganizeService.validateAdminMapping
-import io.circe._
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+import APIs.StatisticsService.PurgeSongStatisticsMessage
+import io.circe.*
+import Common.Serialize.CustomColumnTypes.{decodeDateTime, encodeDateTime}
 
 case class DeleteSongPlanner(
                               adminID: String,
@@ -59,6 +60,7 @@ case class DeleteSongPlanner(
         // Step 4: 删除歌曲记录
         _ <- IO(logger.info(s"从SongTable删除歌曲记录, songID: ${songID}"))
         deleteResult <- deleteSong(songID)
+        (del, msg2) <- PurgeSongStatisticsMessage(adminID,adminToken,songID).send
         _ <- IO(logger.info(s"删除结果: ${deleteResult}"))
       } yield (true, "") // 成功时返回 true 和空字符串
       ).handleErrorWith { e =>
