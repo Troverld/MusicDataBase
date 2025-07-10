@@ -1,111 +1,356 @@
-/* 布局样式 */
+/* 布局样式 - 现代化版本 */
 
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  
-  .auth-container {
-    max-width: 400px;
-    margin: 100px auto;
-    background: white;
-    padding: 40px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .navbar {
-    background-color: #343a40;
-    padding: 15px;
-    color: white;
-  }
-  
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.auth-container {
+  max-width: 400px;
+  margin: 100px auto;
+  background: white;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* ========================
+ 导航栏 - 现代化设计
+======================== */
+.navbar {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  padding: 16px 0;
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.navbar-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.navbar-brand > a {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.navbar-brand > a:hover {
+  opacity: 0.8;
+}
+
+.navbar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.navbar-user-name {
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.navbar-user-role {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.navbar-user-role.admin {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.navbar-user-role.user {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.navbar-user-role.loading {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.navbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navbar a {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  font-size: 0.875rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar a::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(167, 139, 250, 0.2) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.navbar a:hover {
+  color: white;
+  transform: translateY(-1px);
+}
+
+.navbar a:hover::before {
+  opacity: 1;
+}
+
+.navbar a.logout {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.navbar a.logout:hover {
+  color: #f59e0b;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+/* 权限加载提示 */
+.permission-loading-notice {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.permission-error-notice {
+  background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+  color: #991b1b;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #dc2626;
+}
+
+.permission-loading-spinner-nav {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(146, 64, 14, 0.3);
+  border-top: 2px solid #92400e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ========================
+ 内容区域
+======================== */
+.song-list {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.song-item {
+  padding: 24px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+  transition: background-color 0.3s ease;
+}
+
+.song-item:hover {
+  background-color: rgba(248, 250, 252, 0.8);
+}
+
+.song-item:last-child {
+  border-bottom: none;
+}
+
+.song-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.song-actions button {
+  margin-right: 0;
+}
+
+/* ========================
+ 搜索框样式
+======================== */
+.search-box {
+  margin-bottom: 24px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 16px 20px;
+  border: 2px solid rgba(226, 232, 240, 0.8);
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 
+      0 0 0 3px rgba(59, 130, 246, 0.1),
+      0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.search-box input::placeholder {
+  color: #9ca3af;
+}
+
+/* ========================
+ 表单行
+======================== */
+.form-row {
+  display: flex;
+  gap: 20px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+/* ========================
+ 响应式设计
+======================== */
+@media (max-width: 768px) {
   .navbar-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+      padding: 0 16px;
+      flex-direction: column;
+      gap: 16px;
   }
-  
+
+  .navbar-brand {
+      width: 100%;
+      justify-content: center;
+  }
+
+  .navbar-nav {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+  }
+
   .navbar a {
-    color: white;
-    text-decoration: none;
-    margin-left: 20px;
-    transition: color 0.3s ease;
+      padding: 6px 12px;
+      font-size: 0.8125rem;
   }
-  
-  .navbar a:hover {
-    color: #007bff;
-    text-decoration: underline;
-  }
-  
-  .song-list {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .song-item {
-    padding: 20px;
-    border-bottom: 1px solid #eee;
-    transition: background-color 0.3s ease;
-  }
-  
-  .song-item:hover {
-    background-color: #f8f9fa;
-  }
-  
-  .song-item:last-child {
-    border-bottom: none;
-  }
-  
-  .song-actions {
-    margin-top: 10px;
-  }
-  
-  .song-actions button {
-    margin-right: 10px;
-  }
-  
-  .search-box {
-    margin-bottom: 20px;
-  }
-  
-  .search-box input {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 16px;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  }
-  
-  .search-box input:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-  }
-  
+
   .form-row {
-    display: flex;
-    gap: 20px;
-  }
-  
-  .form-row .form-group {
-    flex: 1;
-  }
-  
-  /* 响应式设计 */
-  @media (max-width: 768px) {
-    .form-row {
       flex-direction: column;
       gap: 0;
-    }
-  
-    .container {
-      padding: 10px;
-    }
   }
+
+  .container {
+      padding: 16px;
+  }
+
+  .auth-container {
+      margin: 50px auto;
+      padding: 32px 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-content {
+      padding: 0 12px;
+  }
+
+  .navbar-user-info {
+      flex-direction: column;
+      gap: 4px;
+      text-align: center;
+  }
+
+  .search-box input {
+      padding: 12px 16px;
+      font-size: 0.875rem;
+  }
+}
+
+/* ========================
+ 辅助类
+======================== */
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from {
+      transform: rotate(0deg);
+  }
+  to {
+      transform: rotate(360deg);
+  }
+}
+
+/* 减少动画偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .navbar a,
+  .search-box input,
+  .song-item,
+  .loading-spinner,
+  .permission-loading-spinner-nav {
+      transition: none;
+      animation: none;
+  }
+  
+  .navbar a:hover,
+  .search-box input:focus {
+      transform: none;
+  }
+}
