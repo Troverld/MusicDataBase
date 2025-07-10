@@ -13,6 +13,7 @@ import io.circe.*
 import io.circe.generic.auto.*
 import io.circe.parser.decode
 import org.slf4j.LoggerFactory
+import io.circe.parser.parse
 
 case class GetMultSongsProfiles(
                                  userID: String,
@@ -23,53 +24,48 @@ case class GetMultSongsProfiles(
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
   override def plan(using planContext: PlanContext): IO[(Option[List[Profile]], String)] = {
-    (
-      for {
-        (isValid, msg) <- validateUserMapping(userID, userToken).send
-        _ <- if (!isValid) IO.raiseError(new Exception("User verification failed.")) else IO.unit
+    for {
+      (isValid, msg) <- validateUserMapping(userID, userToken).send
+      _ <- if (!isValid) IO.raiseError(new Exception("User verification failed.")) else IO.unit
 
-        _ <- IO(logger.info(s"Fetching genre list for profile vector construction..."))
-        allGenreRows <- readDBRows(
-          s"SELECT genre_id FROM ${schemaName}.genre_table;",
-          List()
-        )
-        allGenres = allGenreRows.map(json => decodeField[String](json, "genre_id")).toSet
+      // Step 1: 获取所有 genre_id（统一维度）
+      allGenreRows <- readDBRows(
+        s"SELECT genre_id FROM ${schemaName}.genre_table;",
+        List()
+      )
+      allGenres = allGenreRows.map(json => decodeField[String](json, "genre_id")).toList
+      allGenreSet = allGenres.toSet
 
-        _ <- IO(logger.info(s"Fetching genres for ${songIDs.length} songs..."))
-        placeholders = songIDs.map(_ => "?").mkString(",")
-        genreRows <- readDBRows(
-          s"SELECT song_id, genres FROM ${schemaName}.song_table WHERE song_id IN ($placeholders);",
-          songIDs.map(SqlParameter("String", _))
-        )
+      // Step 2: 获取所有 song_id 和对应的 genres 字段
+      placeholders = songIDs.map(_ => "?").mkString(", ")
+      songRows <- readDBRows(
+        s"SELECT song_id, genres FROM ${schemaName}.song_table WHERE song_id IN ($placeholders);",
+        songIDs.map(id => SqlParameter("String", id))
+      )
 
-        songProfiles <- genreRows.traverse { jsonObj =>
-          val cursor = jsonObj.hcursor
-          for {
-            songID <- IO.fromEither(cursor.get[String]("song_id"))
-            genresField = cursor.downField("genres")
-            genreSet <- if (genresField.focus.exists(_.isString)) {
-              genresField.as[String].flatMap { rawStr =>
-                io.circe.parser.parse(rawStr).flatMap(_.as[List[String]])
-              } match {
-                case Right(list) => IO.pure(list.toSet)
-                case Left(err) => IO.raiseError(new Exception(s"Failed to parse genres for $songID: ${err.getMessage}"))
-              }
-            } else {
-              genresField.as[List[String]] match {
-                case Right(list) => IO.pure(list.toSet)
-                case Left(err) => IO.raiseError(new Exception(s"Failed to read genres array for $songID: ${err.getMessage}"))
-              }
-            }
+      // Step 3: 对每一首歌，解析其 genres，构建 Profile
+      profiles <- songRows.traverse { json =>
+        val id = decodeField[String](json, "song_id")
+        val genreField = json.hcursor.downField("genres")
 
-            profileVec = allGenres.toList.map { gid =>
-              Dim(GenreID = gid, value = if (genreSet.contains(gid)) 1.0 else 0.0)
-            }
-          } yield Profile(profileVec, norm = false)
+        val genreSet: Set[String] = if (genreField.focus.exists(_.isString)) {
+          genreField.as[String]
+            .flatMap(s => parse(s).flatMap(_.as[List[String]]))
+            .getOrElse(Nil)
+            .toSet
+        } else {
+          genreField.as[List[String]].getOrElse(Nil).toSet
         }
-      } yield (Some(songProfiles), "")
-      ).handleErrorWith { e =>
-      IO(logger.error(s"获取多个歌曲 Profile 失败: ${e.getMessage}")) *>
-        IO.pure((None, e.getMessage))
-    }
+
+        // 构建向量
+        val dims = allGenres.map { gid =>
+          Dim(GenreID = gid, value = if (genreSet.contains(gid)) 1.0 else 0.0)
+        }
+
+        IO.pure(Profile(dims, norm = false))
+      }
+
+    } yield (Some(profiles), "")
   }
+
 }
