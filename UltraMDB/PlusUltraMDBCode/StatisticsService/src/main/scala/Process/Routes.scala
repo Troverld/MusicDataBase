@@ -122,6 +122,22 @@ object Routes:
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
 
+      // 移除歌曲评分
+      case "UnrateSongPlanner" =>
+        IO(
+          decode[UnrateSongPlannerPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for UnrateSongPlanner[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
+      // 移除歌曲全部相关数据
+      case "PurgeSongStatistics" =>
+        IO(
+          decode[PurgeSongStatisticsPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for PurgeSongStatistics[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
       // 测试接口
       case "test" =>
         for {
