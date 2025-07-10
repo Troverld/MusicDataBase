@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { getUser } from '../utils/storage';
 import { usePermissions } from '../hooks/usePermissions';
 import { statisticsService } from '../services/statistics.service';
-import './Dashboard.css';
 
 // 定义 ActionCard 接口
 interface ActionCard {
