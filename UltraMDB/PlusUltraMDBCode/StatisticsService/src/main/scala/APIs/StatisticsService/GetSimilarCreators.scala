@@ -23,18 +23,16 @@ import java.util.UUID
  * desc: 获取与指定创作者（艺术家或乐队）曲风相近的其他创作者ID列表。相似度由后端基于创作倾向等统计数据进行计算。
  * @param userID: String (发起请求的用户的ID，用于身份验证。)
  * @param userToken: String (用户的认证令牌。)
- * @param creatorID: String (作为查询基准的目标创作者（艺术家或乐队）的ID。)
- * @param creatorType: String (目标创作者的类型。其值为 "Artist" 或 "Band"。)
+ * @param creatorID: CreatorID_Type (创作者的智能ID对象，封装了ID和类型。)
  * @param limit: Int (希望返回的相似创作者的最大数量。)
- * @return (Option[List[(String,String)]], String): (相似创作者的(ID,类型)列表; 如果找不到源创作者或无相似者则为None, 错误信息)
+ * @return (Option[List[CreatorID_Type]], String): (相似创作者的智能ID列表,如果找不到则返回 None；错误信息)
  */
 case class GetSimilarCreators(
   userID: String,
   userToken: String,
-  creatorID: String,
-  creatorType: String,
+  creatorID: CreatorID_Type,
   limit: Int
-) extends API[(Option[List[(String,String)]], String)](StatisticsServiceCode)
+) extends API[(Option[List[CreatorID_Type]], String)](StatisticsServiceCode)
 
 
 
