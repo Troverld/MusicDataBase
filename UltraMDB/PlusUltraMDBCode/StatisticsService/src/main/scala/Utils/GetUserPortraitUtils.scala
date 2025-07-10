@@ -9,28 +9,9 @@ import cats.effect.IO
 import cats.implicits._
 import org.slf4j.LoggerFactory
 import io.circe.generic.auto._
-import java.io.{FileWriter, PrintWriter}
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 object GetUserPortraitUtils {
-//  private val logger = DebugLoggerFactory.getLogger(getClass)
-  private val logFile = new FileWriter("output.txt", true)
-  private val writer = new PrintWriter(logFile, true)
-
-  private val timestampFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-
-  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO {
-    val timestamp = LocalDateTime.now().format(timestampFmt)
-    val tid = pc.traceID.id
-    writer.println(s"[$timestamp] INFO TID=$tid -- $message")
-  }
-
-  private def logWarn(message: String)(using pc: PlanContext): IO[Unit] = IO {
-    val timestamp = LocalDateTime.now().format(timestampFmt)
-    val tid = pc.traceID.id
-    writer.println(s"[$timestamp] WARN TID=$tid -- $message")
-  }
+  private val logger = DebugLoggerFactory.getLogger(getClass)
 
   // [REFACTORED] 新的评分函数
   private def ratingToBonus(rating: Int): Double = {
@@ -44,14 +25,6 @@ object GetUserPortraitUtils {
       // 1. 调用数据访问层获取历史记录
       playedSongsList <- SearchUtils.fetchUserPlaybackHistory(userID) // 这是一个包含重复ID的列表
       ratedSongsMap <- SearchUtils.fetchUserRatingHistory(userID)
-
-      _ <- logInfo("Played Songs List:")
-      _ <- playedSongsList.traverse_(songID => logInfo(s"- $songID"))
-
-      _ <- logInfo("Rated Songs Map:")
-      _ <- ratedSongsMap.toList.traverse_ { case (songID, rating) =>
-        logInfo(s"- $songID -> $rating")
-      }
 
       // [REFACTORED] 从播放历史列表中计算每首歌的播放次数
       playedSongsCountMap = playedSongsList.groupBy(identity).view.mapValues(_.size).toMap
@@ -80,7 +53,7 @@ object GetUserPortraitUtils {
           rawProfile = mapReduceGenreScores(songInteractionScores, songProfilesMap)
 
           // [NEW] 在归一化之前，先将所有维度平移到正数区间
-//          shiftedProfile = StatisticsUtils.shiftToPositive(rawProfile)
+          //          shiftedProfile = StatisticsUtils.shiftToPositive(rawProfile)
 
           // 归一化
           finalProfile = StatisticsUtils.normalizeVector(rawProfile)
@@ -111,25 +84,33 @@ object GetUserPortraitUtils {
     }
   }
 
-  private def fetchGenresForSongs(songIds: Set[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Map[String, Profile]] = {
+  private def fetchGenresForSongs(
+                                   songIds: Set[String],
+                                   userID: String,
+                                   userToken: String
+                                 )(using planContext: PlanContext): IO[Map[String, Profile]] = {
     if (songIds.isEmpty) return IO.pure(Map.empty)
+
     logInfo(s"准备批量获取 ${songIds.size} 首歌曲的曲风Profile")
-    val songIdsList = songIds.toList
-    GetMultSongsProfiles(userID, userToken, songIdsList).send.flatMap {
-      case (Some(profiles), _) =>
-        IO.pure(songIdsList.zip(profiles).toMap)
+
+    GetMultSongsProfiles(userID, userToken, songIds.toList).send.flatMap {
+      case (Some(pairs), _) =>
+        IO.pure(pairs.toMap) // ✅ 安全使用 toMap
+
       case (None, message) =>
         logInfo(s"批量获取歌曲Profile失败: $message. 将回退到单曲获取方式") >>
           songIds.toList.traverse { songId =>
             GetSongProfile(userID, userToken, songId).send.map {
               case (Some(profile), _) => songId -> profile
               case (None, message) =>
-                logInfo(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
+                logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $message. 该歌曲的曲风贡献将为空。")
                 songId -> Profile(List.empty, norm = true)
             }
           }.map(_.toMap)
     }
   }
-//  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
-//    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
+
+
+  private def logInfo(message: String)(using pc: PlanContext): IO[Unit] =
+    IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
 }
