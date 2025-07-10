@@ -15,19 +15,19 @@ object GetSimilarCreatorsUtils {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  private case class CreatorMetrics(creator: CreatorID_Type, tendency: Profile, strength: Profile)
-  private case class RankedCreator(creator: CreatorID_Type, score: Double)
+  private case class CreatorMetrics(creatorID: CreatorID_Type, tendency: Profile, strength: Profile)
+  private case class RankedCreator(creatorID: CreatorID_Type, score: Double)
 
   def findSimilarCreators(
                            userID: String,
                            userToken: String,
-                           creator: CreatorID_Type,
+                           creatorID: CreatorID_Type,
                            limit: Int
                          )(using planContext: PlanContext): IO[List[CreatorID_Type]] = {
     for {
       _ <- logInfo("正在获取目标数据和所有候选创作者列表...")
-      targetMetrics <- fetchCreatorMetrics(userID, userToken, creator)
-      allOtherCreators <- fetchAllOtherCreators(userID, userToken, creator)
+      targetMetrics <- fetchCreatorMetrics(userID, userToken, creatorID)
+      allOtherCreators <- fetchAllOtherCreators(userID, userToken, creatorID)
       _ <- logInfo(s"目标数据获取成功。找到 ${allOtherCreators.length} 位其他创作者。")
 
       _ <- logInfo("正在串行获取所有候选创作者的统计数据...") // [COMMENT] Changed log message
@@ -39,7 +39,7 @@ object GetSimilarCreatorsUtils {
 
       finalResult = rankedCreators.take(limit)
       _ <- logInfo(s"查找完成，返回前 ${finalResult.length} 位最相似的创作者。")
-    } yield finalResult.map(_.creator)
+    } yield finalResult.map(_.creatorID)
   }
 
   private def fetchCreatorMetrics(userID: String, userToken: String, c: CreatorID_Type)(using PlanContext): IO[CreatorMetrics] = {
@@ -79,7 +79,7 @@ object GetSimilarCreatorsUtils {
       val totalStrength = candidate.strength.vector.map(_.value).sum
       val strengthFactor = Math.log1p(totalStrength)
       val finalScore = similarity * strengthFactor
-      RankedCreator(candidate.creator, finalScore)
+      RankedCreator(candidate.creatorID, finalScore)
     }.filter(_.score > 0).sortBy(-_.score)
 
   private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))

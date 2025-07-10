@@ -17,12 +17,12 @@ object GetCreatorCreationTendencyUtils {
    * 生成创作者的创作倾向画像。
    * 这是核心业务逻辑，封装了获取作品、分析曲风和聚合计算的全过程。
    */
-  def generateTendencyProfile(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+  def generateTendencyProfile(creatorID: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
     for {
-      _ <- logInfo(s"在Utils层开始计算创作者 ${creator.id} 的创作倾向")
+      _ <- logInfo(s"在Utils层开始计算创作者 ${creatorID.id} 的创作倾向")
       
       // 步骤1: 获取创作者的所有作品ID
-      songs <- getCreatorSongs(creator, userID, userToken)
+      songs <- getCreatorSongs(creatorID, userID, userToken)
       _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
 
       profile <- if (songs.isEmpty) {
@@ -42,8 +42,8 @@ object GetCreatorCreationTendencyUtils {
   /**
    * 内部辅助方法：调用API获取创作者的所有作品ID。
    */
-  private def getCreatorSongs(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] = {
-    FilterSongsByEntity(userID, userToken, Some(creator)).send.flatMap {
+  private def getCreatorSongs(creatorID: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] = {
+    FilterSongsByEntity(userID, userToken, Some(creatorID)).send.flatMap {
       case (Some(songs), _) => IO.pure(songs)
       case (None, message) =>
         logInfo(s"获取创作者作品失败: $message. 将视为空列表处理。") >> IO.pure(List.empty)

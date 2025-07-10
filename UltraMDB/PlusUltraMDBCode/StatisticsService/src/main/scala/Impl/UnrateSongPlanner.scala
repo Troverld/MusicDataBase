@@ -4,6 +4,7 @@ package Impl
 
 import Common.API.{PlanContext, Planner}
 import APIs.OrganizeService.validateUserMapping
+import APIs.MusicService.GetSongByID
 import Utils.SearchUtils // 直接导入 SearchUtils
 import cats.effect.IO
 import cats.implicits._
@@ -33,6 +34,7 @@ case class UnrateSongPlanner(
 
       // 步骤 1: 验证用户身份
       _ <- validateUser()
+      _ <- validateSong()
 
       // 步骤 2: 直接调用 SearchUtils 执行数据库操作
       _ <- logInfo("验证通过，正在直接调用 SearchUtils.deleteUserSongRating")
@@ -55,6 +57,14 @@ case class UnrateSongPlanner(
       validateUserMapping(userID, userToken).send.flatMap {
         case (true, _) => logInfo("用户身份验证通过")
         case (false, message) => IO.raiseError(new IllegalArgumentException(s"用户身份验证失败: $message"))
+      }
+  }
+
+  private def validateSong()(using PlanContext): IO[Unit] = {
+    logInfo(s"正在验证歌曲 ${songID} 是否存在") >>
+      GetSongByID(userID, userToken, songID).send.flatMap {
+        case (Some(_), _) => logInfo("歌曲存在性验证通过")
+        case (None, message) => IO.raiseError(new IllegalArgumentException(s"歌曲不存在: $message"))
       }
   }
 

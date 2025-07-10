@@ -17,13 +17,13 @@ import org.slf4j.LoggerFactory
  *
  * @param userID      请求用户的ID
  * @param userToken   用户认证令牌
- * @param creator     创作者的智能ID对象，封装了ID和类型
+ * @param creatorID     创作者的智能ID对象，封装了ID和类型
  * @param planContext 执行上下文
  */
 case class GetCreatorCreationTendencyPlanner(
   userID: String,
   userToken: String,
-  creator: CreatorID_Type,
+  creatorID: CreatorID_Type,
   override val planContext: PlanContext
 ) extends Planner[(Option[Profile], String)] {
 
@@ -31,17 +31,17 @@ case class GetCreatorCreationTendencyPlanner(
 
   override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
     val logic: IO[Profile] = for {
-      _ <- logInfo(s"开始处理获取创作者 ${creator.id} (${creator.creatorType}) 创作倾向的请求")
+      _ <- logInfo(s"开始处理获取创作者 ${creatorID.id} (${creatorID.creatorType}) 创作倾向的请求")
 
       // 步骤 1: 执行 API 入口层的验证工作
       _ <- validateUser()
-      // 暂时移除对 creator 的验证。
-      // _ <- validateCreator()
+
+      _ <- validateCreator()
 
       // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
       _ <- logInfo(s"验证通过，正在调用 GetCreatorCreationTendencyUtils.generateTendencyProfile")
       // 将所有需要的参数传递给业务逻辑层
-      tendency <- GetCreatorCreationTendencyUtils.generateTendencyProfile(creator, userID, userToken)
+      tendency <- GetCreatorCreationTendencyUtils.generateTendencyProfile(creatorID, userID, userToken)
       _ <- logInfo(s"倾向计算完成，包含 ${tendency.vector.length} 个维度")
 
     } yield tendency
@@ -50,7 +50,7 @@ case class GetCreatorCreationTendencyPlanner(
     logic.map { tendency =>
       (Some(tendency), "获取创作倾向成功")
     }.handleErrorWith { error =>
-      logError(s"获取创作者 ${creator.id} (${creator.creatorType}) 创作倾向失败", error) >>
+      logError(s"获取创作者 ${creatorID.id} (${creatorID.creatorType}) 创作倾向失败", error) >>
         IO.pure((None, error.getMessage))
     }
   }
@@ -70,15 +70,15 @@ case class GetCreatorCreationTendencyPlanner(
    * 验证目标创作者是否存在。
    */
   private def validateCreator()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在验证创作者 ${creator.id} 是否存在") >> {
-      creator.creatorType match {
+    logInfo(s"正在验证创作者 ${creatorID.id} 是否存在") >> {
+      creatorID.creatorType match {
         case CreatorType.Artist =>
-          GetArtistByID(userID, userToken, creator.id).send.flatMap {
+          GetArtistByID(userID, userToken, creatorID.id).send.flatMap {
             case (Some(_), _) => logInfo("艺术家存在性验证通过")
             case (None, message) => IO.raiseError(new IllegalStateException(s"艺术家不存在: $message"))
           }
         case CreatorType.Band =>
-          GetBandByID(userID, userToken, creator.id).send.flatMap {
+          GetBandByID(userID, userToken, creatorID.id).send.flatMap {
             case (Some(_), _) => logInfo("乐队存在性验证通过")
             case (None, message) => IO.raiseError(new IllegalStateException(s"乐队不存在: $message"))
           }

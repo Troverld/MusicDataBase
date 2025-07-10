@@ -17,13 +17,13 @@ import org.slf4j.LoggerFactory
  *
  * @param userID      请求用户的ID
  * @param userToken   用户认证令牌
- * @param creator     创作者的智能ID对象
+ * @param creatorID     创作者的智能ID对象
  * @param planContext 执行上下文
  */
 case class GetCreatorGenreStrengthPlanner(
   userID: String,
   userToken: String,
-  creator: CreatorID_Type,
+  creatorID: CreatorID_Type,
   override val planContext: PlanContext
 ) extends Planner[(Option[Profile], String)] {
 
@@ -31,16 +31,16 @@ case class GetCreatorGenreStrengthPlanner(
 
   override def plan(using planContext: PlanContext): IO[(Option[Profile], String)] = {
     val logic: IO[Profile] = for {
-      _ <- logInfo(s"开始处理获取创作者 ${creator.id} (${creator.creatorType}) 曲风实力的请求")
+      _ <- logInfo(s"开始处理获取创作者 ${creatorID.id} (${creatorID.creatorType}) 曲风实力的请求")
 
       // 步骤 1: 执行 API 入口层的验证工作
       _ <- validateUser()
-      // 暂时移除验证。
-      // _ <- validateCreator()
+      
+      _ <- validateCreator()
 
       // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
       _ <- logInfo("验证通过，正在调用 GetCreatorGenreStrengthUtils.generateStrengthProfile")
-      strength <- GetCreatorGenreStrengthUtils.generateStrengthProfile(creator, userID, userToken)
+      strength <- GetCreatorGenreStrengthUtils.generateStrengthProfile(creatorID, userID, userToken)
       _ <- logInfo(s"实力计算完成，包含 ${strength.vector.length} 个维度")
 
     } yield strength
@@ -49,7 +49,7 @@ case class GetCreatorGenreStrengthPlanner(
     logic.map { strength =>
       (Some(strength), "获取创作实力成功")
     }.handleErrorWith { error =>
-      logError(s"获取创作者 ${creator.id} (${creator.creatorType}) 创作实力失败", error) >>
+      logError(s"获取创作者 ${creatorID.id} (${creatorID.creatorType}) 创作实力失败", error) >>
         IO.pure((None, error.getMessage))
     }
   }
@@ -65,14 +65,14 @@ case class GetCreatorGenreStrengthPlanner(
   }
 
   private def validateCreator()(using PlanContext): IO[Unit] = {
-    logInfo(s"正在验证创作者 ${creator.id} 是否存在") >> {
-      val validationIO = creator.creatorType match {
-        case CreatorType.Artist => GetArtistByID(userID, userToken, creator.id).send
-        case CreatorType.Band   => GetBandByID(userID, userToken, creator.id).send
+    logInfo(s"正在验证创作者 ${creatorID.id} 是否存在") >> {
+      val validationIO = creatorID.creatorType match {
+        case CreatorType.Artist => GetArtistByID(userID, userToken, creatorID.id).send
+        case CreatorType.Band   => GetBandByID(userID, userToken, creatorID.id).send
       }
       validationIO.flatMap {
-        case (Some(_), _) => logInfo(s"${creator.creatorType}存在性验证通过")
-        case (None, msg)  => IO.raiseError(new IllegalStateException(s"${creator.creatorType}不存在: $msg"))
+        case (Some(_), _) => logInfo(s"${creatorID.creatorType}存在性验证通过")
+        case (None, msg)  => IO.raiseError(new IllegalStateException(s"${creatorID.creatorType}不存在: $msg"))
       }
     }
   }

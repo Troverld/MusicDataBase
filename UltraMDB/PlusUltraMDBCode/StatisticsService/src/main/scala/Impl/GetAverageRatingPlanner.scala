@@ -38,8 +38,7 @@ case class GetAverageRatingPlanner(
       _ <- validateUser()
 
       // 步骤 2: 验证歌曲是否存在
-      //暂时移除步骤 2 —— 因为步骤 3 是鲁棒的，所以为节省开销，不验证了。
-      //_ <- validateSong()
+      _ <- validateSong()
 
       // 步骤 3: 从数据库中获取平均评分和数量
       result <- fetchAverageRating(songID)

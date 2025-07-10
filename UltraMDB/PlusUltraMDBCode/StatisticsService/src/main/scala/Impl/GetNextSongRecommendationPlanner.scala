@@ -24,8 +24,8 @@ case class GetNextSongRecommendationPlanner(
     val logic: IO[String] = for {
       _ <- logInfo(s"开始为用户 ${userID} 基于当前歌曲 ${currentSongID} 推荐下一首歌")
       _ <- validateUser()
-      // 暂时移除验证
-      //_ <- validateCurrentSong()
+      
+      _ <- validateCurrentSong()
       _ <- logInfo("验证通过，正在调用 GetNextSongRecommendationUtils 执行推荐逻辑")
       nextSongId <- GetNextSongRecommendationUtils.generateNextSongRecommendation(userID, userToken, currentSongID)
       _ <- logInfo(s"推荐逻辑执行完毕，推荐歌曲ID: ${nextSongId}")

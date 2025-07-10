@@ -17,12 +17,12 @@ object GetCreatorGenreStrengthUtils {
    * 生成创作者的曲风实力画像。
    * 封装了获取作品、并行分析每首作品的属性、并聚合计算实力的全过程。
    */
-  def generateStrengthProfile(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+  def generateStrengthProfile(creatorID: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
     for {
-      _ <- logInfo(s"在Utils层开始计算创作者 ${creator.id} 的曲风实力")
+      _ <- logInfo(s"在Utils层开始计算创作者 ${creatorID.id} 的曲风实力")
 
       // **修正点**: 将 planContext 显式传递给辅助方法
-      songs <- getCreatorSongs(creator, userID, userToken)(using planContext)
+      songs <- getCreatorSongs(creatorID, userID, userToken)(using planContext)
       _ <- logInfo(s"获取到创作者作品 ${songs.length} 首")
 
       strengthProfile <- if (songs.isEmpty) {
@@ -41,8 +41,8 @@ object GetCreatorGenreStrengthUtils {
   /**
    * 内部辅助方法：获取创作者的所有作品ID列表。
    */
-  private def getCreatorSongs(creator: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] = {
-    FilterSongsByEntity(userID, userToken, Some(creator)).send.flatMap {
+  private def getCreatorSongs(creatorID: CreatorID_Type, userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] = {
+    FilterSongsByEntity(userID, userToken, Some(creatorID)).send.flatMap {
       case (Some(songs), _) => IO.pure(songs)
       case (None, message) =>
         logInfo(s"获取创作者作品失败: $message. 将视为空列表处理。")(using planContext) >> IO.pure(List.empty)

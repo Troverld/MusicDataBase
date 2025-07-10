@@ -34,6 +34,8 @@ case class PurgeSongStatisticsPlanner(
       // 步骤 1: 验证管理员身份
       _ <- validateAdmin()
 
+      // *不可以验证歌曲是否存在！因为该方法在移除歌曲时被调用，所以无法知道其它 API 调用该方法时，是否已经将该歌曲移除！*
+
       // 步骤 2: 调用 Utils 层执行核心业务逻辑
       _ <- logInfo("管理员身份验证通过，正在调用 PurgeSongStatisticsUtils.purgeStatistics")
       _ <- PurgeSongStatisticsUtils.purgeStatistics(songID)

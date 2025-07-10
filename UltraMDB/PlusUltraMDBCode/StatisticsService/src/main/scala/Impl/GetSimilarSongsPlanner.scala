@@ -26,8 +26,8 @@ case class GetSimilarSongsPlanner(
       _ <- logInfo(s"开始查找与歌曲 ${songID} 相似的歌曲，限制数量: ${limit}")
       _ <- validateUser()
       _ <- validateParams()
-      // 暂时移除对歌曲的验证
-//      _ <- validateTargetSong()
+      
+     _ <- validateTargetSong()
       _ <- logInfo("验证通过，正在调用 GetSimilarSongsUtils 执行查找逻辑")
       similarSongs <- GetSimilarSongsUtils.findSimilarSongs(userID, userToken, songID, limit)
     } yield similarSongs

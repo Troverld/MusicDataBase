@@ -33,8 +33,8 @@ case class GetSongPopularityPlanner(
 
       // 步骤 1: 执行 API 入口层的验证工作
       _ <- validateUser()
-      // 暂时移除对歌曲的验证
-//      _ <- validateSong()
+      
+      _ <- validateSong()
 
       // 步骤 2: 调用集中的业务逻辑服务来执行核心任务
       _ <- logInfo("验证通过，正在调用 ProcessUtils.calculatePopularity")

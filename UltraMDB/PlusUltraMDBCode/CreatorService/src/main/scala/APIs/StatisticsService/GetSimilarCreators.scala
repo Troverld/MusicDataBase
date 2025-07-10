@@ -11,6 +11,7 @@ import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import Common.Serialize.JacksonSerializeUtils
+import Objects.CreatorService.CreatorID_Type
 
 import scala.util.Try
 
