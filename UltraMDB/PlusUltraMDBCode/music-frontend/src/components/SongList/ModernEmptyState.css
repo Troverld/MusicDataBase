@@ -1,0 +1,114 @@
+/* 现代化空状态样式 */
+
+.modern-empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    padding: 40px 20px;
+  }
+  
+  .empty-state-content {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1.5px solid rgba(102, 126, 234, 0.1);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 
+                0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 400px;
+    width: 100%;
+  }
+  
+  .empty-state-content:hover {
+    border-color: rgba(102, 126, 234, 0.2);
+    box-shadow: 0 8px 30px rgba(102, 126, 234, 0.1), 
+                0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  .empty-state-content svg {
+    color: rgba(102, 126, 234, 0.6);
+    margin-bottom: 20px;
+    opacity: 0.8;
+    transition: all 0.3s ease;
+  }
+  
+  .empty-state-content:hover svg {
+    color: rgba(102, 126, 234, 0.8);
+    transform: scale(1.1);
+  }
+  
+  .empty-state-content h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #2c3e50 0%, #667eea 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .empty-state-content p {
+    margin: 0;
+    color: rgba(108, 117, 125, 0.8);
+    font-size: 1rem;
+    line-height: 1.6;
+    font-weight: 500;
+  }
+  
+  /* 现代化歌曲列表容器 */
+  .modern-song-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .empty-state-content {
+      padding: 30px 20px;
+    }
+    
+    .empty-state-content h3 {
+      font-size: 1.3rem;
+    }
+    
+    .empty-state-content p {
+      font-size: 0.9rem;
+    }
+  }
+  
+  /* 深色模式支持 */
+  @media (prefers-color-scheme: dark) {
+    .empty-state-content {
+      background: rgba(30, 30, 30, 0.95);
+      border-color: rgba(102, 126, 234, 0.3);
+    }
+    
+    .empty-state-content h3 {
+      background: linear-gradient(135deg, #e2e8f0 0%, #667eea 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .empty-state-content p {
+      color: rgba(148, 163, 184, 0.8);
+    }
+  }
+  
+  /* 减少动画偏好支持 */
+  @media (prefers-reduced-motion: reduce) {
+    .empty-state-content,
+    .empty-state-content svg {
+      transition: none;
+    }
+    
+    .empty-state-content:hover,
+    .empty-state-content:hover svg {
+      transform: none;
+    }
+  }

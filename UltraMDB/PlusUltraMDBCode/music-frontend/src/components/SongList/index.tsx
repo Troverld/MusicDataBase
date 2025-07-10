@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Song } from '../../types';
 import { useGenres } from '../../hooks/useGenres';
 import { useArtistBand } from '../../hooks/useArtistBand';
-import SongItem from './SongItem';
+import ModernSongCard from './ModernSongCard';
 import { getAllCreatorInfo } from './utils';
 
 interface SongListProps {
@@ -57,41 +57,40 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
               // 如果找不到，尝试另一种类型
               const alternativeType = type === 'artist' ? 'band' : 'artist';
               const altResult = await getArtistBandsByIds([{ id, type: alternativeType }]);
-              
               if (altResult.length > 0) {
                 newNameMap[typedCreator] = altResult[0].name;
                 newNameMap[id] = altResult[0].name;
-                console.log(`Found ${id} as ${alternativeType}: ${altResult[0].name}`);
+                console.log(`Alternative mapping ${typedCreator} -> ${altResult[0].name}`);
               } else {
-                console.warn(`No result for typed creator ${typedCreator}`);
-                // 尝试从ID中提取显示名称
+                console.warn(`No result found for ${typedCreator}`);
+                // 使用ID的最后部分作为显示名称
                 const displayName = id.split('_')[1] || id;
                 newNameMap[typedCreator] = displayName;
                 newNameMap[id] = displayName;
               }
             }
           } catch (error) {
-            console.warn(`Failed to resolve typed creator ${typedCreator}:`, error);
+            console.error(`Error processing ${typedCreator}:`, error);
             const displayName = id.split('_')[1] || id;
             newNameMap[typedCreator] = displayName;
             newNameMap[id] = displayName;
           }
         }
-
-        // 处理无类型信息的ID（需要猜测类型）
+        
+        // 处理未分类的ID
         for (const id of untypedIds) {
-          if (newNameMap[id]) continue; // 如果已经从有类型信息的创作者中获取了，跳过
+          if (newNameMap[id]) continue; // 已经处理过
           
           try {
-            // 首先尝试作为艺术家ID获取
-            const artistResult = await getArtistBandsByIds([{id, type: 'artist'}]);
+            // 先尝试作为艺术家
+            const artistResult = await getArtistBandsByIds([{ id, type: 'artist' }]);
             if (artistResult.length > 0) {
               newNameMap[id] = artistResult[0].name;
               continue;
             }
             
-            // 如果不是艺术家，尝试作为乐队ID获取
-            const bandResult = await getArtistBandsByIds([{id, type: 'band'}]);
+            // 再尝试作为乐队
+            const bandResult = await getArtistBandsByIds([{ id, type: 'band' }]);
             if (bandResult.length > 0) {
               newNameMap[id] = bandResult[0].name;
               continue;
@@ -120,16 +119,24 @@ const SongList: React.FC<SongListProps> = ({ songs, onEdit, onDelete }) => {
 
   if (songs.length === 0) {
     return (
-      <div className="empty-state">
-        <p>未找到歌曲</p>
+      <div className="modern-empty-state">
+        <div className="empty-state-content">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 1v6m0 6v6"></path>
+            <path d="m21 12-6 0m-6 0-6 0"></path>
+          </svg>
+          <h3>暂无歌曲</h3>
+          <p>还没有找到任何歌曲，试试搜索或上传新歌曲吧</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="song-list">
+    <div className="modern-song-list">
       {songs.map((song) => (
-        <SongItem
+        <ModernSongCard
           key={song.songID}
           song={song}
           onEdit={onEdit}

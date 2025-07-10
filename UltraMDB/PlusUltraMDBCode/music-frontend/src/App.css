@@ -8,4 +8,6 @@
 @import './components/SongRating/SongRating.css';
 @import './components/PlayButton/PlayButton.css';
 @import './components/ModernSearchBox/ModernSearchBox.css';
+@import './components/SongList/ModernSongCard.css';
+@import './components/SongList/ModernEmptyState.css';
 @import './pages/UserProfile/UserProfile.css';
