@@ -31,12 +31,26 @@
     to { transform: translate(-100px, -100px) rotate(360deg); }
   }
   
+  /* 统一的内容容器包装器 */
+  .content-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  
   .band-hero-content {
     position: relative;
     z-index: 1;
     max-width: 1200px;
     margin: 0 auto;
     padding: 80px 24px 40px;
+  }
+  
+  .band-content {
+    margin-top: -20px;
+    padding-bottom: 48px;
+    position: relative;
+    z-index: 2;
   }
   
   /* 头部信息 */
@@ -249,15 +263,6 @@
   
   .member-card.placeholder .member-name {
     color: #868e96;
-  }
-  
-  /* 主内容区 */
-  .band-content {
-    max-width: 1200px;
-    margin: -20px auto 0;
-    padding: 0 24px 48px;
-    position: relative;
-    z-index: 2;
   }
   
   /* 内容网格 */
