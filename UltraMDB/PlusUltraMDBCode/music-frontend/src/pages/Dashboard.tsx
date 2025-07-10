@@ -4,17 +4,24 @@ import { getUser } from '../utils/storage';
 import { usePermissions } from '../hooks/usePermissions';
 import { statisticsService } from '../services/statistics.service';
 import { musicService } from '../services/music.service';
-import { Song } from '../types';
+import { genreService } from '../services/genre.service';
+import { useArtistBand } from '../hooks/useArtistBand';
+import { Song, Genre, Profile } from '../types';
 
 type SongWithPopularity = Song & { popularity: number };
+type GenreWithName = { GenreID: string; value: number; name: string };
 
 const Dashboard: React.FC = () => {
   const user = getUser();
   const navigate = useNavigate();
   const { isUser, isAdmin, loading: permissionLoading } = usePermissions();
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const { getArtistBandsByIds } = useArtistBand();
+  
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [recommendedSongs, setRecommendedSongs] = useState<Song[]>([]);
   const [popularSongs, setPopularSongs] = useState<SongWithPopularity[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [creatorNames, setCreatorNames] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(true);
   const hasFetchedData = useRef(false);
 
@@ -31,6 +38,16 @@ const Dashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
+      // 获取曲风列表
+      try {
+        const [genreList] = await genreService.getAllGenres();
+        if (genreList) {
+          setGenres(genreList);
+        }
+      } catch (error) {
+        console.error('Failed to fetch genres:', error);
+      }
+
       // 获取用户画像
       try {
         const [portrait, portraitMessage] = await statisticsService.getUserPortrait(user!.userID);
@@ -42,6 +59,7 @@ const Dashboard: React.FC = () => {
       }
 
       // 获取推荐歌曲（只获取前6首展示）
+      let allSongs: Song[] = [];
       try {
         const [recommendations, recMessage] = await statisticsService.getUserSongRecommendations(1, 6);
         if (recommendations && recommendations.length > 0) {
@@ -57,7 +75,9 @@ const Dashboard: React.FC = () => {
               }
             })
           );
-          setRecommendedSongs(songDetails.filter((song): song is Song => song !== null));
+          const validSongs = songDetails.filter((song): song is Song => song !== null);
+          setRecommendedSongs(validSongs);
+          allSongs = [...allSongs, ...validSongs];
         }
       } catch (error) {
         console.error('Failed to fetch recommendations:', error);
@@ -100,10 +120,14 @@ const Dashboard: React.FC = () => {
             .slice(0, 6);
           
           setPopularSongs(sortedSongs);
+          allSongs = [...allSongs, ...sortedSongs];
         }
       } catch (error) {
         console.error('Failed to fetch popular songs:', error);
       }
+
+      // 获取所有歌曲的创作者名称
+      await fetchCreatorNames(allSongs);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -111,11 +135,74 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const getTopGenres = () => {
+  const fetchCreatorNames = async (songs: Song[]) => {
+    try {
+      // 收集所有唯一的创作者
+      const creatorSet = new Map<string, { id: string; type: 'artist' | 'band' }>();
+      
+      songs.forEach(song => {
+        if (song.creators) {
+          song.creators.forEach(creator => {
+            if (creator.id && creator.creatorType) {
+              const key = `${creator.creatorType}-${creator.id}`;
+              creatorSet.set(key, { id: creator.id, type: creator.creatorType });
+            }
+          });
+        }
+      });
+
+      // 批量获取创作者名称
+      const creators = Array.from(creatorSet.values());
+      if (creators.length > 0) {
+        const results = await getArtistBandsByIds(creators);
+        const nameMap: { [key: string]: string } = {};
+        
+        results.forEach(result => {
+          const key = `${result.type}-${result.id}`;
+          nameMap[key] = result.name;
+        });
+        
+        setCreatorNames(nameMap);
+      }
+    } catch (error) {
+      console.error('Failed to fetch creator names:', error);
+    }
+  };
+
+  const getTopGenres = (): GenreWithName[] => {
     if (!userProfile || !userProfile.vector) return [];
     return userProfile.vector
-      .sort((a: any, b: any) => b.value - a.value)
-      .slice(0, 3);
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 3)
+      .map(dim => {
+        const genre = genres.find(g => g.genreID === dim.GenreID);
+        return {
+          ...dim,
+          name: genre ? genre.name : dim.GenreID
+        };
+      });
+  };
+
+  const formatCreators = (song: Song): string => {
+    if (!song.creators || song.creators.length === 0) return '未知';
+    
+    const names = song.creators.map(creator => {
+      const key = `${creator.creatorType}-${creator.id}`;
+      return creatorNames[key] || creator.id;
+    });
+    
+    return names.join(', ');
+  };
+
+  const formatGenres = (genreIds: string[]): string => {
+    if (!genreIds || genreIds.length === 0) return '未分类';
+    
+    const names = genreIds.map(id => {
+      const genre = genres.find(g => g.genreID === id);
+      return genre ? genre.name : id;
+    });
+    
+    return names.join(' · ');
   };
 
   if (permissionLoading || loading) {
@@ -163,9 +250,9 @@ const Dashboard: React.FC = () => {
               <div className="stat-item">
                 <div className="stat-label">您的音乐偏好</div>
                 <div className="genre-tags">
-                  {getTopGenres().map((genre: any, index: number) => (
+                  {getTopGenres().map((genre, index) => (
                     <span key={index} className="genre-tag">
-                      {genre.GenreID}
+                      {genre.name}
                     </span>
                   ))}
                 </div>
@@ -235,7 +322,10 @@ const Dashboard: React.FC = () => {
                   <div className="song-info">
                     <h4 className="song-name">{song.name}</h4>
                     <p className="song-meta">
-                      {song.genres.join(' · ')}
+                      {formatCreators(song)}
+                    </p>
+                    <p className="song-meta" style={{ fontSize: '12px', opacity: 0.7 }}>
+                      {formatGenres(song.genres)}
                     </p>
                   </div>
                   <button 
@@ -263,7 +353,10 @@ const Dashboard: React.FC = () => {
                   <div className="song-info">
                     <h4 className="song-name">{song.name}</h4>
                     <p className="song-meta">
-                      热度: {song.popularity.toFixed(1)}
+                      {formatCreators(song)}
+                    </p>
+                    <p className="song-meta" style={{ fontSize: '12px', opacity: 0.7 }}>
+                      热度: {song.popularity.toFixed(1)} · {formatGenres(song.genres)}
                     </p>
                   </div>
                   <button 
