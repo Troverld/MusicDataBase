@@ -10,6 +10,7 @@ import BandManagement from './pages/BandManagement';
 import ArtistDetail from './pages/ArtistDetail';
 import BandDetail from './pages/BandDetail';
 import UserProfile from './pages/UserProfile';
+import MusicRecommendations from './pages/MusicRecommendations';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
@@ -29,6 +30,7 @@ function App() {
           <Route path="bands" element={<BandManagement />} />
           <Route path="bands/:bandID" element={<BandDetail />} />
           <Route path="profile" element={<UserProfile />} />
+          <Route path="recommendations" element={<MusicRecommendations />} />
         </Route>
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
