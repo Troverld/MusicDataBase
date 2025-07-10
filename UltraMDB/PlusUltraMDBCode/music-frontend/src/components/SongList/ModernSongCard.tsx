@@ -49,9 +49,79 @@ const ModernSongCard: React.FC<ModernSongCardProps> = ({
   const showEditButton = canEdit || isAdmin;
   const showDeleteButton = isAdmin;
 
+  // 收集所有角色信息
+  const roles = [
+    {
+      label: '创作者',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 7V9C15 10.1 15.9 11 17 11V20C17 20.6 16.6 21 16 21H15C14.4 21 14 20.6 14 20V11H10V20C10 20.6 9.6 21 9 21H8C7.4 21 7 20.6 7 20V11C8.1 11 9 10.1 9 9V7H3V9C3 10.1 3.9 11 5 11V20C5 21.1 5.9 22 7 22H17C18.1 22 19 21.1 19 20V11C20.1 11 21 10.1 21 9Z"/>
+        </svg>
+      ),
+      value: formatCreatorList(song.creators, nameMap)
+    },
+    {
+      label: '演唱者',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 3V13.55C11.41 13.21 10.73 13 10 13C7.79 13 6 14.79 6 17S7.79 21 10 21 14 19.21 14 17V7H18V3H12Z"/>
+        </svg>
+      ),
+      value: formatStringCreatorList(song.performers, nameMap)
+    }
+  ];
+
+  // 添加专业角色到同一级别
+  if (song.lyricists && song.lyricists.length > 0) {
+    roles.push({
+      label: '作词',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2ZM18 20H6V4H13V9H18V20Z"/>
+        </svg>
+      ),
+      value: formatStringCreatorList(song.lyricists, nameMap)
+    });
+  }
+
+  if (song.composers && song.composers.length > 0) {
+    roles.push({
+      label: '作曲',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 3V13.55C11.41 13.21 10.73 13 10 13C7.79 13 6 14.79 6 17S7.79 21 10 21 14 19.21 14 17V7H18V3H12Z"/>
+        </svg>
+      ),
+      value: formatStringCreatorList(song.composers, nameMap)
+    });
+  }
+
+  if (song.arrangers && song.arrangers.length > 0) {
+    roles.push({
+      label: '编曲',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H8C6.9 2 6 2.9 6 4V16C6 17.1 6.9 18 8 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H8V4H20V16ZM4 6H2V20C2 21.1 2.9 22 4 22H18V20H4V6Z"/>
+        </svg>
+      ),
+      value: formatStringCreatorList(song.arrangers, nameMap)
+    });
+  }
+
+  if (song.instrumentalists && song.instrumentalists.length > 0) {
+    roles.push({
+      label: '演奏',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12S7.59 4 12 4 20 7.59 20 12 16.41 20 12 20ZM11 7H13V13H11ZM11 15H13V17H11Z"/>
+        </svg>
+      ),
+      value: formatStringCreatorList(song.instrumentalists, nameMap)
+    });
+  }
+
   return (
     <div className="modern-song-card">
-      {/* 卡片主体 */}
       <div className="song-card-content">
         {/* 头部区域 */}
         <div className="song-card-header">
@@ -77,62 +147,17 @@ const ModernSongCard: React.FC<ModernSongCardProps> = ({
           </div>
         </div>
 
-        {/* 创作者信息区域 */}
-        <div className="song-creators-section">
-          <div className="creator-group">
-            <div className="creator-item">
-              <span className="creator-label">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 7V9C15 10.1 15.9 11 17 11V20C17 20.6 16.6 21 16 21H15C14.4 21 14 20.6 14 20V11H10V20C10 20.6 9.6 21 9 21H8C7.4 21 7 20.6 7 20V11C8.1 11 9 10.1 9 9V7H3V9C3 10.1 3.9 11 5 11V20C5 21.1 5.9 22 7 22H17C18.1 22 19 21.1 19 20V11C20.1 11 21 10.1 21 9Z"/>
-                </svg>
-                创作者
+        {/* 统一的角色信息区域 */}
+        <div className="song-roles-section">
+          {roles.map((role, index) => (
+            <div key={index} className="role-item">
+              <span className="role-label">
+                {role.icon}
+                {role.label}
               </span>
-              <span className="creator-value">{formatCreatorList(song.creators, nameMap)}</span>
+              <span className="role-value">{role.value}</span>
             </div>
-            
-            <div className="creator-item">
-              <span className="creator-label">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3V13.55C11.41 13.21 10.73 13 10 13C7.79 13 6 14.79 6 17S7.79 21 10 21 14 19.21 14 17V7H18V3H12Z"/>
-                </svg>
-                演唱者
-              </span>
-              <span className="creator-value">{formatStringCreatorList(song.performers, nameMap)}</span>
-            </div>
-          </div>
-
-          {/* 专业角色信息（可折叠） */}
-          {(song.lyricists?.length || song.composers?.length || song.arrangers?.length || song.instrumentalists?.length) && (
-            <div className="professional-roles">
-              {song.lyricists && song.lyricists.length > 0 && (
-                <div className="role-item">
-                  <span className="role-label">作词</span>
-                  <span className="role-value">{formatStringCreatorList(song.lyricists, nameMap)}</span>
-                </div>
-              )}
-              
-              {song.composers && song.composers.length > 0 && (
-                <div className="role-item">
-                  <span className="role-label">作曲</span>
-                  <span className="role-value">{formatStringCreatorList(song.composers, nameMap)}</span>
-                </div>
-              )}
-              
-              {song.arrangers && song.arrangers.length > 0 && (
-                <div className="role-item">
-                  <span className="role-label">编曲</span>
-                  <span className="role-value">{formatStringCreatorList(song.arrangers, nameMap)}</span>
-                </div>
-              )}
-              
-              {song.instrumentalists && song.instrumentalists.length > 0 && (
-                <div className="role-item">
-                  <span className="role-label">演奏</span>
-                  <span className="role-value">{formatStringCreatorList(song.instrumentalists, nameMap)}</span>
-                </div>
-              )}
-            </div>
-          )}
+          ))}
         </div>
 
         {/* 曲风标签区域 */}
@@ -166,7 +191,7 @@ const ModernSongCard: React.FC<ModernSongCardProps> = ({
         {song.uploadTime && (
           <div className="upload-info">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.48 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12S6.48 22 12 22 22 17.52 22 12 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"/>
             </svg>
             上传于 {formatDate(song.uploadTime)}
           </div>

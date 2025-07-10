@@ -1,10 +1,10 @@
 import React from 'react';
 import { Artist } from '../../types';
 import ArtistItem from './ArtistItem';
+import ModernEmptyState from '../../components/ModernEmptyState';
 
 interface ArtistListProps {
   artists: Artist[];
-  loading: boolean;
   onEdit: (artist: Artist) => void;
   onDelete: (artistID: string) => void;
   searchKeyword: string;
@@ -12,27 +12,24 @@ interface ArtistListProps {
 
 const ArtistList: React.FC<ArtistListProps> = ({
   artists,
-  loading,
   onEdit,
   onDelete,
   searchKeyword
 }) => {
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <p>正在加载艺术家信息...</p>
-      </div>
-    );
-  }
-
   if (artists.length === 0) {
+    const artistIcon = (
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+    );
+
     return (
-      <div className="empty-state">
-        <p>未找到艺术家</p>
-        <p style={{ fontSize: '14px', color: '#999', marginTop: '10px' }}>
-          {searchKeyword.trim() ? '请尝试其他搜索关键词' : '请使用搜索功能查找艺术家'}
-        </p>
-      </div>
+      <ModernEmptyState
+        icon={artistIcon}
+        title={searchKeyword.trim() ? "未找到匹配的艺术家" : "暂无艺术家"}
+        description={searchKeyword.trim() ? "请尝试其他搜索关键词" : "还没有任何艺术家信息，开始创建第一个艺术家吧"}
+      />
     );
   }
 
