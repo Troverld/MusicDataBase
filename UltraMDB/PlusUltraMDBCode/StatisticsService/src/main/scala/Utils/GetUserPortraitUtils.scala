@@ -12,19 +12,24 @@ object GetUserPortraitUtils {
 //  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
   private val logger = DebugLoggerFactory.getLogger(getClass)
 
-  def generateUserProfile(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
-    // 权重系数，方便调整
-    val ratingWeightCoefficient = 10.0
+  private def ratingToBonus(rating: Int): Double = {
+    (rating * rating) - 8.0
+  }
 
+  def generateUserProfile(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
     for {
       _ <- logInfo("开始实时计算用户画像")
 
       // 1. 调用数据访问层获取历史记录
-      playedSongs <- SearchUtils.fetchUserPlaybackHistory(userID)
+      playedSongsList <- SearchUtils.fetchUserPlaybackHistory(userID) // 这是一个包含重复ID的列表
       ratedSongsMap <- SearchUtils.fetchUserRatingHistory(userID)
 
-      allInteractedSongIds = (playedSongs ++ ratedSongsMap.keys).toSet
-      _ <- logInfo(s"用户总共交互过 ${allInteractedSongIds.size} 首歌曲")
+      // [REFACTORED] 从播放历史列表中计算每首歌的播放次数
+      playedSongsCountMap = playedSongsList.groupBy(identity).view.mapValues(_.size).toMap
+
+      // 合并所有交互过的歌曲ID
+      allInteractedSongIds = (playedSongsCountMap.keys ++ ratedSongsMap.keys).toSet
+      _ <- logInfo(s"用户总共交互过 ${allInteractedSongIds.size} 首不重复的歌曲")
 
       profile <- if (allInteractedSongIds.isEmpty) {
         logInfo("用户暂无交互记录，返回空画像") >>
@@ -32,22 +37,29 @@ object GetUserPortraitUtils {
       } else {
         // 2. 计算每首歌的交互分数
         val songInteractionScores = allInteractedSongIds.map { songId =>
-          val ratingBonus = ratedSongsMap.get(songId).map(rating => (rating - 3.0) * ratingWeightCoefficient).getOrElse(0.0)
-          val interactionScore = 1.0 + ratingBonus
+          // 播放次数作为基础分
+          val playCount = playedSongsCountMap.getOrElse(songId, 0).toDouble
+          // [REFACTORED] 使用新的评分函数计算评分奖励
+          val ratingBonus = ratedSongsMap.get(songId).map(ratingToBonus).getOrElse(0.0)
+
+          val interactionScore = playCount + ratingBonus
           (songId, interactionScore)
         }.toMap
 
         for {
-          // 3. 并行获取所有歌曲的Profile
           songProfilesMap <- fetchGenresForSongs(allInteractedSongIds, userID, userToken)
-
-          // 4. 计算加权Profile总和
           rawProfile = mapReduceGenreScores(songInteractionScores, songProfilesMap)
 
-          // 5. 归一化
-          finalProfile = StatisticsUtils.normalizeVector(rawProfile)
+          // [NEW] 在归一化之前，先将所有维度平移到正数区间
+          shiftedProfile = StatisticsUtils.shiftToPositive(rawProfile)
+
+          // 归一化
+          finalProfile = StatisticsUtils.normalizeVector(shiftedProfile)
 
           _ <- logInfo(s"计算出用户画像，包含 ${finalProfile.vector.length} 个曲风偏好")
+          _ <- logInfo(s"原始Profile（可能含负数）: ${rawProfile.vector.take(5)}...")
+          _ <- logInfo(s"平移后Profile: ${shiftedProfile.vector.take(5)}...")
+          _ <- logInfo(s"最终归一化Profile: ${finalProfile.vector.take(5)}...")
         } yield finalProfile
       }
     } yield profile

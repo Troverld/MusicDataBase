@@ -7,6 +7,31 @@ import scala.util.Random
 object StatisticsUtils {
 
   /**
+   * (新增方法)
+   * 将一个Profile的所有维度值平移，以确保它们都是正数。
+   * 新值 = 当前值 - 最小值 + 1。
+   * 这可以处理包含负值的向量，以便后续进行归一化或Softmax抽样。
+   *
+   * @param profile 待处理的Profile，其向量中可能包含负值。
+   * @return 一个新的Profile，其所有维度值都 > 0。
+   */
+  def shiftToPositive(profile: Profile): Profile = {
+    val vector = profile.vector
+    if (vector.isEmpty) return profile
+
+    // 1. 找到所有维度值中的最小值
+    val minVal = vector.map(_.value).min
+
+    // 2. 将每个维度的新值设置为 currentVal - minVal + 1
+    val shiftedVector = vector.map { dim =>
+      dim.copy(value = dim.value - minVal + 1.0)
+    }
+
+    // 返回一个新的Profile，它不再是归一化的
+    Profile(shiftedVector, norm = false)
+  }
+
+  /**
    * 计算两个Profile向量的余弦相似度。
    * @param profileA Profile A
    * @param profileB Profile B
