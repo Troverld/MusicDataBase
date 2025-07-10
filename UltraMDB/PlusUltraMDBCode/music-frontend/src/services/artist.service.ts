@@ -80,7 +80,7 @@ export const artistService = {
     const data = {
       userID: user.userID,
       userToken: user.userToken,
-      name
+      artistName: name
     };
 
     return callAPI<[string[] | null, string]>('SearchArtistByName', data);
