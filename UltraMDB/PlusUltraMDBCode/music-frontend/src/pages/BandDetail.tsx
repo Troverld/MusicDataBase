@@ -149,7 +149,7 @@ const BandDetail: React.FC = () => {
       navigate('/bands', { 
         state: { 
           showModal: true, 
-          editingBand: band 
+          editBand: band 
         } 
       });
     }

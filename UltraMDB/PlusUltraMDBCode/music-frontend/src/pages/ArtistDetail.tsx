@@ -140,7 +140,7 @@ const ArtistDetail: React.FC = () => {
       navigate('/artists', { 
         state: { 
           showModal: true, 
-          editingArtist: artist 
+          editArtist: artist 
         } 
       });
     }
