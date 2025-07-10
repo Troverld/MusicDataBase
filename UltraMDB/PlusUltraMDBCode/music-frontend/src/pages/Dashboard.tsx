@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getUser } from '../utils/storage';
 import { usePermissions } from '../hooks/usePermissions';
@@ -16,14 +16,18 @@ const Dashboard: React.FC = () => {
   const [recommendedSongs, setRecommendedSongs] = useState<Song[]>([]);
   const [popularSongs, setPopularSongs] = useState<SongWithPopularity[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasFetchedData = useRef(false);
 
   useEffect(() => {
-    if (user?.userID && (isUser || isAdmin)) {
+    // 只在权限加载完成且有权限且还未获取数据时调用
+    if (!permissionLoading && user?.userID && (isUser || isAdmin) && !hasFetchedData.current) {
+      hasFetchedData.current = true;
       fetchDashboardData();
-    } else {
+    } else if (!permissionLoading && (!user?.userID || (!isUser && !isAdmin))) {
+      // 如果没有权限，直接设置加载完成
       setLoading(false);
     }
-  }, [user, isUser, isAdmin]);
+  }, [user?.userID, isUser, isAdmin, permissionLoading]);
 
   const fetchDashboardData = async () => {
     try {
@@ -63,8 +67,8 @@ const Dashboard: React.FC = () => {
       try {
         const [searchResults, searchMessage] = await musicService.searchSongs('');
         if (searchResults && searchResults.length > 0) {
-          // 只取前20个歌曲ID
-          const songIds = searchResults.slice(0, 20);
+          // 只取前10个歌曲ID（减少API调用）
+          const songIds = searchResults.slice(0, 10);
           
           // 获取每首歌的详情和热度
           const songsWithPopularity = await Promise.all(
