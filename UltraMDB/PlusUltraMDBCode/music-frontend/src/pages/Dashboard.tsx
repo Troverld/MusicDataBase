@@ -6,13 +6,15 @@ import { statisticsService } from '../services/statistics.service';
 import { musicService } from '../services/music.service';
 import { Song } from '../types';
 
+type SongWithPopularity = Song & { popularity: number };
+
 const Dashboard: React.FC = () => {
   const user = getUser();
   const navigate = useNavigate();
   const { isUser, isAdmin, loading: permissionLoading } = usePermissions();
   const [userProfile, setUserProfile] = useState<any>(null);
   const [recommendedSongs, setRecommendedSongs] = useState<Song[]>([]);
-  const [popularSongs, setPopularSongs] = useState<Song[]>([]);
+  const [popularSongs, setPopularSongs] = useState<SongWithPopularity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,41 +28,77 @@ const Dashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       // 获取用户画像
-      const [portrait, portraitMessage] = await statisticsService.getUserPortrait(user!.userID);
-      if (portrait) {
-        setUserProfile(portrait);
+      try {
+        const [portrait, portraitMessage] = await statisticsService.getUserPortrait(user!.userID);
+        if (portrait) {
+          setUserProfile(portrait);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user portrait:', error);
       }
 
       // 获取推荐歌曲（只获取前6首展示）
-      const [recommendations, recMessage] = await statisticsService.getUserSongRecommendations(1, 6);
-      if (recommendations) {
-        // 获取歌曲详情
-        const songDetails = await Promise.all(
-          recommendations.map(async (songID) => {
-            const [song, message] = await musicService.getSongByID(songID);
-            return song;
-          })
-        );
-        setRecommendedSongs(songDetails.filter(song => song !== null) as Song[]);
+      try {
+        const [recommendations, recMessage] = await statisticsService.getUserSongRecommendations(1, 6);
+        if (recommendations && recommendations.length > 0) {
+          // 获取歌曲详情
+          const songDetails = await Promise.all(
+            recommendations.map(async (songID): Promise<Song | null> => {
+              try {
+                const [song, message] = await musicService.getSongById(songID);
+                return song;
+              } catch (error) {
+                console.error(`Failed to fetch song ${songID}:`, error);
+                return null;
+              }
+            })
+          );
+          setRecommendedSongs(songDetails.filter((song): song is Song => song !== null));
+        }
+      } catch (error) {
+        console.error('Failed to fetch recommendations:', error);
       }
 
-      // 获取所有歌曲用于展示热门歌曲
-      const [allSongs, allSongsMessage] = await musicService.getSongList(1, 100);
-      if (allSongs) {
-        // 获取每首歌的热度并排序
-        const songsWithPopularity = await Promise.all(
-          allSongs.slice(0, 20).map(async (song) => {
-            const [popularity] = await statisticsService.getSongPopularity(song.songID);
-            return { ...song, popularity: popularity || 0 };
-          })
-        );
-        
-        // 按热度排序并取前6首
-        const sortedSongs = songsWithPopularity
-          .sort((a, b) => b.popularity - a.popularity)
-          .slice(0, 6);
-        
-        setPopularSongs(sortedSongs);
+      // 获取热门歌曲 - 使用搜索功能获取一些歌曲
+      try {
+        const [searchResults, searchMessage] = await musicService.searchSongs('');
+        if (searchResults && searchResults.length > 0) {
+          // 只取前20个歌曲ID
+          const songIds = searchResults.slice(0, 20);
+          
+          // 获取每首歌的详情和热度
+          const songsWithPopularity = await Promise.all(
+            songIds.map(async (songID): Promise<SongWithPopularity | null> => {
+              try {
+                const [songResult, popularityResult] = await Promise.all([
+                  musicService.getSongById(songID),
+                  statisticsService.getSongPopularity(songID)
+                ]);
+                
+                const [song] = songResult;
+                const [popularity] = popularityResult;
+                
+                if (song) {
+                  return { ...song, popularity: popularity || 0 };
+                }
+                return null;
+              } catch (error) {
+                console.error(`Failed to fetch song ${songID}:`, error);
+                return null;
+              }
+            })
+          );
+          
+          // 过滤掉null值，按热度排序并取前6首
+          const validSongs = songsWithPopularity.filter((song): song is SongWithPopularity => song !== null);
+          const sortedSongs = validSongs
+            .sort((a, b) => b.popularity - a.popularity)
+            .slice(0, 6);
+          
+          setPopularSongs(sortedSongs);
+        }
+      } catch (error) {
+        console.error('Failed to fetch popular songs:', error);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -216,7 +254,7 @@ const Dashboard: React.FC = () => {
               <Link to="/songs" className="see-more">探索更多 →</Link>
             </div>
             <div className="songs-grid">
-              {popularSongs.map((song: any) => (
+              {popularSongs.map((song) => (
                 <div key={song.songID} className="song-card">
                   <div className="song-info">
                     <h4 className="song-name">{song.name}</h4>
