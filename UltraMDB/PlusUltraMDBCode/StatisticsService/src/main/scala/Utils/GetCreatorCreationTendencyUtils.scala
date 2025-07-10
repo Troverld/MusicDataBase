@@ -53,31 +53,31 @@ object GetCreatorCreationTendencyUtils {
   /**
    * 内部辅助方法：并行获取所有歌曲的曲风并聚合成一个未归一化的Profile。
    */
-  private def calculateGenreDistribution(songs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
-    // 如果没有歌曲，无需发起API调用
+  private def calculateGenreDistribution(
+                                          songs: List[String],
+                                          userID: String,
+                                          userToken: String
+                                        )(using planContext: PlanContext): IO[Profile] = {
     if (songs.isEmpty) {
       return IO.pure(Profile(List.empty, norm = false))
     }
 
-    // 使用批量API一次性获取所有歌曲的Profile
     GetMultSongsProfiles(userID, userToken, songs).send.flatMap {
-      // 成功获取到Profile列表
       case (Some(profiles), _) =>
         IO {
-          // 从所有Profile中提取出所有的Dim
-          val allDims = profiles.flatMap(_.vector)
+          // ✅ 解构 (songId, profile)，提取 profile.vector
+          val allDims = profiles.flatMap { case (_, profile) => profile.vector }
 
-          // 聚合所有曲风
           val genreCounts = allDims
             .groupBy(_.GenreID)
-            .view.mapValues(dims => dims.map(_.value).sum)
-            .toList
+            .view
+            .mapValues(dims => dims.map(_.value).sum)
             .map { case (genreId, count) => Dim(genreId, count) }
+            .toList
 
           Profile(genreCounts, norm = false)
         }
 
-      // 批量API调用失败
       case (None, message) =>
         logInfo(s"批量获取歌曲Profile失败: $message. 将返回空分布。") >>
           IO.pure(Profile(List.empty, norm = false))
