@@ -20,10 +20,10 @@ case class GetMultSongsProfiles(
                                  userToken: String,
                                  songIDs: List[String],
                                  override val planContext: PlanContext
-                               ) extends Planner[(Option[List[Profile]], String)] {
+                               ) extends Planner[(Option[List[(String,Profile)]], String)] {
   val logger = LoggerFactory.getLogger(this.getClass.getSimpleName + "_" + planContext.traceID.id)
 
-  override def plan(using planContext: PlanContext): IO[(Option[List[Profile]], String)] = {
+  override def plan(using planContext: PlanContext): IO[(Option[List[(String,Profile)]], String)] = {
     for {
       (isValid, msg) <- validateUserMapping(userID, userToken).send
       _ <- if (!isValid) IO.raiseError(new Exception("User verification failed.")) else IO.unit
