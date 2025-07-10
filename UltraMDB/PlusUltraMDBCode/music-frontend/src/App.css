@@ -5,6 +5,7 @@
 @import './styles/forms.css';
 @import './styles/components.css';
 @import './styles/modal.css';
+@import './styles/dashboard.css';
 @import './components/SongRating/SongRating.css';
 @import './components/PlayButton/PlayButton.css';
 @import './components/ModernSearchBox/ModernSearchBox.css';
@@ -12,4 +13,3 @@
 @import './components/ModernEmptyState/ModernEmptyState.css';
 @import './pages/UserProfile/UserProfile.css';
 @import './pages/MusicRecommendations/MusicRecommendations.css';
-@import './pages/Dashboard/Dashboard.css';
