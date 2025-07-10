@@ -13,7 +13,7 @@ export const artistService = {
     const data = {
       adminID: user.userID,
       adminToken: user.userToken,
-      artistName: artistData.name,
+      name: artistData.name,
       bio: artistData.bio
     };
 
