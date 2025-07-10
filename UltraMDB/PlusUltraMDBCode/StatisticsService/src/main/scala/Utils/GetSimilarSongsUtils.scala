@@ -1,10 +1,9 @@
-// ===== src/main/scala/Utils/GetSimilarSongsUtils.scala =====
+// ===== src\main\scala\Utils\GetSimilarSongsUtils.scala ===== 
 
 package Utils
 
 import Common.API.PlanContext
 import APIs.MusicService.{GetSongList, GetSongProfile}
-import APIs.StatisticsService.GetSongPopularity
 import Objects.StatisticsService.Profile
 import cats.effect.IO
 import cats.implicits._
@@ -19,11 +18,11 @@ object GetSimilarSongsUtils {
   private case class RankedSong(songID: String, score: Double)
 
   def findSimilarSongs(
-      userID: String,
-      userToken: String,
-      songID: String,
-      limit: Int
-  )(using planContext: PlanContext): IO[List[String]] = {
+                        userID: String,
+                        userToken: String,
+                        songID: String,
+                        limit: Int
+                      )(using planContext: PlanContext): IO[List[String]] = {
     for {
       targetMetrics <- fetchSongMetrics(userID, userToken, songID)
       allOtherSongs <- fetchAllOtherSongs(userID, userToken, songID)
@@ -40,24 +39,21 @@ object GetSimilarSongsUtils {
     } yield finalResult
   }
 
-  private def fetchSongMetrics(userID: String, userToken: String, sID: String)(using PlanContext): IO[SongMetrics] =
+  private def fetchSongMetrics(userID: String, userToken: String, sID: String)(using PlanContext): IO[SongMetrics] = {
+    // [REFACTORED] Removed parTupled for sequential execution.
     for {
-      // 1. 串行执行两个 IO 操作
       profileResult <- GetSongProfile(userID, userToken, sID).send
-      popularityResult <- GetSongPopularity(userID, userToken, sID).send
+      popularity <- GetSongPopularityUtils.calculatePopularity(sID)
 
-      // 2. 将两个结果组合成元组，然后对元组进行 match
-      metrics <- (profileResult, popularityResult) match {
-        // 匹配成功的情况
-        case ((Some(profile), _), (Some(popularity), _)) =>
-          IO.pure(SongMetrics(sID, profile, popularity))
-
-        // 匹配失败的情况 (捕获所有其他组合)
-        case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
-          val errorDetails = s"Profile: ${profileOpt.isDefined} ('$profileMsg'), Popularity: ${popOpt.isDefined} ('$popMsg')"
-          IO.raiseError(new Exception(s"获取歌曲 ${sID} 的核心数据失败: $errorDetails"))
+      profile <- profileResult match {
+        case (Some(p), _) => IO.pure(p)
+        case (None, msg) => IO.raiseError[Profile](new Exception(s"获取歌曲 $sID 的Profile失败: $msg"))
       }
-    } yield metrics // 3. 将 match 的结果 (也是一个 IO) 返回
+
+    } yield SongMetrics(sID, profile, popularity)
+  }.handleErrorWith { error =>
+    IO.raiseError(new Exception(s"获取歌曲 $sID 的核心数据失败: ${error.getMessage}", error))
+  }
 
   private def fetchAllOtherSongs(userID: String, userToken: String, targetSongID: String)(using PlanContext): IO[List[String]] =
     GetSongList(userID, userToken).send.flatMap {
@@ -85,3 +81,4 @@ object GetSimilarSongsUtils {
 
   private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
 }
+// ===== End of src\main\scala\Utils\GetSimilarSongsUtils.scala ===== 

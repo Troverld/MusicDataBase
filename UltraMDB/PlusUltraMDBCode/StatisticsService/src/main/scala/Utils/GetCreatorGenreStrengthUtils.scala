@@ -2,7 +2,6 @@ package Utils
 
 import Common.API.PlanContext
 import APIs.MusicService.{FilterSongsByEntity, GetSongProfile}
-import APIs.StatisticsService.GetSongPopularity
 import Objects.CreatorService.CreatorID_Type
 import Objects.StatisticsService.{Dim, Profile}
 import cats.effect.IO
@@ -65,10 +64,15 @@ object GetCreatorGenreStrengthUtils {
    * 内部辅助方法：并行获取单首歌曲的曲风和热度。
    */
   private def fetchSongData(songId: String, userID: String, userToken: String)(using planContext: PlanContext): IO[(List[String], Double)] = {
-    // 【串行】
+    // 使用 for-comprehension 保证串行执行
     for {
+      // 外部API调用1：获取Profile
       profileResult <- GetSongProfile(userID, userToken, songId).send
-      popularityResult <- GetSongPopularity(userID, userToken, songId).send
+
+      // 内部方法调用：获取Popularity (不再是API调用)
+      // 这是关键的修复点
+      popularity <- GetSongPopularityUtils.calculatePopularity(songId)
+
     } yield {
       val genres = profileResult match {
         case (Some(profile), _) => profile.vector.map(_.GenreID)
@@ -76,14 +80,6 @@ object GetCreatorGenreStrengthUtils {
           logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Profile失败: $msg")
           List.empty[String]
       }
-
-      val popularity = popularityResult match {
-        case (Some(score), _) => score
-        case (None, msg) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取歌曲 $songId 的Popularity失败: $msg")
-          0.0
-      }
-
       (genres, popularity)
     }
   }

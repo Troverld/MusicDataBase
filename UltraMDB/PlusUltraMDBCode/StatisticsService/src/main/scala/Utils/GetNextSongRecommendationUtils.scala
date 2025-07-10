@@ -1,10 +1,11 @@
-// ===== src/main/scala/Utils/GetNextSongRecommendationUtils.scala =====
+// ===== src\main\scala\Utils\GetNextSongRecommendationUtils.scala ===== 
 
 package Utils
 
 import Common.API.PlanContext
 import APIs.MusicService.{GetSongByID, GetSongProfile, FilterSongsByEntity}
-import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity, GetUserSongRecommendations}
+// [REFACTORED] 移除不再使用的 StatisticsService API
+// import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity, GetUserSongRecommendations}
 import Objects.StatisticsService.{Dim, Profile}
 import cats.effect.IO
 import cats.implicits._
@@ -26,12 +27,12 @@ object GetNextSongRecommendationUtils {
   private type RecommendationStrategy = Set[String] => IO[Option[String]]
 
   def generateNextSongRecommendation(
-      userID: String,
-      userToken: String,
-      currentSongID: String
-  )(using planContext: PlanContext): IO[String] = {
+                                      userID: String,
+                                      userToken: String,
+                                      currentSongID: String
+                                    )(using planContext: PlanContext): IO[String] = {
     for {
-      // 【串行】
+      // [REFACTORED] 直接调用Utils方法，并添加错误处理以模拟原有的回退逻辑
       userPortrait <- getUserPortrait(userID, userToken)
       currentSongGenres <- getSongGenres(userID, userToken, currentSongID)
       recentPlayedSongs <- getRecentPlayedSongs(userID)
@@ -47,12 +48,14 @@ object GetNextSongRecommendationUtils {
     } yield nextSongId
   }
 
-  private def getUserPortrait(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] =
-    GetUserPortrait(userID, userToken).send.flatMap {
-      case (Some(portrait), _) => IO.pure(portrait)
-      case (None, msg) =>
-        logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >> IO.pure(Profile(List.empty, norm = true))
-    }
+  private def getUserPortrait(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+    // [REFACTORED] 直接调用Utils方法，而不是发送API请求
+    GetUserPortraitUtils.generateUserProfile(userID, userToken)
+      .handleErrorWith { error =>
+        logInfo(s"无法获取用户画像: ${error.getMessage}. 将使用空画像。") >>
+          IO.pure(Profile(List.empty, norm = true))
+      }
+  }
 
   private def getSongGenres(userID: String, userToken: String, songId: String)(using planContext: PlanContext): IO[List[String]] =
     GetSongProfile(userID, userToken, songId).send.map {
@@ -118,9 +121,11 @@ object GetNextSongRecommendationUtils {
 
   private def fallbackRecommendation(userID: String, userToken: String)(using PlanContext): RecommendationStrategy = excludeSongs => {
     logInfo("策略3: 启动后备推荐策略")
-    GetUserSongRecommendations(userID, userToken, pageSize = FALLBACK_PAGE_SIZE).send.flatMap {
-      case (Some(recommendedIds), _) => IO.pure(recommendedIds.find(id => !excludeSongs.contains(id)))
-      case (None, msg) => logInfo(s"后备推荐API调用失败: $msg").as(None)
+    // [REFACTORED] 直接调用Utils方法
+    GetUserSongRecommendationsUtils.generateRecommendations(userID, userToken, 1, FALLBACK_PAGE_SIZE).map {
+      recommendedIds => recommendedIds.find(id => !excludeSongs.contains(id))
+    }.handleErrorWith { error =>
+      logInfo(s"后备推荐逻辑执行失败: ${error.getMessage}").as(None)
     }
   }
 
@@ -128,7 +133,10 @@ object GetNextSongRecommendationUtils {
     for {
       candidateIds <- FilterSongsByEntity(userID, userToken, genres = Some(genre)).send.map(_._1.getOrElse(List.empty))
       candidates = candidateIds.filterNot(excludeSongs.contains).take(CANDIDATE_SONGS_LIMIT)
-      songsWithPopularity <- candidates.traverse(songId => GetSongPopularity(userID, userToken, songId).send.map(r => (songId, r._1.getOrElse(0.0))))
+      // [REFACTORED] 并行地、直接地调用热度计算方法
+      songsWithPopularity <- candidates.traverse { songId =>
+        GetSongPopularityUtils.calculatePopularity(songId).map(p => (songId, p))
+      }
       topSongs = songsWithPopularity.sortBy(-_._2).take(TOP_N_SONGS_FOR_SAMPLING)
       sampledSong <- if (topSongs.isEmpty) IO.pure(None) else {
         val songDims = topSongs.map { case (id, popularity) => Dim(id, popularity) }
@@ -138,3 +146,4 @@ object GetNextSongRecommendationUtils {
 
   private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
 }
+// ===== End of src\main\scala\Utils\GetNextSongRecommendationUtils.scala ===== 

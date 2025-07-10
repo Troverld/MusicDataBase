@@ -1,7 +1,8 @@
+// ===== src\main\scala\Utils\GetUserSongRecommendationsUtils.scala ===== 
+
 package Utils
 
 import Common.API.PlanContext
-import APIs.StatisticsService.{GetUserPortrait, GetSongPopularity}
 import APIs.MusicService.{GetSongList, GetSongProfile}
 import Objects.StatisticsService.Profile
 import cats.effect.IO
@@ -12,7 +13,6 @@ import org.slf4j.LoggerFactory
 object GetUserSongRecommendationsUtils {
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
-  // -- 辅助数据结构 --
   private case class SongMetrics(songID: String, profile: Profile, popularity: Double)
   private case class RankedSong(songID: String, score: Double)
 
@@ -38,11 +38,13 @@ object GetUserSongRecommendationsUtils {
     } yield paginatedResults
   }
 
-  private def fetchUserPortrait(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] =
-    GetUserPortrait(userID, userToken).send.flatMap {
-      case (Some(portrait), _) => IO.pure(portrait)
-      case (None, msg) => logInfo(s"无法获取用户画像: $msg. 将使用空画像。") >> IO.pure(Profile(List.empty, norm = true))
-    }
+  private def fetchUserPortrait(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
+    GetUserPortraitUtils.generateUserProfile(userID, userToken)
+      .handleErrorWith { error =>
+        logInfo(s"无法获取用户画像: ${error.getMessage}. 将使用空画像。") >>
+          IO.pure(Profile(List.empty, norm = true))
+      }
+  }
 
   private def fetchAllCandidateSongs(userID: String, userToken: String)(using planContext: PlanContext): IO[List[String]] =
     GetSongList(userID, userToken).send.flatMap {
@@ -65,24 +67,21 @@ object GetUserSongRecommendationsUtils {
       }.map(_.flatten)
     }
 
-  private def fetchSongMetrics(songID: String, userID: String, userToken: String)(using planContext: PlanContext): IO[SongMetrics] =
+  private def fetchSongMetrics(songID: String, userID: String, userToken: String)(using planContext: PlanContext): IO[SongMetrics] = {
+    // [REFACTORED] Removed parTupled for sequential execution.
     for {
-      // 串行执行两个 IO 操作
       profileResult <- GetSongProfile(userID, userToken, songID).send
-      popularityResult <- GetSongPopularity(userID, userToken, songID).send
+      popularity <- GetSongPopularityUtils.calculatePopularity(songID)
 
-      // 对两个操作的结果元组进行 match
-      metrics <- (profileResult, popularityResult) match {
-        // 成功情况：两个 API 都返回了 Some(...)
-        case ((Some(profile), _), (Some(popularity), _)) =>
-          IO.pure(SongMetrics(songID, profile, popularity))
-
-        // 失败情况：任何一个或两个 API 调用失败
-        case ((profileOpt, profileMsg), (popOpt, popMsg)) =>
-          val errorDetails = s"Profile: ${profileOpt.isDefined} ('$profileMsg'), Popularity: ${popOpt.isDefined} ('$popMsg')"
-          IO.raiseError(new Exception(s"获取歌曲 ${songID} 的核心数据失败: $errorDetails"))
+      profile <- profileResult match {
+        case (Some(p), _) => IO.pure(p)
+        case (None, msg) => IO.raiseError[Profile](new Exception(s"获取歌曲 $songID Profile失败: $msg"))
       }
-    } yield metrics
+
+    } yield SongMetrics(songID, profile, popularity)
+  }.handleErrorWith { error =>
+    IO.raiseError(new Exception(s"获取歌曲 ${songID} 的核心数据失败: ${error.getMessage}", error))
+  }
 
   private def rankSongsBySimilarity(userPortrait: Profile, candidates: List[SongMetrics]): List[RankedSong] = {
     candidates.map { song =>
@@ -94,11 +93,11 @@ object GetUserSongRecommendationsUtils {
   }
 
   private def rankSongsByPopularity(songIDs: List[String], userID: String, userToken: String)(using planContext: PlanContext): IO[List[RankedSong]] = {
-    logInfo("正在并行获取所有歌曲的热度以进行热门推荐...")
+    logInfo("正在串行获取所有歌曲的热度以进行热门推荐...") // [COMMENT] Changed log message
     songIDs.traverse { songID =>
-      GetSongPopularity(userID, userToken, songID).send
-        .map(r => RankedSong(songID, r._1.getOrElse(0.0)))
-        .attempt // Use attempt to prevent one failure from failing all
+      GetSongPopularityUtils.calculatePopularity(songID)
+        .map(p => RankedSong(songID, p))
+        .attempt
     }.map { results =>
       results.collect { case Right(rankedSong) if rankedSong.score > 0 => rankedSong }.sortBy(-_.score)
     }
@@ -111,3 +110,4 @@ object GetUserSongRecommendationsUtils {
 
   private def logInfo(message: String)(using pc: PlanContext): IO[Unit] = IO(logger.info(s"TID=${pc.traceID.id} -- $message"))
 }
+// ===== End of src\main\scala\Utils\GetUserSongRecommendationsUtils.scala ===== 
