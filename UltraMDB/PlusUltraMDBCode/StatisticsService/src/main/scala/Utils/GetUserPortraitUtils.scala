@@ -9,7 +9,8 @@ import org.slf4j.LoggerFactory
 import io.circe.generic.auto._
 
 object GetUserPortraitUtils {
-  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+//  private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+  private val logger = DebugLoggerFactory.getLogger(getClass)
 
   def generateUserProfile(userID: String, userToken: String)(using planContext: PlanContext): IO[Profile] = {
     // 权重系数，方便调整
