@@ -123,10 +123,10 @@ object Routes:
         ).flatten
 
       // 移除歌曲评分
-      case "UnrateSongPlanner" =>
+      case "UnrateSong" =>
         IO(
-          decode[UnrateSongPlannerPlanner](str) match
-            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for UnrateSongPlanner[${err.getMessage}]")
+          decode[UnrateSongPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for UnrateSong[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
 
