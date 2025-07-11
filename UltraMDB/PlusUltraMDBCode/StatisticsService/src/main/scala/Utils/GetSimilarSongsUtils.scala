@@ -56,6 +56,12 @@ object GetSimilarSongsUtils {
     IO.raiseError(new Exception(s"获取歌曲 $sID 的核心数据失败: ${error.getMessage}", error))
   }
 
+  private def fetchAllOtherSongs(userID: String, userToken: String, targetSongID: String)(using PlanContext): IO[List[String]] =
+  GetSongList(userID, userToken).send.flatMap {
+    case (Some(songIDs), _) => IO.pure(songIDs.filterNot(_ == targetSongID))
+    case (None, msg) => IO.raiseError(new Exception(s"无法获取所有歌曲列表: $msg"))
+  }
+
   // ==================== 优化核心：重写 fetchAllSongMetrics ====================
   /**
    * 使用批量API高效获取所有候选歌曲的指标。
