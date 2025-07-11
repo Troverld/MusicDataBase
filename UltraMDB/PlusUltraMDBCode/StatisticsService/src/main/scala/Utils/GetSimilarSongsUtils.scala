@@ -3,7 +3,7 @@
 package Utils
 
 import Common.API.PlanContext
-import APIs.MusicService.{GetSongList, GetSongProfile}
+import APIs.MusicService.{GetMultSongsProfiles, GetSongList, GetSongProfile} 
 import Objects.StatisticsService.Profile
 import cats.effect.IO
 import cats.implicits._
@@ -13,8 +13,7 @@ import io.circe.generic.auto._
 object GetSimilarSongsUtils {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
-
-  private val basiccoe = 10
+  private val basiccoefficient = 10 // 基础系数，用于调整流行度对最终分数的影响
 
   private case class SongMetrics(songID: String, profile: Profile, popularity: Double)
   private case class RankedSong(songID: String, score: Double)
@@ -57,26 +56,54 @@ object GetSimilarSongsUtils {
     IO.raiseError(new Exception(s"获取歌曲 $sID 的核心数据失败: ${error.getMessage}", error))
   }
 
-  private def fetchAllOtherSongs(userID: String, userToken: String, targetSongID: String)(using PlanContext): IO[List[String]] =
-    GetSongList(userID, userToken).send.flatMap {
-      case (Some(songIDs), _) => IO.pure(songIDs.filterNot(_ == targetSongID))
-      case (None, msg) => IO.raiseError(new Exception(s"无法获取所有歌曲列表: $msg"))
+  // ==================== 优化核心：重写 fetchAllSongMetrics ====================
+  /**
+   * 使用批量API高效获取所有候选歌曲的指标。
+   * 此方法通过两个并行的批量请求替换了原来的N+1次请求。
+   */
+  private def fetchAllSongMetrics(userID: String, userToken: String, songIDs: List[String])(using planContext: PlanContext): IO[List[SongMetrics]] = {
+    if (songIDs.isEmpty) {
+      return IO.pure(List.empty)
     }
+    
+    logInfo(s"正在为 ${songIDs.length} 首歌曲批量获取 Profiles 和 Popularities...")
 
-  private def fetchAllSongMetrics(userID: String, userToken: String, songIDs: List[String])(using planContext: PlanContext): IO[List[SongMetrics]] =
-    songIDs.traverse { sID =>
-      fetchSongMetrics(userID, userToken, sID).attempt.map {
-        case Right(metrics) => Some(metrics)
-        case Left(error) =>
-          logger.warn(s"TID=${planContext.traceID.id} -- 获取候选歌曲 ${sID} 数据失败，将跳过此歌曲: ${error.getMessage}")
-          None
+    // 1. 定义批量获取 Profile 的 IO 操作
+    val profilesIO: IO[Map[String, Profile]] =
+      GetMultSongsProfiles(userID, userToken, songIDs).send.flatMap {
+        case (Some(profilesList), _) => IO.pure(profilesList.toMap)
+        case (None, msg) => IO.raiseError(new Exception(s"批量获取歌曲 Profiles 失败: $msg"))
       }
-    }.map(_.flatten)
+
+    // 2. 定义批量计算 Popularity 的 IO 操作
+    val popularitiesIO: IO[Map[String, Double]] =
+      GetSongPopularityUtils.calculateBatchPopularity(songIDs)
+
+    // 3. 并行执行这两个批量操作
+    for {
+      (profileMap, popularityMap) <- (profilesIO, popularitiesIO).parTupled
+
+      // 4. 重组数据
+      metrics = songIDs.flatMap { id =>
+        profileMap.get(id) match {
+          case Some(profile) =>
+            // 如果Profile存在，则组合指标。流行度若不存在则默认为0。
+            val popularity = popularityMap.getOrElse(id, 0.0)
+            Some(SongMetrics(id, profile, popularity))
+          case None =>
+            // 如果歌曲的Profile在批量返回结果中缺失，记录警告并跳过该歌曲
+            logger.warn(s"TID=${planContext.traceID.id} -- 在批量获取结果中未找到歌曲 ${id} 的Profile，将跳过。")
+            None
+        }
+      }
+    } yield metrics
+  }
+  // ==================== 优化结束 ====================
 
   private def rankSongs(target: SongMetrics, candidates: List[SongMetrics]): List[RankedSong] =
     candidates.map { candidate =>
       val matchScore = StatisticsUtils.calculateCosineSimilarity(target.profile, candidate.profile)
-      val popularityFactor = Math.log1p(candidate.popularity+basiccoe)
+      val popularityFactor = Math.log1p(candidate.popularity+basiccoefficient)
       val finalScore = matchScore * popularityFactor
       RankedSong(candidate.songID, finalScore)
     }.filter(_.score > 0).sortBy(-_.score)
