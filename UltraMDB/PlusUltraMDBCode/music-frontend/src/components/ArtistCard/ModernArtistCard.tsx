@@ -21,9 +21,9 @@ const ModernArtistCard: React.FC<ModernArtistCardProps> = ({ artist, onEdit, onD
   const getInitials = (name: string) => {
     const words = name.trim().split(' ');
     if (words.length >= 2) {
-      return words[0][0] + words[1][0];
+      return words[0][0];
     }
-    return name.slice(0, 2);
+    return name.slice(0, 1);
   };
 
   // 获取权限标签
