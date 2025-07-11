@@ -41,11 +41,11 @@ package object DBAPI {
     for {
       _ <- startTransactionAction // Start the transaction if this is the first level
       result <- block(using newContext).attempt // Execute the block with the new (incremented) transaction context
-      _ <- IO.println("Step result")
-
-      _ <- result match
-        case Left(value) => IO.pure(value.printStackTrace())
-        case Right(value) => IO.println(s"result = ${result}")
+//      _ <- IO.println("Step result")
+//
+//      _ <- result match
+//        case Left(value) => IO.pure(value.printStackTrace())
+//        case Right(value) => IO.println(s"result = ${result}")
 
       finalResult <- commitOrRollbackAction(result)
     } yield finalResult
