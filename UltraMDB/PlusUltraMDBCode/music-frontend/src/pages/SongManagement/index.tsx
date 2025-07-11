@@ -29,27 +29,34 @@ const SongManagement: React.FC = () => {
   // 权限检查
   const { isUser, isAdmin } = usePermissions();
 
-  // 获取所有歌曲 (非分页)
+  // 获取所有歌曲（改为分页）
   const fetchAllSongs = async () => {
     setLoading(true);
     setError('');
-    setIsSearchMode(false);
+    setIsSearchMode(true); // 设置为搜索模式以显示分页
     setCurrentPage(1);
     setTotalPages(0);
     
     try {
-      // 使用 `%` 字符串搜索来获取所有歌曲
-      const [songIds, message] = await musicService.searchSongs('%');
+      // 使用分页搜索，`%` 匹配所有歌曲
+      const result = await musicService.searchSongsPaged('%', 1, pageSize);
+      const [pagedResult, message] = result;
       
-      if (songIds && songIds.length > 0) {
-        const songsData = await musicService.getSongsByIds(songIds);
+      if (pagedResult && pagedResult.songIds && pagedResult.songIds.length > 0) {
+        const songsData = await musicService.getSongsByIds(pagedResult.songIds);
         setSongs(songsData);
+        setTotalPages(pagedResult.totalPages);
+        setCurrentPage(1);
       } else {
         setSongs([]);
+        setTotalPages(0);
+        setCurrentPage(1);
       }
     } catch (err: any) {
       setError(err.message || '获取歌曲列表失败');
       setSongs([]);
+      setTotalPages(0);
+      setCurrentPage(1);
     } finally {
       setLoading(false);
     }
