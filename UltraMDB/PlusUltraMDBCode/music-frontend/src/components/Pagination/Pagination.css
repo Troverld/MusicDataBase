@@ -1,0 +1,136 @@
+/* 分页组件样式 */
+.pagination-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 0;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 20px;
+  }
+  
+  .pagination-info {
+    font-size: 14px;
+    color: #6b7280;
+    text-align: center;
+  }
+  
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .pagination-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #374151;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+  
+  .pagination-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    transform: translateY(-1px);
+  }
+  
+  .pagination-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  
+  .pagination-btn.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+  }
+  
+  .pagination-btn.active:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+  }
+  
+  .pagination-btn:disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+    border-color: #e5e7eb;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .pagination-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+    color: #9ca3af;
+    font-weight: 500;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 640px) {
+    .pagination-container {
+      padding: 16px;
+    }
+    
+    .pagination-controls {
+      gap: 4px;
+    }
+    
+    .pagination-btn {
+      min-width: 36px;
+      height: 36px;
+      padding: 0 8px;
+      font-size: 13px;
+    }
+    
+    .pagination-ellipsis {
+      min-width: 36px;
+      height: 36px;
+    }
+  }
+  
+  /* 暗色主题支持 */
+  @media (prefers-color-scheme: dark) {
+    .pagination-container {
+      border-top-color: #374151;
+    }
+    
+    .pagination-info {
+      color: #9ca3af;
+    }
+    
+    .pagination-btn {
+      background: #1f2937;
+      border-color: #374151;
+      color: #e5e7eb;
+    }
+    
+    .pagination-btn:hover:not(:disabled) {
+      background: #374151;
+      border-color: #4b5563;
+    }
+    
+    .pagination-btn:disabled {
+      background: #111827;
+      color: #6b7280;
+      border-color: #374151;
+    }
+    
+    .pagination-ellipsis {
+      color: #6b7280;
+    }
+  }

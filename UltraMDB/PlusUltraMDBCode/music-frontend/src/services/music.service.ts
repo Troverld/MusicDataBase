@@ -19,7 +19,7 @@ export const musicService = {
       }));
     };
 
-    // 提取 ID 列表
+    // 提取ID的辅助函数
     const extractIds = (items: ArtistBandItem[]) => {
       if (!items || items.length === 0) return [];
       return items.map(item => item.id);
@@ -29,14 +29,14 @@ export const musicService = {
       userID: user.userID,
       userToken: user.userToken,
       name: songData.name,
-      releaseTime: songData.releaseTime || Date.now(),
-      creators: convertToCreatorIDType(songData.creators || []),
-      performers: extractIds(songData.performers || []),
-      lyricists: extractIds(songData.lyricists || []),
-      composers: extractIds(songData.composers || []),
-      arrangers: extractIds(songData.arrangers || []),
-      instrumentalists: extractIds(songData.instrumentalists || []),
-      genres: songData.genres || []
+      releaseTime: songData.releaseTime ? new Date(songData.releaseTime).getTime() : undefined,
+      creators: songData.creators ? convertToCreatorIDType(songData.creators) : undefined,
+      performers: songData.performers ? extractIds(songData.performers) : undefined,
+      lyricists: songData.lyricists ? extractIds(songData.lyricists) : undefined,
+      composers: songData.composers ? extractIds(songData.composers) : undefined,
+      arrangers: songData.arrangers ? extractIds(songData.arrangers) : undefined,
+      instrumentalists: songData.instrumentalists ? extractIds(songData.instrumentalists) : undefined,
+      genres: songData.genres
     };
 
     return callAPI<[string | null, string]>('UploadNewSong', data);
@@ -57,7 +57,7 @@ export const musicService = {
       }));
     };
 
-    // 提取 ID 列表
+    // 提取ID的辅助函数
     const extractIds = (items: ArtistBandItem[]) => {
       if (!items || items.length === 0) return [];
       return items.map(item => item.id);
@@ -68,7 +68,7 @@ export const musicService = {
       userToken: user.userToken,
       songID,
       name: songData.name,
-      releaseTime: songData.releaseTime ? (typeof songData.releaseTime === 'number' ? songData.releaseTime : new Date(songData.releaseTime).getTime()) : undefined,
+      releaseTime: songData.releaseTime ? new Date(songData.releaseTime).getTime() : undefined,
       creators: songData.creators ? convertToCreatorIDType(songData.creators) : undefined,
       performers: songData.performers ? extractIds(songData.performers) : undefined,
       lyricists: songData.lyricists ? extractIds(songData.lyricists) : undefined,
@@ -109,6 +109,36 @@ export const musicService = {
     };
 
     return callAPI<[string[] | null, string]>('SearchSongsByName', data);
+  },
+
+  // 新增：分页搜索歌曲方法
+  async searchSongsPaged(keywords: string, pageNumber: number, pageSize: number = 5): Promise<[{songIds: string[] | null, totalPages: number} | null, string]> {
+    const user = getUser();
+    if (!user || !user.userToken || !user.userID) {
+      throw new Error('User not authenticated');
+    }
+
+    const data = {
+      userID: user.userID,
+      userToken: user.userToken,
+      keywords,
+      pageNumber,
+      pageSize
+    };
+
+    try {
+      const result = await callAPI<[[string[], number] | null, string]>('SearchSongsByNamePaged', data);
+      const [optionResult, message] = result;
+      
+      if (optionResult && Array.isArray(optionResult) && optionResult.length === 2) {
+        const [songIds, totalPages] = optionResult;
+        return [{ songIds, totalPages }, message];
+      } else {
+        return [null, message];
+      }
+    } catch (error: any) {
+      return [null, error.message || '分页搜索失败'];
+    }
   },
 
   async getSongById(songID: string): Promise<[Song | null, string]> {

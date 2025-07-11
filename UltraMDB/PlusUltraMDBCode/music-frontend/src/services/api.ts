@@ -10,6 +10,13 @@ const SERVICE_PORTS = {
   track: 10013,        // TrackService
   statistics: 10013    // StatisticsService
 };
+// const SERVICE_PORTS = {
+//   organize: 10011,     // OrganizeService
+//   music: 10011,        // MusicService
+//   creator: 10011,      // CreatorService
+//   track: 10011,        // TrackService
+//   statistics: 10011    // StatisticsService
+// };
 
 // API到服务的映射
 const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
@@ -29,6 +36,7 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'UpdateSongMetadata': 'music',
   'DeleteSong': 'music',
   'SearchSongsByName': 'music',
+  'SearchSongsByNamePaged': 'music',
   'GetSongByID': 'music',
   'GetSongList': 'music',
   'GetSongProfile': 'music',
@@ -77,7 +85,8 @@ const API_SERVICE_MAP: Record<string, keyof typeof SERVICE_PORTS> = {
   'GetNextSongRecommendation': 'statistics',
   'GetSimilarSongs': 'statistics',
   'GetSimilarCreators': 'statistics',
-  'GetCreatorCreationTendency': 'statistics',
+  'GetCreatorCreativity': 'statistics',
+  'GetCreatorGenreTendency': 'statistics',
   'GetCreatorGenreStrength': 'statistics'
 };
 
