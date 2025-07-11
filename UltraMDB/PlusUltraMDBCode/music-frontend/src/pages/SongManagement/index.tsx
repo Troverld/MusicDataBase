@@ -67,16 +67,6 @@ const SongManagement: React.FC = () => {
       if (pagedResult && pagedResult.songIds && pagedResult.songIds.length > 0) {
         const songsData = await musicService.getSongsByIds(pagedResult.songIds);
         setSongs(songsData);
-        
-        // 如果是第一次搜索(pageNumber = -1)，只获取总页数
-        if (pageNumber === -1) {
-          setTotalPages(pagedResult.totalPages);
-          setCurrentPage(1);
-          // 再次调用获取第一页数据
-          searchSongsPaged(keywords, 1);
-          return;
-        }
-        
         setTotalPages(pagedResult.totalPages);
         setCurrentPage(pageNumber);
         
@@ -87,10 +77,7 @@ const SongManagement: React.FC = () => {
         setSongs([]);
         setTotalPages(0);
         setCurrentPage(1);
-        
-        if (pageNumber !== -1) {
-          setError(message || '未找到匹配的歌曲');
-        }
+        setError(message || '未找到匹配的歌曲');
       }
     } catch (err: any) {
       setError(err.message || '搜索失败');
@@ -134,8 +121,8 @@ const SongManagement: React.FC = () => {
     }
     
     setIsSearchMode(true);
-    // 先调用 pageNumber = -1 获取总页数
-    await searchSongsPaged(searchKeyword, -1);
+    // 直接搜索第一页
+    await searchSongsPaged(searchKeyword, 1);
   };
 
   // 处理分页切换
