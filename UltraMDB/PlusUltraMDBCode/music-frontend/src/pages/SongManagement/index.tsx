@@ -28,8 +28,8 @@ const SongManagement: React.FC = () => {
     setError('');
     
     try {
-      // 使用空字符串搜索来获取所有歌曲
-      const [songIds, message] = await musicService.searchSongs('');
+      // 使用 `%` 字符串搜索来获取所有歌曲
+      const [songIds, message] = await musicService.searchSongs('%');
       
       if (songIds && songIds.length > 0) {
         const songsData = await musicService.getSongsByIds(songIds);
