@@ -114,24 +114,22 @@ const SongManagement: React.FC = () => {
   }, [location.state]);
 
   const handleSearch = async () => {
-    if (!searchKeyword.trim()) {
-      // 如果搜索框为空，显示所有歌曲
-      await fetchAllSongs();
-      return;
-    }
-    
     setIsSearchMode(true);
-    // 直接搜索第一页
-    await searchSongsPaged(searchKeyword, 1);
+    
+    // 如果搜索框为空，使用 '%' 获取所有歌曲的分页
+    const keywords = searchKeyword.trim() || '%';
+    await searchSongsPaged(keywords, 1);
   };
 
   // 处理分页切换
   const handlePageChange = async (page: number) => {
-    if (!isSearchMode || !searchKeyword.trim()) {
+    if (!isSearchMode) {
       return;
     }
     
-    await searchSongsPaged(searchKeyword, page);
+    // 如果没有搜索关键词，使用 '%' 获取所有歌曲的分页
+    const keywords = searchKeyword.trim() || '%';
+    await searchSongsPaged(keywords, page);
   };
 
   const handleDelete = async (songID: string) => {
@@ -140,12 +138,9 @@ const SongManagement: React.FC = () => {
     try {
       const [success, message] = await musicService.deleteSong(songID);
       if (success) {
-        // 根据当前模式重新加载数据
-        if (isSearchMode && searchKeyword.trim()) {
-          await searchSongsPaged(searchKeyword, currentPage);
-        } else {
-          await fetchAllSongs();
-        }
+        // 删除后重新加载当前页，如果没有搜索关键词则使用 '%'
+        const keywords = searchKeyword.trim() || '%';
+        await searchSongsPaged(keywords, currentPage);
         setSuccess('歌曲删除成功');
       } else {
         setError(message);
@@ -174,12 +169,9 @@ const SongManagement: React.FC = () => {
       }
       setReturnInfo(null);
     } else {
-      // 根据当前模式重新加载数据
-      if (isSearchMode && searchKeyword.trim()) {
-        await searchSongsPaged(searchKeyword, currentPage);
-      } else {
-        await fetchAllSongs();
-      }
+      // 重新加载当前页，如果没有搜索关键词则使用 '%'
+      const keywords = searchKeyword.trim() || '%';
+      await searchSongsPaged(keywords, currentPage);
     }
   };
 
