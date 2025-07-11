@@ -82,6 +82,13 @@ const BandDetail: React.FC = () => {
     fetchBand();
   }, [bandID, convertIdsToArtistBandItems]);
 
+  useEffect(() => {
+    // 当 bandID 改变时，清空歌曲相关状态
+    setBandSongs([]);
+    setShowSongs(false);
+    setSimilarCreators([]);
+  }, [bandID]);
+
   // 获取乐队的歌曲
   const fetchBandSongs = async () => {
     if (!bandID) return;

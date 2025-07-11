@@ -73,6 +73,13 @@ const ArtistDetail: React.FC = () => {
     fetchArtist();
   }, [artistID]);
 
+  useEffect(() => {
+    // 当 artistID 改变时，清空歌曲相关状态
+    setArtistSongs([]);
+    setShowSongs(false);
+    setSimilarCreators([]);
+  }, [artistID]);
+
   // 获取艺术家的歌曲
   const fetchArtistSongs = async () => {
     if (!artistID) return;
