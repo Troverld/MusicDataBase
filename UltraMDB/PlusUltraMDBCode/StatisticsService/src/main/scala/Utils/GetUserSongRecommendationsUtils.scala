@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory
 
 object GetUserSongRecommendationsUtils {
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
+  private val basiccoefficient = 10 // 基础系数，用于调整流行度对最终分数的影响
 
   private case class SongMetrics(songID: String, profile: Profile, popularity: Double)
   private case class RankedSong(songID: String, score: Double)
@@ -86,7 +87,7 @@ object GetUserSongRecommendationsUtils {
   private def rankSongsBySimilarity(userPortrait: Profile, candidates: List[SongMetrics]): List[RankedSong] = {
     candidates.map { song =>
       val matchScore = StatisticsUtils.calculateCosineSimilarity(userPortrait, song.profile)
-      val popularityFactor = Math.log1p(song.popularity)
+      val popularityFactor = Math.log1p(song.popularity+basiccoefficient)
       val finalScore = matchScore * popularityFactor
       RankedSong(song.songID, finalScore)
     }.filter(_.score > 0).sortBy(-_.score)
