@@ -14,6 +14,8 @@ object GetSimilarSongsUtils {
 
   private val logger = LoggerFactory.getLogger(getClass.getSimpleName)
 
+  private val basiccoe = 10
+
   private case class SongMetrics(songID: String, profile: Profile, popularity: Double)
   private case class RankedSong(songID: String, score: Double)
 
@@ -74,7 +76,7 @@ object GetSimilarSongsUtils {
   private def rankSongs(target: SongMetrics, candidates: List[SongMetrics]): List[RankedSong] =
     candidates.map { candidate =>
       val matchScore = StatisticsUtils.calculateCosineSimilarity(target.profile, candidate.profile)
-      val popularityFactor = Math.log1p(candidate.popularity)
+      val popularityFactor = Math.log1p(candidate.popularity+basiccoe)
       val finalScore = matchScore * popularityFactor
       RankedSong(candidate.songID, finalScore)
     }.filter(_.score > 0).sortBy(-_.score)
