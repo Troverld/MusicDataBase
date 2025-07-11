@@ -41,11 +41,24 @@ const Layout: React.FC = () => {
     <>
       <nav className="navbar">
         <div className="navbar-content">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <Link to="/" style={{ fontSize: '22px', fontWeight: 'bold' }}>
-              音乐管理系统
-            </Link>
-          </div>
+        <a 
+  href="/" 
+  style={{
+    fontSize: '24px',
+    fontWeight: 'bold',
+    textDecoration: 'none',
+    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+    transition: 'transform 0.2s ease',
+    display: 'inline-block'
+  }}
+  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+>
+  PlusUltraMDB
+</a>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <Link to="/">仪表盘</Link>
@@ -130,7 +143,7 @@ const Layout: React.FC = () => {
               borderLeft: '1px solid rgba(0, 0, 0, 0.1)'
             }}>
               <span style={{ 
-                fontSize: '14px',
+                fontSize: '15px',
                 color: '#374151',
                 fontWeight: '500'
               }}>
