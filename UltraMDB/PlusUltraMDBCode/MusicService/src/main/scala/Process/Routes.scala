@@ -16,7 +16,7 @@ import org.http4s.dsl.io.*
 
 import scala.collection.concurrent.TrieMap
 import Common.Serialize.CustomColumnTypes.*
-import Impl.{CreateNewGenrePlanner, DeleteGenrePlanner, DeleteSongPlanner, FilterSongsByEntityPlanner, GetGenreList, GetSongListPlanner, GetSongByID, GetSongProfile, SearchSongsByNamePlanner, UpdateSongMetadataPlanner, UploadNewSongPlanner, ValidateSongOwnershipPlanner, GetMultSongsProfiles}
+import Impl.{CreateNewGenrePlanner, DeleteGenrePlanner, DeleteSongPlanner, FilterSongsByEntityPlanner, GetGenreList, GetSongListPlanner, GetSongByID, GetSongProfile, SearchSongsByNamePlanner, SearchSongsByNamePagedPlanner, UpdateSongMetadataPlanner, UploadNewSongPlanner, ValidateSongOwnershipPlanner, GetMultSongsProfiles}
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -40,6 +40,13 @@ object Routes:
         IO(
           decode[SearchSongsByNamePlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchSongsByName[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+
+      case "SearchSongsByNamePaged" =>
+        IO(
+          decode[SearchSongsByNamePagedPlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchSongsByNamePaged[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
 
