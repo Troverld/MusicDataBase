@@ -93,7 +93,8 @@ object API {
         response.status match {
           case status if status.isSuccess =>
             response.bodyText.compile.string.flatMap { body =>
-              IO.println(s"Response body: $body")
+              IO.unit
+              // IO.println(s"Response body: $body")
             } >>
               handler.handle(response)
           case _ =>
