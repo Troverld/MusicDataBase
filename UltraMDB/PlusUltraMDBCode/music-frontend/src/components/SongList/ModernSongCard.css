@@ -81,55 +81,41 @@
 
 /* 角色信息 */
 .song-credits {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .credit-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 14px;
+  color: #4b5563;
 }
 
 .credit-icon {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: #f9fafb;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.credit-icon svg {
   color: #6b7280;
-  transition: color 0.2s ease;
-}
-
-.credit-item:hover .credit-icon svg {
-  color: #4b5563;
+  flex-shrink: 0;
 }
 
 .credit-text {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
 .credit-label {
-  font-size: 12px;
   font-weight: 500;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: #6b7280;
+  flex-shrink: 0;
 }
 
 .credit-value {
-  font-size: 14px;
   color: #374151;
-  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -141,16 +127,72 @@
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding-left: 24px;
-  border-left: 1px solid #f3f4f6;
+  flex-shrink: 0;
 }
 
-/* 评分统计 */
+/* 评分信息区域 */
 .song-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+}
+
+/* 优化紧凑模式下的评分显示 */
+.song-stats .song-rating.compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.song-stats .song-rating.compact .average-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.song-stats .song-rating.compact .rating-count {
+  font-size: 14px;
+  color: #6b7280;
   text-align: center;
 }
 
-/* 操作按钮 */
+/* 热度显示优化 */
+.song-stats .song-rating.compact .popularity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.song-stats .song-rating.compact .popularity-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ef4444;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 评分和热度信息的整体布局 */
+.song-stats .rating-display {
+  text-align: center;
+}
+
+.song-stats .rating-display.compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 操作按钮区域 */
 .action-buttons {
   display: flex;
   gap: 8px;
@@ -162,22 +204,18 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: #f9fafb;
-  border: none;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
+  background: white;
+  color: #6b7280;
   cursor: pointer;
   transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
 }
 
-.action-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  transform: scale(1.05);
-}
-
-.action-btn:active:not(:disabled) {
-  transform: scale(0.95);
+.action-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #374151;
 }
 
 .action-btn:disabled {
@@ -185,191 +223,16 @@
   cursor: not-allowed;
 }
 
-.action-btn svg {
-  color: #6b7280;
-  transition: color 0.2s ease;
-}
-
-.edit-btn:hover:not(:disabled) svg {
+.edit-btn:hover {
+  border-color: #3b82f6;
   color: #3b82f6;
+  background: #eff6ff;
 }
 
-.delete-btn:hover:not(:disabled) {
-  background: #fee2e2;
-}
-
-.delete-btn:hover:not(:disabled) svg {
+.delete-btn:hover {
+  border-color: #ef4444;
   color: #ef4444;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .song-card-main {
-    flex-direction: column;
-    padding: 20px;
-    gap: 16px;
-  }
-  
-  .song-actions {
-    flex-direction: row;
-    justify-content: space-between;
-    padding-left: 0;
-    padding-top: 16px;
-    border-left: none;
-    border-top: 1px solid #f3f4f6;
-    width: 100%;
-  }
-  
-  .song-credits {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-  
-  .song-title {
-    font-size: 18px;
-  }
-  
-  .genre-pills {
-    margin-top: 8px;
-  }
-}
-
-@media (max-width: 480px) {
-  .song-card-main {
-    padding: 16px;
-  }
-  
-  .credit-icon {
-    width: 32px;
-    height: 32px;
-  }
-  
-  .credit-icon svg {
-    width: 16px;
-    height: 16px;
-  }
-  
-  .action-btn {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .action-btn svg {
-    width: 18px;
-    height: 18px;
-  }
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .modern-song-card {
-    background: #1f2937;
-    border-color: #374151;
-  }
-  
-  .song-title {
-    color: #f9fafb;
-  }
-  
-  .release-date {
-    color: #9ca3af;
-  }
-  
-  .genre-pill {
-    background: #374151;
-    color: #d1d5db;
-  }
-  
-  .genre-pill:hover {
-    background: #4b5563;
-    color: #e5e7eb;
-  }
-  
-  .credit-icon {
-    background: #374151;
-  }
-  
-  .credit-icon svg {
-    color: #9ca3af;
-  }
-  
-  .credit-item:hover .credit-icon svg {
-    color: #d1d5db;
-  }
-  
-  .credit-label {
-    color: #6b7280;
-  }
-  
-  .credit-value {
-    color: #e5e7eb;
-  }
-  
-  .song-actions {
-    border-left-color: #374151;
-  }
-  
-  .action-btn {
-    background: #374151;
-  }
-  
-  .action-btn:hover:not(:disabled) {
-    background: #4b5563;
-  }
-  
-  .action-btn svg {
-    color: #9ca3af;
-  }
-  
-  .edit-btn:hover:not(:disabled) svg {
-    color: #60a5fa;
-  }
-  
-  .delete-btn:hover:not(:disabled) {
-    background: #7f1d1d;
-  }
-  
-  .delete-btn:hover:not(:disabled) svg {
-    color: #f87171;
-  }
-}
-
-/* 动画 */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.modern-song-card {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* 加载状态 */
-.permission-loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.loading-spinner-small {
-  width: 16px;
-  height: 16px;
-  border: 2px solid #e5e7eb;
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  background: #fef2f2;
 }
 
 /* 权限提示 */
@@ -377,9 +240,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  padding: 8px 12px;
+  font-size: 12px;
   color: #6b7280;
-  padding: 6px 14px;
   background: #f9fafb;
   border-radius: 16px;
 }
@@ -387,4 +250,202 @@
 .permission-info svg {
   width: 16px;
   height: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .song-card-main {
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 24px;
+  }
+
+  .song-actions {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .song-stats {
+    min-width: auto;
+    flex: 1;
+  }
+
+  .song-stats .song-rating.compact {
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .song-stats .song-rating.compact .average-rating {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .song-stats .song-rating.compact .popularity {
+    flex-direction: row;
+    margin-top: 0;
+  }
+
+  .action-buttons {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .song-title {
+    font-size: 18px;
+  }
+
+  .song-meta {
+    gap: 8px;
+  }
+
+  .genre-pill {
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+
+  .credit-item {
+    font-size: 13px;
+  }
+
+  .song-card-main {
+    padding: 16px 20px;
+  }
+
+  .song-actions {
+    gap: 12px;
+  }
+
+  .action-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .action-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* 加载状态 */
+.song-stats .loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 评分状态提示 */
+.song-stats .rating-error {
+  font-size: 11px;
+  color: #ef4444;
+  text-align: center;
+  padding: 2px 8px;
+  background: #fef2f2;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.song-stats .rating-success {
+  font-size: 11px;
+  color: #059669;
+  text-align: center;
+  padding: 2px 8px;
+  background: #ecfdf5;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+/* 热度数值的动画效果 */
+.popularity-value {
+  transition: all 0.3s ease;
+}
+
+.song-rating.refreshing .popularity-value {
+  animation: popularityPulse 0.6s ease-in-out;
+}
+
+@keyframes popularityPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+    color: #f59e0b;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .modern-song-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .song-title {
+    color: #f9fafb;
+  }
+
+  .release-date,
+  .credit-label,
+  .credit-icon {
+    color: #9ca3af;
+  }
+
+  .credit-value {
+    color: #d1d5db;
+  }
+
+  .genre-pill {
+    background: #374151;
+    color: #d1d5db;
+  }
+
+  .genre-pill:hover {
+    background: #4b5563;
+    color: #f3f4f6;
+  }
+
+  .action-btn {
+    background: #374151;
+    border-color: #4b5563;
+    color: #9ca3af;
+  }
+
+  .action-btn:hover {
+    background: #4b5563;
+    border-color: #6b7280;
+    color: #d1d5db;
+  }
+
+  .permission-info {
+    background: #374151;
+    color: #9ca3af;
+  }
+
+  .song-stats .rating-error {
+    background: #7f1d1d;
+    color: #fca5a5;
+  }
+
+  .song-stats .rating-success {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 }

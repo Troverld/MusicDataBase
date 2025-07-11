@@ -179,14 +179,14 @@ const ModernSongCard: React.FC<ModernSongCardProps> = ({
             onPlayError={handlePlayError}
           />
           
-          {/* 评分信息 */}
+          {/* 评分信息 - 启用热度显示 */}
           <div className="song-stats">
             <SongRating
               ref={songRatingRef}
               songID={song.songID}
               showUserRating={true}
               showAverageRating={true}
-              showPopularity={false}
+              showPopularity={true}
               compact={true}
             />
           </div>
