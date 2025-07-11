@@ -200,6 +200,19 @@ const SongManagement: React.FC = () => {
     setError(message);
   };
 
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+  };
+
+  const resetForm = () => {
+    setEditingSong(null);
+  };
+
+  useEffect(() => {
+    clearMessages();
+  }, [searchKeyword]);
+
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingSong(null);
@@ -219,60 +232,154 @@ const SongManagement: React.FC = () => {
   const canUploadSongs = isUser || isAdmin;
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div className="header-left">
-          <h1>歌曲管理</h1>
-          {returnInfo && (
-            <div className="return-info">
-              <span>从 {returnInfo.type === 'artist' ? '艺术家' : '乐队'} 页面进入</span>
-            </div>
-          )}
+    <div style={{ 
+      background: '#f8f9fa', 
+      minHeight: 'calc(100vh - 70px)', 
+      padding: '40px 20px' 
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* 页面标题和描述 */}
+        <div style={{ 
+          textAlign: 'center', 
+          marginBottom: '40px',
+          animation: 'fadeIn 0.6s ease-out'
+        }}>
+          <h1 style={{ 
+            fontSize: '36px', 
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            marginBottom: '12px'
+          }}>
+            歌曲管理
+          </h1>
+          <p style={{ 
+            color: '#6b7280', 
+            fontSize: '18px',
+            maxWidth: '600px',
+            margin: '0 auto',
+            lineHeight: '1.6'
+          }}>
+            搜索、上传、编辑或删除系统中的音乐
+            {returnInfo && (
+              <span style={{ display: 'block', marginTop: '8px', fontStyle: 'italic', fontSize: '16px' }}>
+                从 {returnInfo.type === 'artist' ? '艺术家' : '乐队'} 页面进入
+              </span>
+            )}
+          </p>
         </div>
-        <div className="header-actions">
-          {canUploadSongs && (
-            <button 
-              className="btn-primary"
-              onClick={() => setShowModal(true)}
-            >
-              + 添加歌曲
-            </button>
-          )}
-        </div>
-      </div>
 
-      <div className="page-content">
-        {/* 搜索区域 */}
-        <SearchSection
-          searchKeyword={searchKeyword}
-          onSearchKeywordChange={setSearchKeyword}
-          onSearch={handleSearch}
-          loading={loading}
-        />
-
-        {/* 错误和成功提示 */}
+        {/* 提示信息 */}
         {error && (
-          <div className="alert alert-error">
+          <div style={{
+            background: '#fee2e2',
+            border: '1px solid #fecaca',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '24px',
+            color: '#dc2626',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            animation: 'slideDown 0.3s ease-out'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
             {error}
           </div>
         )}
         
         {success && (
-          <div className="alert alert-success">
+          <div style={{
+            background: '#d1fae5',
+            border: '1px solid #a7f3d0',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '24px',
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            animation: 'slideDown 0.3s ease-out'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
             {success}
           </div>
         )}
-
-        {/* 无权限提示 */}
-        {!canUploadSongs && (
-          <div className="alert alert-info">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="m9 12 2 2 4-4"/>
-            </svg>
-            您可以查看歌曲信息，但没有上传歌曲的权限
-          </div>
-        )}
+        
+        {/* 搜索栏 */}
+        <div style={{ marginBottom: '32px' }}>
+          <SearchSection
+            searchKeyword={searchKeyword}
+            onSearchKeywordChange={setSearchKeyword}
+            onSearch={handleSearch}
+            loading={loading}
+          />
+        </div>
+        
+        {/* 创建按钮或权限提示 */}
+        <div style={{ marginBottom: '32px', textAlign: 'center' }}>
+          {canUploadSongs ? (
+            <button 
+              onClick={() => { resetForm(); setShowModal(true); }}
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                border: 'none',
+                padding: '14px 32px',
+                borderRadius: '12px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(102, 126, 234, 0.3)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(102, 126, 234, 0.3)';
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              上传新歌曲
+            </button>
+          ) : (
+            <div style={{
+              background: '#fef3c7',
+              border: '1px solid #fde68a',
+              borderRadius: '12px',
+              padding: '16px 24px',
+              color: '#92400e',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              您没有上传歌曲的权限，仅能搜索和查看歌曲信息
+            </div>
+          )}
+        </div>
 
         {/* 歌曲列表 */}
         {loading ? (
