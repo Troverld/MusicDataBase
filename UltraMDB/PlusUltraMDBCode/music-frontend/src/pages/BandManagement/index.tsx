@@ -64,8 +64,8 @@ const BandManagement: React.FC = () => {
     setError('');
     
     try {
-      // 使用空字符串搜索来获取所有乐队
-      const [bandIDs, message] = await bandService.searchBandByName('');
+      // 使用 `%` 字符串搜索来获取所有乐队
+      const [bandIDs, message] = await bandService.searchBandByName('%');
       if (bandIDs && bandIDs.length > 0) {
         const bandDetails = await bandService.getBandsByIds(bandIDs);
         setBands(bandDetails);

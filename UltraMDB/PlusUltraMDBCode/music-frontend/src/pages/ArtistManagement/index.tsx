@@ -25,8 +25,8 @@ const ArtistManagement: React.FC = () => {
     setError('');
     
     try {
-      // 使用空字符串搜索来获取所有艺术家
-      const [artistIDs, message] = await artistService.searchArtistByName('');
+      // 使用 `%` 字符串搜索来获取所有艺术家
+      const [artistIDs, message] = await artistService.searchArtistByName('%');
       if (artistIDs && artistIDs.length > 0) {
         const artistDetails = await artistService.getArtistsByIds(artistIDs);
         setArtists(artistDetails);
