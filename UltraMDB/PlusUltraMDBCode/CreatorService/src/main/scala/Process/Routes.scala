@@ -31,6 +31,7 @@ import Impl.GetArtistByIDPlanner
 import Impl.GetBandByIDPlanner
 import Impl.SearchArtistByNamePlanner
 import Impl.SearchBandByNamePlanner
+import Impl.SearchCreatorByNamePlanner
 import Common.API.TraceID
 import org.joda.time.DateTime
 import org.http4s.circe.*
@@ -151,6 +152,13 @@ object Routes:
         IO(
           decode[SearchAllBelongingBandsPlanner](str) match
             case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchAllBelongingBands[${err.getMessage}]")
+            case Right(value) => value.fullPlan.map(_.asJson.toString)
+        ).flatten
+       
+      case "SearchCreatorByName" =>
+        IO(
+          decode[SearchCreatorByNamePlanner](str) match
+            case Left(err) => err.printStackTrace(); throw new Exception(s"Invalid JSON for SearchCreatorByName[${err.getMessage}]")
             case Right(value) => value.fullPlan.map(_.asJson.toString)
         ).flatten
        
