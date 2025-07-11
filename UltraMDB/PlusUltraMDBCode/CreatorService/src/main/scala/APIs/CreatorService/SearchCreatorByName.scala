@@ -1,23 +1,10 @@
-
 package APIs.CreatorService
-import Objects.CreatorService.{CreatorID_Type, CreatorType} // 移除了 SearchCreatorResponse
 
 import Common.API.API
 import Global.ServiceCenter.CreatorServiceCode
-
-import io.circe.{Decoder, Encoder, Json}
+import Objects.CreatorService.{CreatorID_Type, CreatorType} // 移除了 SearchCreatorResponse
+import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import io.circe.syntax.*
-import io.circe.parser.*
-import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
-
-import com.fasterxml.jackson.core.`type`.TypeReference
-import Common.Serialize.JacksonSerializeUtils
-
-import scala.util.Try
-
-import org.joda.time.DateTime
-import java.util.UUID
 
 /**
  * SearchCreatorByName
@@ -41,31 +28,13 @@ case class SearchCreatorByName(
   pageSize: Int
 ) extends API[(Option[(List[CreatorID_Type], Int)], String)](CreatorServiceCode) // <-- 主要修改在这里
 
-case object SearchCreatorByName {
+object SearchCreatorByName {
   // 确保 CreatorType 和 CreatorID_Type 的自定义编解码器在作用域内
-  import Common.Serialize.CustomColumnTypes.{decodeDateTime,encodeDateTime}
+  import Objects.CreatorService.CreatorType.given
+  import Objects.CreatorService.CreatorID_Type.given
 
-  // Circe 默认的 Encoder 和 Decoder
-  private val circeEncoder: Encoder[SearchCreatorByName] = deriveEncoder
-  private val circeDecoder: Decoder[SearchCreatorByName] = deriveDecoder
-
-  // Jackson 对应的 Encoder 和 Decoder
-  private val jacksonEncoder: Encoder[SearchCreatorByName] = Encoder.instance { currentObj =>
-    Json.fromString(JacksonSerializeUtils.serialize(currentObj))
-  }
-
-  private val jacksonDecoder: Decoder[SearchCreatorByName] = Decoder.instance { cursor =>
-    try { Right(JacksonSerializeUtils.deserialize(cursor.value.noSpaces, new TypeReference[SearchCreatorByName]() {})) } 
-    catch { case e: Throwable => Left(io.circe.DecodingFailure(e.getMessage, cursor.history)) }
-  }
-  
-  // Circe + Jackson 兜底的 Encoder
-  given searchCreatorByNameEncoder: Encoder[SearchCreatorByName] = Encoder.instance { config =>
-    Try(circeEncoder(config)).getOrElse(jacksonEncoder(config))
-  }
-
-  // Circe + Jackson 兜底的 Decoder
-  given searchCreatorByNameDecoder: Decoder[SearchCreatorByName] = Decoder.instance { cursor =>
-    circeDecoder.tryDecode(cursor).orElse(jacksonDecoder.tryDecode(cursor))
-  }
+  // Circe 的标准编解码器，对于包含 Option 和自定义类型的 case class 同样适用
+  // 注意：由于返回类型是元组，Circe 会自动处理，无需为元组提供显式编解码器。
+  given Encoder[SearchCreatorByName] = deriveEncoder
+  given Decoder[SearchCreatorByName] = deriveDecoder
 }

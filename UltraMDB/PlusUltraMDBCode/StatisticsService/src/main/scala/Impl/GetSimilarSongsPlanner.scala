@@ -27,7 +27,7 @@ case class GetSimilarSongsPlanner(
       _ <- validateUser()
       _ <- validateParams()
       
-     _ <- validateTargetSong()
+      _ <- validateTargetSong()
       _ <- logInfo("验证通过，正在调用 GetSimilarSongsUtils 执行查找逻辑")
       similarSongs <- GetSimilarSongsUtils.findSimilarSongs(userID, userToken, songID, limit)
     } yield similarSongs
