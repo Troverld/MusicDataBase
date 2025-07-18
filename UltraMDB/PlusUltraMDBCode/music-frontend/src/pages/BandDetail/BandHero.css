@@ -1,0 +1,228 @@
+/* BandHero.css - 英雄区域样式 */
+
+/* 英雄区域 */
+.band-hero {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    position: relative;
+    overflow: hidden;
+    color: white;
+  }
+  
+  /* 背景装饰 */
+  .band-hero::before {
+    content: '';
+    position: absolute;
+    width: 150%;
+    height: 150%;
+    top: -25%;
+    left: -25%;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    animation: float 20s linear infinite;
+  }
+  
+  @keyframes float {
+    from { transform: translate(0, 0) rotate(0deg); }
+    to { transform: translate(-100px, -100px) rotate(360deg); }
+  }
+  
+  .band-hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 80px 24px 40px;
+  }
+  
+  /* 头部信息 */
+  .band-header-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 40px;
+    margin-bottom: 40px;
+  }
+  
+  /* 乐队头像 */
+  .band-avatar-large {
+    width: 180px;
+    height: 180px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 72px;
+    font-weight: 700;
+    color: white;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .band-avatar-large::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: shimmer 3s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%); }
+    100% { transform: translateX(100%) translateY(100%); }
+  }
+  
+  /* 乐队核心信息 */
+  .band-core-info {
+    flex: 1;
+    padding-top: 20px;
+  }
+  
+  .band-name-large {
+    font-size: 48px;
+    font-weight: 800;
+    margin: 0 0 12px 0;
+    line-height: 1.2;
+  }
+  
+  .band-id-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    margin-bottom: 20px;
+  }
+  
+  .band-stats {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  
+  .band-stat {
+    text-align: center;
+  }
+  
+  .band-stat-value {
+    display: block;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  
+  .band-stat-label {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+  
+  /* 成员预览 */
+  .band-members-preview {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  
+  .member-avatar-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+  }
+  
+  .member-avatar-small:hover {
+    transform: scale(1.1);
+    border-color: white;
+  }
+  
+  /* 操作按钮 */
+  .artist-hero-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  
+  .hero-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+  }
+  
+  .hero-btn-primary {
+    background: white;
+    color: #f093fb;
+  }
+  
+  .hero-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  }
+  
+  .hero-btn-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    backdrop-filter: blur(10px);
+  }
+  
+  .hero-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+  .hero-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .band-header-info {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 24px;
+    }
+    
+    .band-name-large {
+      font-size: 36px;
+    }
+    
+    .band-avatar-large {
+      width: 140px;
+      height: 140px;
+      font-size: 56px;
+    }
+    
+    .band-stats {
+      justify-content: center;
+    }
+    
+    .band-members-preview {
+      justify-content: center;
+    }
+  }
+  

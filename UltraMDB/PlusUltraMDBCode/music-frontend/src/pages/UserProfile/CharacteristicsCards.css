@@ -1,0 +1,90 @@
+/* CharacteristicsCards.css - 特征卡片样式 */
+
+.characteristics-section {
+    margin-bottom: 40px;
+  }
+  
+  .characteristic-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  
+  .char-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+  
+  .char-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .char-icon {
+    font-size: 32px;
+    width: 56px;
+    height: 56px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .char-info h3 {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0 0 4px 0;
+  }
+  
+  .char-info p {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .characteristic-cards {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+  
+    .char-card {
+      padding: 20px 16px;
+    }
+  
+    .char-icon {
+      font-size: 28px;
+      width: 48px;
+      height: 48px;
+    }
+  }
+  
+  /* 深色模式 */
+  @media (prefers-color-scheme: dark) {
+    .char-card {
+      background: #1f2937;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+  
+    .char-icon {
+      background: #374151;
+    }
+  
+    .char-info h3 {
+      color: #9ca3af;
+    }
+  
+    .char-info p {
+      color: #f3f4f6;
+    }
+  }

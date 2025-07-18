@@ -1,4 +1,4 @@
-/* ModernArtistCard.css - 现代化艺术家卡片样式 */
+/* ModernArtistCard.css - 现代化艺术家卡片主要样式 */
 
 .artist-cards-grid {
     display: grid;
@@ -6,7 +6,7 @@
     gap: 24px;
     padding: 8px;
   }
-  
+
   .modern-artist-card {
     background: white;
     border-radius: 16px;
@@ -22,7 +22,7 @@
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
     border-color: rgba(102, 126, 234, 0.1);
   }
-  
+
   /* 卡片头部 - 艺术家头像和基本信息 */
   .artist-card-header {
     padding: 24px;
@@ -32,7 +32,7 @@
     background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
-  
+
   /* 艺术家头像容器 */
   .artist-avatar {
     width: 80px;
@@ -47,7 +47,7 @@
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
   }
-  
+
   .artist-avatar::before {
     content: '';
     position: absolute;
@@ -55,15 +55,20 @@
     left: -50%;
     width: 200%;
     height: 200%;
-    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    background: linear-gradient(45deg, transparent 30%, 
+      rgba(255, 255, 255, 0.1) 50%, transparent 70%);
     animation: shimmer 3s infinite;
   }
-  
+
   @keyframes shimmer {
-    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    0% { 
+      transform: translateX(-100%) translateY(-100%) rotate(45deg); 
+    }
+    100% { 
+      transform: translateX(100%) translateY(100%) rotate(45deg); 
+    }
   }
-  
+
   .artist-avatar-text {
     font-size: 32px;
     font-weight: 700;
@@ -71,13 +76,13 @@
     text-transform: uppercase;
     z-index: 1;
   }
-  
+
   /* 艺术家信息 */
   .artist-info {
     flex: 1;
     min-width: 0;
   }
-  
+
   .artist-name {
     font-size: 20px;
     font-weight: 700;
@@ -90,7 +95,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  
+
   .artist-id {
     font-size: 12px;
     color: #718096;
@@ -102,12 +107,12 @@
     word-break: break-all;
     line-height: 1.4;
   }
-  
+
   /* 卡片内容 */
   .artist-card-content {
     padding: 20px 24px;
   }
-  
+
   .artist-bio {
     font-size: 14px;
     line-height: 1.6;
@@ -120,12 +125,12 @@
     text-overflow: ellipsis;
     min-height: 66px;
   }
-  
+
   .artist-bio.empty {
     color: #a0aec0;
     font-style: italic;
   }
-  
+
   /* 权限标签 */
   .artist-permission-badge {
     position: absolute;
@@ -144,22 +149,22 @@
     align-items: center;
     gap: 4px;
   }
-  
+
   .artist-permission-badge.admin {
     color: #dc2626;
     border: 1px solid rgba(220, 38, 38, 0.2);
   }
-  
+
   .artist-permission-badge.editable {
     color: #059669;
     border: 1px solid rgba(5, 150, 105, 0.2);
   }
-  
+
   .artist-permission-badge.view-only {
     color: #6b7280;
     border: 1px solid rgba(107, 114, 128, 0.2);
   }
-  
+
   /* 卡片操作区 */
   .artist-card-actions {
     padding: 16px 24px;
@@ -169,7 +174,7 @@
     gap: 12px;
     justify-content: flex-end;
   }
-  
+
   /* 操作按钮样式 */
   .artist-action-btn {
     padding: 8px 16px;
@@ -185,50 +190,50 @@
     text-decoration: none;
     line-height: 1;
   }
-  
+
   .artist-action-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
-  
+
   /* 查看详情按钮 */
   .artist-action-btn.primary {
     background: #3b82f6;
     color: white;
   }
-  
+
   .artist-action-btn.primary:hover:not(:disabled) {
     background: #2563eb;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   }
-  
+
   /* 编辑按钮 */
   .artist-action-btn.secondary {
     background: #f3f4f6;
     color: #374151;
     border: 1px solid #e5e7eb;
   }
-  
+
   .artist-action-btn.secondary:hover:not(:disabled) {
     background: #e5e7eb;
     border-color: #d1d5db;
     transform: translateY(-1px);
   }
-  
+
   /* 删除按钮 */
   .artist-action-btn.danger {
     background: #fee2e2;
     color: #dc2626;
     border: 1px solid #fecaca;
   }
-  
+
   .artist-action-btn.danger:hover:not(:disabled) {
     background: #fecaca;
     border-color: #fca5a5;
     transform: translateY(-1px);
   }
-  
+
   /* 加载状态 */
   .artist-card-loading {
     position: absolute;
@@ -241,93 +246,7 @@
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
-  
+
   @keyframes spin {
     to { transform: rotate(360deg); }
-  }
-  
-  /* 响应式设计 */
-  @media (max-width: 768px) {
-    .artist-cards-grid {
-      grid-template-columns: 1fr;
-      gap: 16px;
-    }
-  
-    .artist-card-header {
-      padding: 20px;
-    }
-  
-    .artist-avatar {
-      width: 64px;
-      height: 64px;
-    }
-  
-    .artist-avatar-text {
-      font-size: 24px;
-    }
-  
-    .artist-name {
-      font-size: 18px;
-    }
-  
-    .artist-card-actions {
-      flex-wrap: wrap;
-      padding: 12px 20px;
-    }
-  
-    .artist-action-btn {
-      flex: 1;
-      min-width: 100px;
-      justify-content: center;
-    }
-  }
-  
-  /* 深色模式支持 */
-  @media (prefers-color-scheme: dark) {
-    .modern-artist-card {
-      background: #1f2937;
-      border-color: #374151;
-    }
-  
-    .artist-card-header {
-      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-      border-bottom-color: #374151;
-    }
-  
-    .artist-name {
-      color: #f9fafb;
-    }
-  
-    .artist-id {
-      background: rgba(255, 255, 255, 0.1);
-      color: #9ca3af;
-    }
-  
-    .artist-bio {
-      color: #d1d5db;
-    }
-  
-    .artist-bio.empty {
-      color: #6b7280;
-    }
-  
-    .artist-card-actions {
-      background: rgba(17, 24, 39, 0.5);
-      border-top-color: #374151;
-    }
-  
-    .artist-permission-badge {
-      background: rgba(31, 41, 55, 0.9);
-    }
-  
-    .artist-action-btn.secondary {
-      background: #374151;
-      color: #e5e7eb;
-      border-color: #4b5563;
-    }
-  
-    .artist-action-btn.secondary:hover:not(:disabled) {
-      background: #4b5563;
-      border-color: #6b7280;
-    }
   }

@@ -1,0 +1,159 @@
+/* Dashboard-main.css - 主容器、加载状态、头部区域 */
+
+/* Dashboard.css - 商业级简约风格 */
+
+.dashboard-modern {
+  min-height: 100vh;
+  background: #fafafa;
+}
+
+/* 加载状态 */
+.dashboard-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 24px;
+}
+
+.loading-pulse {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #6366f1;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.5;
+  }
+}
+
+.dashboard-loading p {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* 头部区域 */
+.dashboard-header {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 24px 0;
+  /* position: sticky; 移除粘性定位 */
+  /* top: 0; */
+  /* z-index: 10; */
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+}
+
+.greeting h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 4px 0;
+}
+
+.greeting .subtitle {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* 快捷操作 */
+.quick-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.quick-action-btn:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.quick-action-btn.admin {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.quick-action-btn.admin:hover {
+  background: #e0e7ff;
+}
+
+.quick-action-btn svg {
+  flex-shrink: 0;
+}
+
+/* 主内容区 */
+.dashboard-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* Section 通用样式 */
+section {
+  margin-bottom: 48px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.section-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.view-more {
+  font-size: 14px;
+  color: #6366f1;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.view-more:hover {
+  color: #4f46e5;
+}

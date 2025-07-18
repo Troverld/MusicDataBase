@@ -1,0 +1,125 @@
+/* ModernSearchBox-responsive.css - 响应式设计和媒体查询样式 */
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .modern-search-box {
+      height: 48px;
+      border-radius: 24px;
+    }
+    
+    .search-input-wrapper {
+      padding: 0 16px;
+    }
+    
+    .modern-search-input {
+      font-size: 15px;
+    }
+    
+    .modern-search-button {
+      padding: 0 20px;
+      min-width: 100px;
+      font-size: 14px;
+      border-radius: 0 22px 22px 0;
+    }
+    
+    .clear-button,
+    .loading-spinner {
+      right: 12px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .modern-search-box {
+      height: 44px;
+      border-radius: 22px;
+    }
+    
+    .search-input-wrapper {
+      padding: 0 14px;
+    }
+    
+    .modern-search-input {
+      font-size: 14px;
+    }
+    
+    .modern-search-button {
+      padding: 0 16px;
+      min-width: 80px;
+      font-size: 13px;
+      border-radius: 0 20px 20px 0;
+    }
+    
+    .button-text {
+      display: none;
+    }
+    
+    .modern-search-button {
+      min-width: 60px;
+    }
+  }
+  
+  /* 深色模式支持 */
+  @media (prefers-color-scheme: dark) {
+    .modern-search-box {
+      background: rgba(30, 30, 30, 0.95);
+      border-color: rgba(102, 126, 234, 0.3);
+    }
+    
+    .modern-search-input {
+      color: #e2e8f0;
+    }
+    
+    .modern-search-input::placeholder {
+      color: rgba(148, 163, 184, 0.7);
+    }
+    
+    .search-icon {
+      color: rgba(148, 163, 184, 0.8);
+    }
+    
+    .modern-search-box.focused .search-icon {
+      color: rgba(102, 126, 234, 0.9);
+    }
+  }
+  
+  /* 高对比度支持 */
+  @media (prefers-contrast: high) {
+    .modern-search-box {
+      border-width: 2px;
+      border-color: #0056b3;
+    }
+    
+    .modern-search-button {
+      background: #0056b3;
+    }
+    
+    .modern-search-button:hover:not(:disabled) {
+      background: #004494;
+    }
+  }
+  
+  /* 减少动画偏好支持 */
+  @media (prefers-reduced-motion: reduce) {
+    .modern-search-box,
+    .modern-search-button,
+    .clear-button,
+    .search-icon,
+    .modern-search-input::placeholder {
+      transition: none;
+    }
+    
+    .modern-search-box:hover,
+    .modern-search-box.focused {
+      transform: none;
+    }
+    
+    .button-loading-spinner {
+      animation: none;
+    }
+    
+    .clear-button {
+      animation: none;
+      opacity: 1;
+      transform: scale(1);
+    }
+  }

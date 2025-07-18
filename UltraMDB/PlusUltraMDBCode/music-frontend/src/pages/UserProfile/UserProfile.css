@@ -1,11 +1,18 @@
-/* UserProfile.css - 简洁商业风格重构版 */
+/* UserProfile.css - 主要容器和通用样式 */
 
+/* 导入子组件样式 */
+@import './CharacteristicsCards.css';
+@import './DonutChart.css';
+@import './GenreDetailsList.css';
+@import './UserProfileStates.css';
+
+/* 容器样式 */
 .profile-container {
   min-height: 100vh;
   background: #fafafa;
 }
 
-/* 新版头部 */
+/* 新版头部 - 虽然未使用但保留以维持原始代码一致性 */
 .profile-header-new {
   background: white;
   padding: 48px 0;
@@ -33,332 +40,11 @@
   padding: 40px 24px;
 }
 
-/* 特征卡片区域 */
-.characteristics-section {
-  margin-bottom: 40px;
-}
-
-.characteristic-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.char-card {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
-}
-
-.char-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.char-icon {
-  font-size: 32px;
-  width: 56px;
-  height: 56px;
-  background: #f3f4f6;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.char-info h3 {
-  font-size: 14px;
-  font-weight: 500;
-  color: #6b7280;
-  margin: 0 0 4px 0;
-}
-
-.char-info p {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-}
-
 /* 主要内容区域 - 双栏布局 */
 .profile-main-new {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 40px;
-}
-
-/* 左侧可视化区域 */
-.visualization-section {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.visualization-section h2 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 32px 0;
-}
-
-/* 环形图容器 */
-.donut-chart-container {
-  max-width: 280px;
-  margin: 0 auto 32px;
-}
-
-.donut-chart {
-  width: 100%;
-  height: auto;
-}
-
-.donut-segment {
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.donut-segment:hover {
-  filter: brightness(1.1);
-}
-
-.center-text {
-  fill: #111827;
-  font-weight: 600;
-}
-
-.center-number {
-  font-size: 36px;
-}
-
-.center-label {
-  font-size: 14px;
-  fill: #6b7280;
-}
-
-/* 新版图例 */
-.legend-new {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.legend-item-new {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.legend-item-new:last-child {
-  border-bottom: none;
-}
-
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.legend-name {
-  flex: 1;
-  font-size: 15px;
-  color: #374151;
-}
-
-.legend-percent {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-}
-
-/* 右侧详细列表 */
-.details-section {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.details-section h2 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 24px 0;
-}
-
-/* 新版曲风列表 */
-.genre-list-new {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 32px;
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-.genre-list-new::-webkit-scrollbar {
-  width: 6px;
-}
-
-.genre-list-new::-webkit-scrollbar-track {
-  background: #f3f4f6;
-  border-radius: 3px;
-}
-
-.genre-list-new::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
-}
-
-.genre-list-new::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-
-.genre-item-new {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.genre-rank {
-  font-size: 14px;
-  font-weight: 600;
-  color: #9ca3af;
-  width: 32px;
-  text-align: center;
-}
-
-.genre-content {
-  flex: 1;
-}
-
-.genre-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.genre-name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #111827;
-}
-
-.genre-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #6366f1;
-}
-
-.genre-bar {
-  height: 6px;
-  background: #f3f4f6;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.genre-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-/* 建议卡片 */
-.suggestion-card {
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid #c7d2fe;
-}
-
-.suggestion-card h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #4f46e5;
-  margin: 0 0 12px 0;
-}
-
-.suggestion-card p {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #4c1d95;
-  margin: 0;
-}
-
-.suggestion-card strong {
-  color: #5b21b6;
-}
-
-/* 加载状态 */
-.profile-loading-new {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  gap: 20px;
-}
-
-.profile-loading-new .loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid #e5e7eb;
-  border-top: 3px solid #6366f1;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.profile-loading-new p {
-  font-size: 16px;
-  color: #6b7280;
-  margin: 0;
-}
-
-/* 错误和空状态 */
-.profile-error-new,
-.profile-empty-new {
-  max-width: 400px;
-  margin: 120px auto;
-  text-align: center;
-  padding: 60px 20px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.error-icon,
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 20px;
-}
-
-.profile-error-new p,
-.profile-empty-new p {
-  font-size: 16px;
-  color: #6b7280;
-  margin: 0;
-}
-
-.profile-empty-new h2 {
-  font-size: 24px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 12px 0;
 }
 
 /* 响应式设计 */
@@ -376,23 +62,9 @@
   .profile-header-new h1 {
     font-size: 28px;
   }
-
-  .characteristic-cards {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
+  
   .profile-content {
     padding: 24px 16px;
-  }
-
-  .visualization-section,
-  .details-section {
-    padding: 24px;
-  }
-
-  .donut-chart-container {
-    max-width: 240px;
   }
 }
 
@@ -403,25 +75,6 @@
 
   .profile-header-new p {
     font-size: 16px;
-  }
-
-  .char-card {
-    padding: 20px 16px;
-  }
-
-  .char-icon {
-    font-size: 28px;
-    width: 48px;
-    height: 48px;
-  }
-
-  .visualization-section,
-  .details-section {
-    padding: 20px;
-  }
-
-  .center-number {
-    font-size: 28px;
   }
 }
 
@@ -442,96 +95,5 @@
 
   .profile-header-new p {
     color: #9ca3af;
-  }
-
-  .char-card,
-  .visualization-section,
-  .details-section {
-    background: #1f2937;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-
-  .char-icon {
-    background: #374151;
-  }
-
-  .char-info h3 {
-    color: #9ca3af;
-  }
-
-  .char-info p,
-  .visualization-section h2,
-  .details-section h2,
-  .genre-name {
-    color: #f3f4f6;
-  }
-
-  .center-text {
-    fill: #f3f4f6;
-  }
-
-  .center-label {
-    fill: #9ca3af;
-  }
-
-  .legend-item-new {
-    border-bottom-color: #374151;
-  }
-
-  .legend-name {
-    color: #e5e7eb;
-  }
-
-  .legend-percent,
-  .genre-value {
-    color: #c7d2fe;
-  }
-
-  .genre-bar {
-    background: #374151;
-  }
-
-  .genre-list-new::-webkit-scrollbar-track {
-    background: #374151;
-  }
-
-  .genre-list-new::-webkit-scrollbar-thumb {
-    background: #4b5563;
-  }
-
-  .genre-list-new::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  }
-
-  .suggestion-card {
-    background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
-    border-color: #4c1d95;
-  }
-
-  .suggestion-card h3 {
-    color: #a5b4fc;
-  }
-
-  .suggestion-card p {
-    color: #c7d2fe;
-  }
-
-  .suggestion-card strong {
-    color: #e0e7ff;
-  }
-
-  .profile-error-new,
-  .profile-empty-new {
-    background: #1f2937;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  .profile-empty-new h2 {
-    color: #f9fafb;
-  }
-
-  .profile-loading-new .loading-spinner {
-    border-color: #374151;
-    border-top-color: #6366f1;
   }
 }

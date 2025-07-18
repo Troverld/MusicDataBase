@@ -12,14 +12,12 @@
   text-align: center;
   border-bottom: 1px solid #e5e7eb;
 }
-
 .recommendations-header-new h1 {
   font-size: 36px;
   font-weight: 600;
   color: #111827;
   margin: 0 0 12px 0;
 }
-
 .recommendations-header-new p {
   font-size: 18px;
   color: #6b7280;
@@ -35,7 +33,6 @@
   gap: 24px;
   justify-content: center;
 }
-
 .tab-btn {
   flex: 1;
   max-width: 280px;
@@ -49,42 +46,35 @@
   align-items: center;
   gap: 16px;
 }
-
 .tab-btn:hover {
   border-color: #d1d5db;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
-
 .tab-btn.active {
   border-color: #6366f1;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.15);
 }
-
 .tab-icon {
   font-size: 28px;
   line-height: 1;
 }
-
 .tab-text {
   display: flex;
   flex-direction: column;
   text-align: left;
   gap: 4px;
 }
-
 .tab-title {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
 }
-
 .tab-desc {
   font-size: 13px;
   color: #6b7280;
 }
-
 .tab-btn.active .tab-title {
   color: #4f46e5;
 }
@@ -95,7 +85,6 @@
   margin: 40px auto;
   padding: 0 24px;
 }
-
 .search-section-new h3 {
   font-size: 18px;
   font-weight: 600;
@@ -114,20 +103,17 @@
   align-items: center;
   margin-bottom: 20px;
 }
-
 .selected-info h4 {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
   margin: 0 0 4px 0;
 }
-
 .selected-info p {
   font-size: 14px;
   color: #6b7280;
   margin: 0;
 }
-
 .change-btn {
   padding: 8px 20px;
   background: #f3f4f6;
@@ -139,7 +125,6 @@
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
 .change-btn:hover {
   background: #e5e7eb;
 }
@@ -153,7 +138,6 @@
   margin-top: 16px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
-
 .search-result-item {
   padding: 16px 20px;
   border-bottom: 1px solid #f3f4f6;
@@ -163,11 +147,9 @@
   justify-content: space-between;
   align-items: center;
 }
-
 .search-result-item:last-child {
   border-bottom: none;
 }
-
 .search-result-item:hover {
   background: #f9fafb;
 }
@@ -178,7 +160,6 @@
   color: #111827;
   margin: 0 0 4px 0;
 }
-
 .result-info p {
   font-size: 13px;
   color: #6b7280;
@@ -223,7 +204,6 @@
   color: #dc2626;
   border: 1px solid #fecaca;
 }
-
 .message-bar.success {
   background: #d1fae5;
   color: #059669;
@@ -316,173 +296,4 @@
   font-size: 16px;
   color: #6b7280;
   margin: 0;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .recommendations-header-new {
-    padding: 32px 20px;
-  }
-
-  .recommendations-header-new h1 {
-    font-size: 28px;
-  }
-
-  .recommendations-tabs-new {
-    flex-direction: column;
-    padding: 24px;
-    gap: 16px;
-  }
-
-  .tab-btn {
-    max-width: none;
-  }
-
-  .search-section-new {
-    padding: 0 20px;
-  }
-
-  .recommendations-content {
-    padding: 20px;
-  }
-}
-
-@media (max-width: 480px) {
-  .recommendations-header-new h1 {
-    font-size: 24px;
-  }
-
-  .recommendations-header-new p {
-    font-size: 16px;
-  }
-
-  .tab-btn {
-    padding: 20px 16px;
-  }
-
-  .tab-icon {
-    font-size: 24px;
-  }
-
-  .tab-title {
-    font-size: 15px;
-  }
-
-  .tab-desc {
-    font-size: 12px;
-  }
-
-  .selected-song-card {
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
-  }
-
-  .change-btn {
-    width: 100%;
-  }
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .recommendations-container {
-    background: #111827;
-  }
-
-  .recommendations-header-new {
-    background: #1f2937;
-    border-bottom-color: #374151;
-  }
-
-  .recommendations-header-new h1 {
-    color: #f9fafb;
-  }
-
-  .recommendations-header-new p {
-    color: #9ca3af;
-  }
-
-  .tab-btn {
-    background: #1f2937;
-    border-color: #374151;
-  }
-
-  .tab-btn:hover {
-    border-color: #4b5563;
-  }
-
-  .tab-btn.active {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-    border-color: #6366f1;
-  }
-
-  .tab-title {
-    color: #f3f4f6;
-  }
-
-  .tab-desc {
-    color: #9ca3af;
-  }
-
-  .tab-btn.active .tab-title {
-    color: #c7d2fe;
-  }
-
-  .search-section-new h3 {
-    color: #f3f4f6;
-  }
-
-  .selected-song-card,
-  .search-results-new {
-    background: #1f2937;
-    border-color: #374151;
-  }
-
-  .selected-info h4,
-  .result-info h4 {
-    color: #f9fafb;
-  }
-
-  .change-btn {
-    background: #374151;
-    border-color: #4b5563;
-    color: #e5e7eb;
-  }
-
-  .change-btn:hover {
-    background: #4b5563;
-  }
-
-  .search-result-item {
-    border-bottom-color: #374151;
-  }
-
-  .search-result-item:hover {
-    background: #374151;
-  }
-
-  .access-denied {
-    background: #1f2937;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  .access-denied h2 {
-    color: #f9fafb;
-  }
-
-  .loading-state-new .loading-spinner {
-    border-color: #374151;
-    border-top-color: #6366f1;
-  }
-
-  .load-more-btn-new {
-    background: #1f2937;
-    border-color: #374151;
-    color: #e5e7eb;
-  }
-
-  .load-more-btn-new:hover:not(:disabled) {
-    border-color: #6366f1;
-    color: #a5b4fc;
-  }
 }

@@ -1,0 +1,206 @@
+/* ArtistDetail.css - 主样式文件 */
+
+/* 导入子组件样式 */
+@import './ArtistHero.css';
+@import './ArtistContent.css';
+@import './ArtistSidebar.css';
+
+/* 页面容器 */
+.artist-detail-page {
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+/* 内容区域包装器 */
+.artist-content {
+  margin-top: -20px;
+  padding-bottom: 48px;
+  position: relative;
+  z-index: 2;
+}
+
+/* 内容网格 */
+.artist-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 32px;
+  margin-top: 32px;
+}
+
+/* 内容卡片基础样式 */
+.content-card {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.content-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.content-card-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.content-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #667eea;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.content-card-action:hover {
+  transform: translateX(4px);
+}
+
+/* 空状态 */
+.empty-state-card {
+  text-align: center;
+  padding: 48px;
+  color: #718096;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state-text {
+  font-size: 16px;
+}
+
+/* 加载状态 */
+.loading-card {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px;
+  color: #718096;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(102, 126, 234, 0.2);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 12px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 消息提示 */
+.message-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.message-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  min-width: 300px;
+}
+
+.message-success {
+  background: #10b981;
+  color: white;
+}
+
+.message-error {
+  background: #ef4444;
+  color: white;
+}
+
+.message-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.message-close:hover {
+  opacity: 1;
+}
+
+/* 按钮样式 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #5a67d8;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .artist-content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .artist-sidebar {
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .content-card {
+    padding: 24px;
+  }
+}

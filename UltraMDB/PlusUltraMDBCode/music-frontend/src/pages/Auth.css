@@ -189,13 +189,11 @@
     transform: translateY(0);
   }
 }
-
 .auth-error {
   background: #fee;
   border: 1px solid #fcc;
   color: #c33;
 }
-
 .auth-success {
   background: #efe;
   border: 1px solid #cfc;
@@ -217,7 +215,6 @@
   transition: all 0.3s ease;
   margin-left: 5px;
 }
-
 .auth-footer a:hover {
   color: #764ba2;
   text-decoration: underline;
@@ -238,7 +235,6 @@
   height: 1px;
   background: #dee2e6;
 }
-
 .auth-divider span {
   color: #adb5bd;
   font-size: 12px;
@@ -273,20 +269,16 @@
     padding: 30px 25px;
     border-radius: 16px;
   }
-
   .auth-logo h1 {
     font-size: 28px;
   }
-
   .auth-title {
     font-size: 22px;
   }
-
   .auth-form-group input {
     font-size: 15px;
     padding: 12px 16px;
   }
-
   .auth-submit-btn {
     font-size: 15px;
     padding: 12px 20px;
@@ -298,12 +290,10 @@
   .auth-card {
     background: rgba(255, 255, 255, 0.9);
   }
-  
   .auth-form-group input {
     background: #f8f9fa;
     color: #2d3436;
   }
-  
   .auth-form-group input:focus {
     background: white;
   }

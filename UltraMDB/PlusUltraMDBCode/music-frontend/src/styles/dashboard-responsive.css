@@ -1,0 +1,181 @@
+/* Dashboard-responsive.css - 响应式设计和深色模式支持 */
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .header-content {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+  
+    .quick-actions {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+  
+    .quick-action-btn {
+      flex: 1;
+      min-width: 140px;
+    }
+  
+    .taste-cards {
+      grid-template-columns: 1fr;
+    }
+  
+    .songs-grid,
+    .songs-grid-new {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+  
+    .song-card-minimal {
+      padding: 16px;
+    }
+  
+    .song-main-info h3 {
+      font-size: 16px;
+    }
+  
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  
+    .popular-stats {
+      display: none;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .greeting h1 {
+      font-size: 24px;
+    }
+  
+    .greeting .subtitle {
+      font-size: 14px;
+    }
+  
+    .dashboard-main {
+      padding: 24px 16px;
+    }
+  
+    .song-info h3 {
+      font-size: 14px;
+    }
+  
+    .song-info p {
+      font-size: 12px;
+    }
+  
+    .popular-item {
+      padding: 12px 16px;
+    }
+  
+    .song-card-flat {
+      flex-direction: column;
+      text-align: center;
+    }
+  
+    .song-avatar {
+      width: 50px;
+      height: 50px;
+      font-size: 20px;
+    }
+  }
+  
+  /* 深色模式支持 */
+  @media (prefers-color-scheme: dark) {
+    .dashboard-modern {
+      background: #0f0f0f;
+    }
+  
+    .dashboard-header {
+      background: #1a1a1a;
+      border-bottom-color: #2a2a2a;
+    }
+  
+    .greeting h1 {
+      color: #f9fafb;
+    }
+  
+    .greeting .subtitle {
+      color: #9ca3af;
+    }
+  
+    .quick-action-btn {
+      background: #262626;
+      color: #e5e7eb;
+    }
+  
+    .quick-action-btn:hover {
+      background: #404040;
+    }
+  
+    .quick-action-btn.admin {
+      background: #1e1b4b;
+      color: #818cf8;
+    }
+  
+    .quick-action-btn.admin:hover {
+      background: #312e81;
+    }
+  
+    .section-header h2 {
+      color: #f9fafb;
+    }
+  
+    .taste-card,
+    .song-card-minimal,
+    .song-card-flat,
+    .popular-list {
+      background: #1a1a1a;
+      border-color: #2a2a2a;
+    }
+  
+    .taste-card:hover,
+    .song-card-minimal:hover,
+    .song-card-flat:hover {
+      border-color: #404040;
+    }
+  
+    .taste-name,
+    .song-main-info h3,
+    .song-details h3,
+    .popular-info h4 {
+      color: #f9fafb;
+    }
+  
+    .taste-rank,
+    .song-main-info p,
+    .song-details .song-meta,
+    .popular-info p {
+      color: #9ca3af;
+    }
+  
+    .genre-tag,
+    .song-genres .genre-pill {
+      background: #262626;
+      color: #9ca3af;
+    }
+  
+    .genre-tag:hover,
+    .song-genres .genre-pill:hover {
+      background: #404040;
+      color: #d1d5db;
+    }
+  
+    .score-bar,
+    .popular-item {
+      background: #262626;
+    }
+  
+    .popular-item:hover {
+      background: #2a2a2a;
+    }
+  
+    .empty-state-modern h3 {
+      color: #f9fafb;
+    }
+  }
+  

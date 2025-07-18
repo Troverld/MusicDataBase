@@ -1,12 +1,8 @@
 /* 表单样式 - 现代化版本 */
 
-/* ========================
-   基础表单元素
-======================== */
 .form-group {
   margin-bottom: 20px;
 }
-
 .form-group label {
   display: block;
   margin-bottom: 8px;
@@ -67,7 +63,6 @@
   position: relative;
   overflow: hidden;
 }
-
 .btn::before {
   content: '';
   position: absolute;
@@ -79,11 +74,9 @@
   opacity: 0;
   transition: opacity 0.3s ease;
 }
-
 .btn:hover::before {
   opacity: 1;
 }
-
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -100,7 +93,6 @@
   color: white;
   box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.25);
 }
-
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   transform: translateY(-2px);
@@ -113,7 +105,6 @@
   color: white;
   box-shadow: 0 4px 6px -1px rgba(107, 114, 128, 0.25);
 }
-
 .btn-secondary:hover:not(:disabled) {
   background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
   transform: translateY(-2px);
@@ -126,7 +117,6 @@
   color: white;
   box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.25);
 }
-
 .btn-danger:hover:not(:disabled) {
   background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
   transform: translateY(-2px);
@@ -139,7 +129,6 @@
   color: white;
   box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.25);
 }
-
 .btn-success:hover:not(:disabled) {
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
   transform: translateY(-2px);
@@ -153,7 +142,6 @@
   border: 2px solid #3b82f6;
   box-shadow: none;
 }
-
 .btn-outline:hover:not(:disabled) {
   background: #3b82f6;
   color: white;
@@ -170,7 +158,6 @@
   box-shadow: none;
   text-decoration: underline;
 }
-
 .btn-link:hover:not(:disabled) {
   color: #2563eb;
   background: rgba(59, 130, 246, 0.05);
@@ -184,12 +171,10 @@
   padding: 8px 16px;
   font-size: 0.8125rem;
 }
-
 .btn-lg {
   padding: 16px 32px;
   font-size: 1rem;
 }
-
 .btn-full {
   width: 100%;
 }
@@ -224,7 +209,6 @@
   align-items: center;
   gap: 8px;
 }
-
 .success-message {
   color: #059669;
   margin-top: 4px;
@@ -249,14 +233,12 @@
   gap: 8px;
   margin-bottom: 12px;
 }
-
 .checkbox-group input[type="checkbox"],
 .radio-group input[type="radio"] {
   width: auto;
   margin: 0;
   accent-color: #3b82f6;
 }
-
 .checkbox-group label,
 .radio-group label {
   margin: 0;
@@ -273,7 +255,6 @@
   color: transparent;
   pointer-events: none;
 }
-
 .btn.loading::after {
   content: '';
   position: absolute;
@@ -296,7 +277,6 @@
   gap: 16px;
   margin-bottom: 20px;
 }
-
 .form-row .form-group {
   flex: 1;
   margin-bottom: 0;
@@ -313,93 +293,6 @@
 .form-actions.center {
   justify-content: center;
 }
-
 .form-actions.right {
   justify-content: flex-end;
-}
-
-/* ========================
- 响应式设计
-======================== */
-@media (max-width: 768px) {
-  .form-row {
-      flex-direction: column;
-      gap: 0;
-  }
-
-  .form-row .form-group {
-      margin-bottom: 20px;
-  }
-
-  .form-actions {
-      flex-direction: column;
-  }
-
-  .btn {
-      width: 100%;
-  }
-
-  .form-group input,
-  .form-group textarea,
-  .form-group select {
-      padding: 14px 16px;
-      font-size: 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .form-group input,
-  .form-group textarea,
-  .form-group select {
-      padding: 12px 14px;
-  }
-
-  .btn {
-      padding: 14px 20px;
-      font-size: 0.9375rem;
-  }
-
-  .btn-sm {
-      padding: 10px 16px;
-      font-size: 0.875rem;
-  }
-
-  .btn-lg {
-      padding: 16px 24px;
-      font-size: 1rem;
-  }
-}
-
-/* ========================
- 动画
-======================== */
-@keyframes spin {
-  from {
-      transform: rotate(0deg);
-  }
-  to {
-      transform: rotate(360deg);
-  }
-}
-
-/* 减少动画偏好支持 */
-@media (prefers-reduced-motion: reduce) {
-  .btn,
-  .form-group input,
-  .form-group textarea,
-  .form-group select,
-  .btn::before {
-      transition: none;
-  }
-  
-  .btn:hover,
-  .form-group input:focus,
-  .form-group textarea:focus,
-  .form-group select:focus {
-      transform: none;
-  }
-  
-  .btn.loading::after {
-      animation: none;
-  }
 }

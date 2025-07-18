@@ -16,7 +16,6 @@ const ArtistManagement: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  
   const { isAdmin } = usePermissions();
 
   // 获取所有艺术家
@@ -45,7 +44,6 @@ const ArtistManagement: React.FC = () => {
   useEffect(() => {
     fetchAllArtists();
   }, []); // 空依赖数组，只在组件挂载时执行一次
-
   // 检查是否从其他页面传递了编辑艺术家的数据
   useEffect(() => {
     if (location.state?.editArtist) {
@@ -63,10 +61,8 @@ const ArtistManagement: React.FC = () => {
       await fetchAllArtists();
       return;
     }
-    
     setLoading(true);
     setError('');
-    
     try {
       const [artistIDs, message] = await artistService.searchArtistByName(searchKeyword);
       if (artistIDs && artistIDs.length > 0) {
@@ -87,10 +83,8 @@ const ArtistManagement: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleDelete = async (artistID: string) => {
     if (!window.confirm('确定要删除这个艺术家吗？此操作不可撤销，可能会影响相关的歌曲和专辑。')) return;
-    
     try {
       const [success, message] = await artistService.deleteArtist(artistID);
       if (success) {
@@ -108,12 +102,10 @@ const ArtistManagement: React.FC = () => {
       setError(err.message);
     }
   };
-
   const handleEdit = (artist: Artist) => {
     setEditingArtist(artist);
     setShowModal(true);
   };
-
   const handleFormSuccess = async (message: string) => {
     setSuccess(message);
     setShowModal(false);
@@ -126,24 +118,19 @@ const ArtistManagement: React.FC = () => {
       await fetchAllArtists();
     }
   };
-
   const handleFormError = (message: string) => {
     setError(message);
   };
-
   const clearMessages = () => {
     setError('');
     setSuccess('');
   };
-
   const resetForm = () => {
     setEditingArtist(null);
   };
-
   useEffect(() => {
     clearMessages();
   }, [searchKeyword]);
-
   return (
     <div style={{ 
       background: '#f8f9fa', 
@@ -201,7 +188,6 @@ const ArtistManagement: React.FC = () => {
             {error}
           </div>
         )}
-        
         {success && (
           <div style={{
             background: '#d1fae5',
@@ -222,7 +208,6 @@ const ArtistManagement: React.FC = () => {
             {success}
           </div>
         )}
-        
         {/* 搜索栏 */}
         <div style={{ marginBottom: '32px' }}>
           <SearchSection

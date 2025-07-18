@@ -1,0 +1,21 @@
+/* ArtistContent.css - 主内容区样式 */
+
+/* 主要内容列 */
+.artist-main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+  
+  /* 简介卡片 */
+  .bio-content {
+    font-size: 16px;
+    line-height: 1.8;
+    color: #4a5568;
+  }
+  
+  .bio-empty {
+    color: #a0aec0;
+    font-style: italic;
+  }
+  

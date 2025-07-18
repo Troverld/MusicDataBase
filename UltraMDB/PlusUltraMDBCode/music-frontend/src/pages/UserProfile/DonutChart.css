@@ -1,0 +1,140 @@
+/* DonutChart.css - 环形图样式 */
+
+.visualization-section {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .visualization-section h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 32px 0;
+  }
+  
+  /* 环形图容器 */
+  .donut-chart-container {
+    max-width: 280px;
+    margin: 0 auto 32px;
+  }
+  
+  .donut-chart {
+    width: 100%;
+    height: auto;
+  }
+  
+  .donut-segment {
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  
+  .donut-segment:hover {
+    filter: brightness(1.1);
+  }
+  
+  .center-text {
+    fill: #111827;
+    font-weight: 600;
+  }
+  
+  .center-number {
+    font-size: 36px;
+  }
+  
+  .center-label {
+    font-size: 14px;
+    fill: #6b7280;
+  }
+  
+  /* 图例 */
+  .legend-new {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .legend-item-new {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .legend-item-new:last-child {
+    border-bottom: none;
+  }
+  
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  
+  .legend-name {
+    flex: 1;
+    font-size: 15px;
+    color: #374151;
+  }
+  
+  .legend-percent {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .visualization-section {
+      padding: 24px;
+    }
+  
+    .donut-chart-container {
+      max-width: 240px;
+    }
+  
+    .center-number {
+      font-size: 28px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .visualization-section {
+      padding: 20px;
+    }
+  }
+  
+  /* 深色模式 */
+  @media (prefers-color-scheme: dark) {
+    .visualization-section {
+      background: #1f2937;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+  
+    .visualization-section h2 {
+      color: #f3f4f6;
+    }
+  
+    .center-text {
+      fill: #f3f4f6;
+    }
+  
+    .center-label {
+      fill: #9ca3af;
+    }
+  
+    .legend-item-new {
+      border-bottom-color: #374151;
+    }
+  
+    .legend-name {
+      color: #e5e7eb;
+    }
+  
+    .legend-percent {
+      color: #c7d2fe;
+    }
+  }

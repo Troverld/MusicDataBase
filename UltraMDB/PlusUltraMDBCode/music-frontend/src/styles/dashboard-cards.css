@@ -1,0 +1,229 @@
+/* Dashboard-cards.css - 音乐品味卡片和歌曲卡片样式 */
+
+/* 音乐品味部分 */
+.taste-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  
+  .taste-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s ease;
+  }
+  
+  .taste-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  }
+  
+  .taste-rank {
+    font-size: 14px;
+    font-weight: 600;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+  
+  .taste-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 12px;
+  }
+  
+  .taste-score {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .score-bar {
+    flex: 1;
+    height: 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .score-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+  
+  .score-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 40px;
+    text-align: right;
+  }
+  
+  /* 歌曲网格 - 无封面设计 */
+  .songs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  
+  .song-card-minimal {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .song-card-minimal:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+  
+  .song-card-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .song-main-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .song-main-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 6px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .song-main-info p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 8px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .song-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .genre-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 16px;
+    transition: all 0.2s ease;
+  }
+  
+  .genre-tag:hover {
+    background: #e5e7eb;
+    color: #4b5563;
+  }
+  
+  .song-play-action {
+    flex-shrink: 0;
+  }
+  
+  /* 推荐歌曲网格 - 新设计 */
+  .songs-grid-new {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  
+  .song-card-flat {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .song-card-flat:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+  
+  /* 歌曲头像 */
+  .song-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* 歌曲详情 */
+  .song-details {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .song-details h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .song-details .song-meta {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 8px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .song-genres {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  
+  .song-genres .genre-pill {
+    padding: 2px 8px;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+  }
+  
+  .song-genres .genre-pill:hover {
+    background: #e5e7eb;
+    color: #4b5563;
+  }
+  

@@ -1,4 +1,4 @@
-/* ModernBandCard.css - 现代化乐队卡片样式 */
+/* ModernBandCard.css - 现代化乐队卡片主要样式 */
 
 .band-cards-grid {
   display: grid;
@@ -6,7 +6,6 @@
   gap: 24px;
   padding: 8px;
 }
-
 .modern-band-card {
   background: white;
   border-radius: 16px;
@@ -16,14 +15,12 @@
   position: relative;
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
-
 .modern-band-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
   border-color: rgba(102, 126, 234, 0.1);
 }
 
-/* 卡片头部 - 乐队头像和基本信息 */
 .band-card-header {
   padding: 24px;
   display: flex;
@@ -33,7 +30,6 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* 乐队头像容器 */
 .band-avatar {
   width: 80px;
   height: 80px;
@@ -55,7 +51,8 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+  background: linear-gradient(45deg, transparent 30%, 
+    rgba(255, 255, 255, 0.1) 50%, transparent 70%);
   animation: shimmer 3s infinite;
 }
 
@@ -67,7 +64,6 @@
   z-index: 1;
 }
 
-/* 乐队信息 */
 .band-info {
   flex: 1;
   min-width: 0;
@@ -97,16 +93,12 @@
   word-break: break-all;
   line-height: 1.4;
 }
-
-/* 卡片内容 - 成员信息 */
 .band-card-content {
   padding: 20px 24px;
 }
-
 .band-members-section {
   margin-bottom: 16px;
 }
-
 .band-members-label {
   font-size: 12px;
   font-weight: 600;
@@ -118,14 +110,12 @@
   align-items: center;
   gap: 6px;
 }
-
 .band-members-list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   min-height: 32px;
 }
-
 .band-member-tag {
   background: linear-gradient(135deg, #e0e7ff 0%, #eef2ff 100%);
   color: #4338ca;
@@ -136,14 +126,11 @@
   border: 1px solid rgba(67, 56, 202, 0.1);
   transition: all 0.2s ease;
 }
-
 .band-member-tag:hover {
   background: linear-gradient(135deg, #c7d2fe 0%, #e0e7ff 100%);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(67, 56, 202, 0.2);
 }
-
-/* 成员链接样式 */
 .band-member-link {
   text-decoration: none;
   cursor: pointer;
@@ -172,7 +159,6 @@
   font-size: 14px;
 }
 
-/* 简介部分 */
 .band-bio {
   font-size: 14px;
   line-height: 1.6;
@@ -185,13 +171,11 @@
   text-overflow: ellipsis;
   min-height: 44px;
 }
-
 .band-bio.empty {
   color: #a0aec0;
   font-style: italic;
 }
 
-/* 权限标签 */
 .band-permission-badge {
   position: absolute;
   top: 16px;
@@ -209,23 +193,19 @@
   align-items: center;
   gap: 4px;
 }
-
 .band-permission-badge.admin {
   color: #dc2626;
   border: 1px solid rgba(220, 38, 38, 0.2);
 }
-
 .band-permission-badge.editable {
   color: #059669;
   border: 1px solid rgba(5, 150, 105, 0.2);
 }
-
 .band-permission-badge.view-only {
   color: #6b7280;
   border: 1px solid rgba(107, 114, 128, 0.2);
 }
 
-/* 卡片操作区 */
 .band-card-actions {
   padding: 16px 24px;
   background: rgba(249, 250, 251, 0.5);
@@ -234,8 +214,6 @@
   gap: 12px;
   justify-content: flex-end;
 }
-
-/* 操作按钮样式 */
 .band-action-btn {
   padding: 8px 16px;
   border: none;
@@ -250,51 +228,39 @@
   text-decoration: none;
   line-height: 1;
 }
-
 .band-action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
-/* 查看详情按钮 */
 .band-action-btn.primary {
   background: #3b82f6;
   color: white;
 }
-
 .band-action-btn.primary:hover:not(:disabled) {
   background: #2563eb;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
-
-/* 编辑按钮 */
 .band-action-btn.secondary {
   background: #f3f4f6;
   color: #374151;
   border: 1px solid #e5e7eb;
 }
-
 .band-action-btn.secondary:hover:not(:disabled) {
   background: #e5e7eb;
   border-color: #d1d5db;
   transform: translateY(-1px);
 }
-
-/* 删除按钮 */
 .band-action-btn.danger {
   background: #fee2e2;
   color: #dc2626;
   border: 1px solid #fecaca;
 }
-
 .band-action-btn.danger:hover:not(:disabled) {
   background: #fecaca;
   border-color: #fca5a5;
   transform: translateY(-1px);
 }
-
-/* 加载状态 */
 .band-card-loading {
   position: absolute;
   top: 16px;
@@ -306,8 +272,6 @@
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-
-/* 成员数量标签 */
 .band-member-count {
   background: rgba(240, 147, 251, 0.1);
   color: #f5576c;
@@ -316,135 +280,6 @@
   font-size: 11px;
   font-weight: 600;
   margin-left: auto;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .band-cards-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .band-card-header {
-    padding: 20px;
-  }
-
-  .band-avatar {
-    width: 64px;
-    height: 64px;
-  }
-
-  .band-avatar-text {
-    font-size: 24px;
-  }
-
-  .band-name {
-    font-size: 18px;
-  }
-
-  .band-card-actions {
-    flex-wrap: wrap;
-    padding: 12px 20px;
-  }
-
-  .band-action-btn {
-    flex: 1;
-    min-width: 100px;
-    justify-content: center;
-  }
-
-  .band-members-list {
-    gap: 4px;
-  }
-
-  .band-member-tag {
-    font-size: 12px;
-    padding: 3px 8px;
-  }
-}
-
-@media (max-width: 480px) {
-  .band-cards-grid {
-    padding: 4px;
-  }
-
-  .modern-band-card {
-    border-radius: 12px;
-  }
-
-  .band-card-content {
-    padding: 16px 20px;
-  }
-}
-
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-  .modern-band-card {
-    background: #1f2937;
-    border-color: #374151;
-  }
-
-  .band-card-header {
-    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-    border-bottom-color: #374151;
-  }
-
-  .band-name {
-    color: #f9fafb;
-  }
-
-  .band-id {
-    background: rgba(255, 255, 255, 0.1);
-    color: #9ca3af;
-  }
-
-  .band-members-label {
-    color: #d1d5db;
-  }
-
-  .band-member-tag {
-    background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
-    color: #a5b4fc;
-    border-color: rgba(165, 180, 252, 0.2);
-  }
-
-  .band-member-tag:hover {
-    background: linear-gradient(135deg, #3730a3 0%, #312e81 100%);
-  }
-
-  .band-bio {
-    color: #d1d5db;
-  }
-
-  .band-bio.empty,
-  .band-members-empty {
-    color: #6b7280;
-  }
-
-  .band-card-actions {
-    background: rgba(17, 24, 39, 0.5);
-    border-top-color: #374151;
-  }
-
-  .band-permission-badge {
-    background: rgba(31, 41, 55, 0.9);
-  }
-
-  .band-action-btn.secondary {
-    background: #374151;
-    color: #e5e7eb;
-    border-color: #4b5563;
-  }
-
-  .band-action-btn.secondary:hover:not(:disabled) {
-    background: #4b5563;
-    border-color: #6b7280;
-  }
-
-  .band-member-count {
-    background: rgba(240, 147, 251, 0.2);
-    color: #f9a8d4;
-  }
 }
 
 /* 动画 */
@@ -456,7 +291,6 @@
     transform: translateX(100%);
   }
 }
-
 @keyframes spin {
   to {
     transform: rotate(360deg);

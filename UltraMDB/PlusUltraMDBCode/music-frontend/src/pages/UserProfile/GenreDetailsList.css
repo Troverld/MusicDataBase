@@ -1,0 +1,183 @@
+/* GenreDetailsList.css - 详细列表样式 */
+
+.details-section {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .details-section h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 24px 0;
+  }
+  
+  /* 曲风列表 */
+  .genre-list-new {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 32px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+  }
+  
+  .genre-list-new::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .genre-list-new::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 3px;
+  }
+  
+  .genre-list-new::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+  }
+  
+  .genre-list-new::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+  
+  .genre-item-new {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .genre-rank {
+    font-size: 14px;
+    font-weight: 600;
+    color: #9ca3af;
+    width: 32px;
+    text-align: center;
+  }
+  
+  .genre-content {
+    flex: 1;
+  }
+  
+  .genre-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .genre-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: #111827;
+  }
+  
+  .genre-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6366f1;
+  }
+  
+  .genre-bar {
+    height: 6px;
+    background: #f3f4f6;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .genre-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  
+  /* 建议卡片 */
+  .suggestion-card {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #c7d2fe;
+  }
+  
+  .suggestion-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #4f46e5;
+    margin: 0 0 12px 0;
+  }
+  
+  .suggestion-card p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4c1d95;
+    margin: 0;
+  }
+  
+  .suggestion-card strong {
+    color: #5b21b6;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .details-section {
+      padding: 24px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .details-section {
+      padding: 20px;
+    }
+  }
+  
+  /* 深色模式 */
+  @media (prefers-color-scheme: dark) {
+    .details-section {
+      background: #1f2937;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+  
+    .details-section h2,
+    .genre-name {
+      color: #f3f4f6;
+    }
+  
+    .genre-value {
+      color: #c7d2fe;
+    }
+  
+    .genre-bar {
+      background: #374151;
+    }
+  
+    .genre-list-new::-webkit-scrollbar-track {
+      background: #374151;
+    }
+  
+    .genre-list-new::-webkit-scrollbar-thumb {
+      background: #4b5563;
+    }
+  
+    .genre-list-new::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+    }
+  
+    .suggestion-card {
+      background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
+      border-color: #4c1d95;
+    }
+  
+    .suggestion-card h3 {
+      color: #a5b4fc;
+    }
+  
+    .suggestion-card p {
+      color: #c7d2fe;
+    }
+  
+    .suggestion-card strong {
+      color: #e0e7ff;
+    }
+  }

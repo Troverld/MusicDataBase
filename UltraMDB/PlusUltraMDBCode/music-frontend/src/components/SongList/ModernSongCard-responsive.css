@@ -1,0 +1,138 @@
+/* ModernSongCard-responsive.css - 响应式设计和深色模式样式 */
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .song-card-main {
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px 24px;
+    }
+  
+    .song-actions {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+  
+    .song-stats {
+      min-width: auto;
+      flex: 1;
+    }
+  
+    .song-stats .song-rating.compact {
+      flex-direction: row;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+  
+    .song-stats .song-rating.compact .average-rating {
+      flex-direction: row;
+      gap: 8px;
+    }
+  
+    .song-stats .song-rating.compact .popularity {
+      flex-direction: row;
+      margin-top: 0;
+    }
+  
+    .action-buttons {
+      flex-shrink: 0;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .song-title {
+      font-size: 18px;
+    }
+  
+    .song-meta {
+      gap: 8px;
+    }
+  
+    .genre-pill {
+      font-size: 12px;
+      padding: 2px 8px;
+    }
+  
+    .credit-item {
+      font-size: 13px;
+    }
+  
+    .song-card-main {
+      padding: 16px 20px;
+    }
+  
+    .song-actions {
+      gap: 12px;
+    }
+  
+    .action-btn {
+      width: 36px;
+      height: 36px;
+    }
+  
+    .action-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+  
+  /* 深色模式适配 */
+  @media (prefers-color-scheme: dark) {
+    .modern-song-card {
+      background: #1f2937;
+      border-color: #374151;
+    }
+  
+    .song-title {
+      color: #f9fafb;
+    }
+  
+    .release-date,
+    .credit-label,
+    .credit-icon {
+      color: #9ca3af;
+    }
+  
+    .credit-value {
+      color: #d1d5db;
+    }
+  
+    .genre-pill {
+      background: #374151;
+      color: #d1d5db;
+    }
+  
+    .genre-pill:hover {
+      background: #4b5563;
+      color: #f3f4f6;
+    }
+  
+    .action-btn {
+      background: #374151;
+      border-color: #4b5563;
+      color: #9ca3af;
+    }
+  
+    .action-btn:hover {
+      background: #4b5563;
+      border-color: #6b7280;
+      color: #d1d5db;
+    }
+  
+    .permission-info {
+      background: #374151;
+      color: #9ca3af;
+    }
+  
+    .song-stats .rating-error {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+  
+    .song-stats .rating-success {
+      background: #064e3b;
+      color: #6ee7b7;
+    }
+  }

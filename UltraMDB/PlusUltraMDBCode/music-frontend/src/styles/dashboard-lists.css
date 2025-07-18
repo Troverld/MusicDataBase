@@ -1,0 +1,121 @@
+/* Dashboard-lists.css - 热门列表和空状态样式 */
+
+/* 热门歌曲列表 */
+.popular-list {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  
+  .popular-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.2s ease;
+  }
+  
+  .popular-item:last-child {
+    border-bottom: none;
+  }
+  
+  .popular-item:hover {
+    background: #fafafa;
+  }
+  
+  .popular-rank {
+    font-size: 20px;
+    font-weight: 700;
+    color: #e5e7eb;
+    min-width: 32px;
+    text-align: center;
+  }
+  
+  .popular-item:nth-child(1) .popular-rank { color: #fbbf24; }
+  .popular-item:nth-child(2) .popular-rank { color: #d1d5db; }
+  .popular-item:nth-child(3) .popular-rank { color: #f59e0b; }
+  
+  .popular-main {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+  
+  .popular-info h4 {
+    font-size: 16px;
+    font-weight: 500;
+    color: #111827;
+    margin: 0 0 2px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .popular-info p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .popularity-badge {
+    font-size: 14px;
+    font-weight: 500;
+    color: #ef4444;
+    white-space: nowrap;
+  }
+  
+  /* 空状态 */
+  .empty-state-modern {
+    text-align: center;
+    padding: 80px 24px;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  
+  .empty-state-modern svg {
+    color: #e5e7eb;
+    margin-bottom: 24px;
+  }
+  
+  .empty-state-modern h3 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 8px 0;
+  }
+  
+  .empty-state-modern p {
+    font-size: 16px;
+    color: #6b7280;
+    margin: 0 0 32px 0;
+  }
+  
+  .login-btn-modern {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 32px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .login-btn-modern:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  }
+  
